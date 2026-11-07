@@ -1627,7 +1627,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     if (!repReady) area.appendChild(h('div', { class: 'callout', text: 'Cargando…' }));
     else {
       if (rs.length) {
-        const subOf = (r) => { const pth = r.data.drive && r.data.drive.path; return pth ? String(pth).split(' / ').slice(2).join(' / ') : ''; };
+        const subOf = (r) => { const pth = r.data.drive && r.data.drive.path; if (!pth) return ''; const sg = String(pth).split(' / ').slice(2); const own = /^(apto?|apartamento)\.?\s*\d+\s*[a-z]?$/i; if (sg.length && (sg.length > 1 || own.test(sg[sg.length - 1].trim()))) sg.pop(); return sg.join(' / '); };
         const sets = {}; const order = [];
         rs.forEach((r) => { const k = subOf(r); if (!sets[k]) { sets[k] = []; order.push(k); } sets[k].push(r); });
         order.sort((a, b) => (a ? 1 : 0) - (b ? 1 : 0) || a.localeCompare(b, 'es', { numeric: true, sensitivity: 'base' }));
