@@ -1,0 +1,9 @@
+node_modules
+data
+credentials.json
+.env
+token.json
+
+*.bak
+token.json
+credentials.json

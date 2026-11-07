@@ -1,0 +1,57 @@
+GENERADOR DE INFORMES HYA  (Railway + Supabase)
+================================================
+
+Cómo funciona
+- El servidor (Node) guarda los datos en Supabase: tabla "docs" y bucket privado "assets".
+- Los Word se leen y procesan en el servidor (jsdom + sharp). Las imágenes se guardan
+  reducidas (JPEG) en el bucket, no los originales. El Word final se arma en el navegador.
+- El acceso está protegido por una contraseña compartida (APP_PASSWORD).
+
+1) Supabase
+   a. Crea un proyecto en supabase.com.
+   b. SQL Editor: pega y ejecuta el contenido de supabase.sql.
+   c. Settings > API: copia "Project URL" y la clave "service_role" (secreta).
+      El bucket "assets" se crea solo, privado, al arrancar.
+
+2) Google Drive (para la lectura de informes)
+   - Local: coloca credentials.json (cuenta de servicio) o token.json y ejecuta npm run auth si usas OAuth.
+   - Railway: copia TODO el contenido del JSON en una sola línea en GOOGLE_CREDENTIALS_JSON.
+   - Si usas cuenta de servicio, comparte la carpeta de proyectos con su correo (client_email).
+   - DRIVE_ROOT_FOLDER_ID restringe lo que se puede ver a esa carpeta.
+
+3) Railway
+   a. Sube esta carpeta a un repositorio de GitHub (el .gitignore ya excluye .env y credenciales).
+   b. En railway.app: New Project > Deploy from GitHub repo.
+   c. En Variables agrega:
+        APP_PASSWORD, SUPABASE_URL, SUPABASE_SERVICE_KEY, DRIVE_ROOT_FOLDER_ID,
+        GOOGLE_CREDENTIALS_JSON  (y opcional SESSION_SECRET, SUPABASE_BUCKET)
+   d. Settings > Networking > Generate Domain. Comando de inicio: npm start (por defecto).
+   e. Entra al dominio y usa la contraseña.
+
+Con Supabase configurado, la app no arranca sin APP_PASSWORD.
+
+Probar en local
+   npm install
+   copia .env.example a .env y complétalo
+   npm start   ->  http://localhost:3000
+Sin SUPABASE_URL guarda todo en la carpeta data/.
+
+Exportar a Drive
+- Cada informe guarda la carpeta y la ruta de Drive donde se encontró (se ve en la tarjeta).
+- Drive > "Exportar completados": genera el Word en el servidor y lo sube a esa misma carpeta como
+  "inf-xxxx (Corregido).docx". Nunca toca el original. Si ya existe la copia, la actualiza.
+- Requiere PERMISO DE ESCRITURA en Drive (alcance "drive", no solo lectura):
+  * Con token.json: ejecuta de nuevo npm run auth y acepta el permiso de edición.
+  * Con cuenta de servicio: comparte la carpeta de proyectos con su correo como Editor.
+- El código solo escribe dentro de DRIVE_ROOT_FOLDER_ID.
+
+Firmas
+- Botón "Firmas" (lista de proyectos, proyecto y paso Conclusiones): una sola imagen de firmas para todos
+  los proyectos. Se sube una vez (o se toma de un Word) y va al final de las conclusiones en cada Word.
+- Al importar el primer Word, si aún no hay imagen global, se guarda la de ese Word automáticamente.
+
+Límites conocidos
+- Google exporta a Word hasta 10 MB por documento; los más grandes quedan en rojo
+  (sube su .docx manualmente a la torre).
+- Si dos personas editan el mismo proyecto a la vez, gana el último guardado.
+- La contraseña es compartida: no hay usuarios individuales.

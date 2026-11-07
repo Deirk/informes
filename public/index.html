@@ -1,0 +1,2470 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Generador de informes HyA</title><style>:root{color-scheme:light}html,body{margin:0}body{font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style><script>window.HYA_AUTH=@@AUTH@@;</script></head><body>
+
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=Source+Sans+3:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --ground:#f6f5f2; --paper:#ffffff; --card:#ffffff; --line:#e7e4dd; --line-2:#cfcabd;
+  --ink:#1a1a1a; --muted:#66625a; --accent:#fbaa11; --accent-ink:#1a1a1a; --accent-soft:#fff3d6;
+  --navy:#1a1a1a; --navy-ink:#ffffff;
+  --drag:#ffe2c6; --drag-line:#e99a52; --ok:#1f7448; --ok-soft:#e1f3e8; --err:#b3261e; --err-soft:#fdeceb;
+  --shadow:0 1px 2px rgba(26,26,26,.06),0 8px 20px rgba(26,26,26,.06);
+  --f-disp:'Bricolage Grotesque','Segoe UI',system-ui,sans-serif;
+  --f-body:'Source Sans 3','Segoe UI',system-ui,sans-serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#111111; --paper:#191919; --card:#222222; --line:#2f2f2f; --line-2:#474747;
+    --ink:#f3f1ec; --muted:#a8a398; --accent:#fbaa11; --accent-ink:#1a1a1a; --accent-soft:#33290f;
+    --navy:#2e2e2e; --navy-ink:#f3f1ec;
+    --drag:#4a3220; --drag-line:#b9702f; --ok:#58c58c; --ok-soft:#173326; --err:#ff8d7f; --err-soft:#3b1d1a;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 20px rgba(0,0,0,.3); color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#111111; --paper:#191919; --card:#222222; --line:#2f2f2f; --line-2:#474747;
+  --ink:#f3f1ec; --muted:#a8a398; --accent:#fbaa11; --accent-ink:#1a1a1a; --accent-soft:#33290f;
+  --navy:#2e2e2e; --navy-ink:#f3f1ec;
+  --drag:#4a3220; --drag-line:#b9702f; --ok:#58c58c; --ok-soft:#173326; --err:#ff8d7f; --err-soft:#3b1d1a;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 20px rgba(0,0,0,.3); color-scheme:dark;
+}
+.logo{display:block;height:auto}
+.logo-d{display:none}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]) .logo-l{display:none}
+  :root:not([data-theme="light"]) .logo-d{display:block}
+}
+:root[data-theme="dark"] .logo-l{display:none}
+:root[data-theme="dark"] .logo-d{display:block}
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45;
+  padding-block:16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--ground)}
+button,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.app{max-width:1260px;margin-inline:auto;display:grid;grid-template-columns:280px minmax(0,1fr);gap:16px;align-items:start}
+body[data-phase="content"] .app{grid-template-columns:minmax(0,1fr);max-width:880px}
+body[data-phase="content"] .lib{display:none}
+body[data-phase="dashboard"] .app{grid-template-columns:minmax(0,1fr);max-width:1080px}
+body[data-phase="dashboard"] .lib,body[data-phase="dashboard"] .head{display:none}
+body[data-phase="dashboard"] .main{background:none;border:0}
+body[data-phase="dashboard"] .stage{padding:8px 0}
+
+.lib{background:var(--paper);border:1px solid var(--line);border-radius:20px;padding:20px 16px 16px;position:sticky;top:16px;max-height:calc(100vh - 32px);overflow:auto;min-width:0}
+.lib-logo{margin-bottom:16px}
+.lib-logo .logo{width:100%;max-width:200px}
+.brand{margin:0;font:700 22px/1 var(--f-disp);letter-spacing:.01em}
+.lib-sub{margin:4px 0 0;color:var(--muted);font-size:13px}
+.eyebrow{margin:22px 0 10px;font-size:11px;letter-spacing:.12em;font-weight:600;color:var(--muted)}
+.lib-list{display:flex;flex-direction:column;gap:10px}
+.mod{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:12px;align-items:center;text-align:left;width:100%;
+  padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:14px;transition:background .15s,border-color .15s}
+.mod:hover:not(.added){border-color:var(--line-2)}
+.mod .ico{width:40px;height:40px;border-radius:10px;background:var(--ground);display:grid;place-items:center;color:var(--ink)}
+.mod .t{display:block;font-weight:600;font-size:14px;line-height:1.2}
+.mod .s{display:block;font-size:12.5px;color:var(--muted);margin-top:2px}
+.mod .grip{color:var(--line-2)}
+.mod.is-dragging{background:var(--drag);border-color:var(--drag-line)}
+.mod.added{opacity:.55;cursor:default}
+.mod.added .grip{color:var(--ok)}
+svg.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;display:block;flex:none}
+
+.main{background:var(--paper);border:1px solid var(--line);border-radius:20px;min-width:0}
+.head{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--ground);border-bottom:1px solid var(--line);border-radius:20px 20px 0 0;padding:14px 24px 14px}
+.bar{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.back{display:inline-flex;gap:8px;align-items:center;background:none;border:0;padding:6px 8px;margin-left:-8px;border-radius:10px;font:600 16px var(--f-body)}
+.back[disabled]{opacity:.35;cursor:default}
+.save{font-size:13px;color:var(--muted);text-align:right}
+.bar-r{display:flex;align-items:center;gap:12px;min-width:0}
+
+.prog{display:flex;align-items:center;gap:12px;padding-top:30px}
+.num{flex:none;width:32px;height:32px;border-radius:8px;background:var(--navy);color:var(--navy-ink);display:grid;place-items:center;font:700 16px var(--f-disp)}
+.dots{list-style:none;margin:0;padding:0;display:flex;gap:10px;flex:1;min-width:0;align-items:center}
+.dots li{position:relative;flex:0 1 16px;min-width:8px;height:16px}
+.dotb{display:block;width:100%;height:100%;border-radius:50%;padding:0;border:1.5px solid var(--accent);background:var(--paper);opacity:.55;transition:background .2s,opacity .2s}
+.dotb:hover{opacity:1}
+.dotb[data-s="done"],.dotb[data-s="current"]{background:var(--accent);opacity:1}
+.tip{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:var(--navy);color:var(--navy-ink);font:700 12px var(--f-body);padding:2px 8px;border-radius:5px;white-space:nowrap;pointer-events:none}
+.tip::after{content:"";position:absolute;top:100%;left:50%;margin-left:-5px;border:5px solid transparent;border-top-color:var(--navy);border-bottom:0}
+
+.stage{padding:24px}
+.stage-head .kick{margin:0 0 4px;font:600 11px var(--f-body);letter-spacing:.12em;color:var(--muted)}
+.stage-head h2{margin:0;font:700 26px/1.15 var(--f-disp);text-wrap:balance}
+.stage-head p{margin:6px 0 18px;color:var(--muted);max-width:62ch}
+.canvas{border:1.5px dashed var(--line-2);border-radius:24px;padding:20px;min-height:340px;display:flex;flex-direction:column;gap:10px;transition:background .15s,border-color .15s}
+.canvas.over{background:var(--drag);border-color:var(--drag-line)}
+.empty{margin:auto;text-align:center;padding:32px 12px;color:var(--muted)}
+.empty b{display:block;font:700 clamp(24px,4vw,34px)/1.1 var(--f-disp);color:var(--line-2);margin-bottom:8px;text-wrap:balance}
+.empty span{font-size:17px}
+.chip{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 14px;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
+.chip.over{border-color:var(--drag-line);background:var(--drag)}
+.chip .grip{color:var(--line-2);cursor:grab}
+.chip .n{font:500 12px var(--f-mono);color:var(--muted);min-width:1.6em}
+.chip .tt{font-weight:600;overflow-wrap:anywhere}
+.chip .acts{display:flex;gap:2px}
+.ib{width:34px;height:34px;display:grid;place-items:center;border:0;background:none;border-radius:9px;color:var(--muted)}
+.ib:hover:not([disabled]){background:var(--ground);color:var(--ink)}
+.ib[disabled]{opacity:.3;cursor:default}
+.foot{display:flex;justify-content:flex-end;align-items:center;gap:12px;margin-top:20px;flex-wrap:wrap}
+.foot .hint{color:var(--muted);font-size:13.5px;margin-right:auto;min-width:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 20px;border-radius:12px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);font:600 15px var(--f-body)}
+.btn.ghost{background:none;color:var(--ink);border-color:var(--line-2)}
+.btn.sm{padding:7px 12px;font-size:13.5px;border-radius:10px}
+.btn[disabled]{opacity:.45;cursor:default}
+
+.mcard{border:1px solid var(--line);border-radius:20px;background:var(--card);box-shadow:var(--shadow);padding:22px 24px}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.fld{display:flex;flex-direction:column;gap:5px;min-width:0}
+.fld.wide{grid-column:1/-1}
+.fld label{font-weight:600;font-size:13px;color:var(--muted)}
+.fld .help{font-size:12.5px;color:var(--muted)}
+input[type=text],input[type=date],textarea{width:100%;padding:10px 12px;border:1px solid var(--line-2);border-radius:12px;background:var(--paper)}
+textarea{resize:vertical;line-height:1.5}
+input::placeholder,textarea::placeholder{color:var(--muted);opacity:.7}
+code{font:500 12.5px var(--f-mono);background:var(--ground);padding:1px 5px;border-radius:5px}
+.err{background:var(--err-soft);color:var(--err);border-radius:10px;padding:8px 12px;font-size:13.5px;margin-bottom:12px}
+
+.varbar{display:flex;gap:12px 16px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--accent-soft);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:16px}
+.vb-info{min-width:0;flex:1 1 260px}
+.vb-info b{display:block;font-size:13px;margin-bottom:6px}
+.vb-row{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13.5px}
+.vb-row span{display:inline-flex;gap:6px;align-items:baseline;min-width:0}
+.vb-row .val{font-weight:600;overflow-wrap:anywhere}
+.vb-row .no{color:var(--err);font-weight:600}
+.vb-note{font-size:13px;color:var(--muted)}
+.vb-act{display:flex;gap:8px;flex-wrap:wrap}
+
+.drop{border:1.5px dashed var(--line-2);border-radius:14px;padding:18px;text-align:center;background:var(--ground);transition:background .15s,border-color .15s;cursor:pointer;display:block;width:100%}
+.drop:hover,.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop b{display:block;font-size:15px}
+.drop span{font-size:13px;color:var(--muted)}
+.thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-top:14px}
+.thumb{position:relative;border:1px solid var(--line);border-radius:12px;padding:8px;background:var(--paper);min-width:0}
+.thumb img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px;background:var(--ground)}
+.thumb .meta{margin-top:6px;font:400 12px var(--f-mono);color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.thumb .rm{position:absolute;top:12px;right:12px;width:28px;height:28px;border-radius:50%;background:var(--paper);border:1px solid var(--line-2);display:grid;place-items:center;color:var(--ink)}
+.thumb input{margin-top:8px;padding:7px 10px;font-size:13.5px}
+.sp-add{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
+.sp-add .lab{font-weight:600;font-size:13px;color:var(--muted);margin-right:4px}
+.sp-add input{flex:1 1 200px;min-width:0}
+.qchip{padding:6px 12px;border-radius:99px;border:1px solid var(--line-2);background:var(--paper);font-size:13.5px;font-weight:500}
+.qchip:hover{border-color:var(--accent);background:var(--accent-soft)}
+.space{border:1px solid var(--line);border-radius:16px;overflow:hidden;margin-bottom:14px}
+.sp-head{display:flex;gap:8px;align-items:center;background:var(--accent-soft);padding:8px 10px 8px 14px}
+.sp-head input{background:transparent;border:1px solid transparent;font:700 15px var(--f-disp);text-transform:uppercase;letter-spacing:.03em;padding:6px 8px}
+.sp-head input:hover{border-color:var(--line-2)}
+.sp-body{padding:14px}
+.none{border:1.5px dashed var(--line-2);border-radius:14px;padding:22px;text-align:center;color:var(--muted)}
+
+.rcover{border:1px solid var(--line);border-radius:20px;background:var(--card);box-shadow:var(--shadow);padding:26px 26px 22px;margin-bottom:16px;position:relative}
+.rcover .big{font:700 clamp(34px,7vw,52px)/1 var(--f-disp);color:var(--ink);padding-bottom:12px;border-bottom:4px solid var(--accent);margin:0 0 14px}
+.rcover .sub{display:block;font:700 clamp(14px,2.6vw,18px) var(--f-body);letter-spacing:.04em;background:var(--accent);color:var(--accent-ink);padding:8px 12px;margin:0 0 20px}
+.rcover .logo{width:200px;margin-bottom:22px}
+.rcover .ap{font:700 20px var(--f-disp);margin:0}
+.rcover .cj{font:600 16px var(--f-body);margin:2px 0 0}
+.rcover .fe{color:var(--muted);margin:12px 0 0}
+.rcover .el{margin:18px 0 0;font-size:13px;font-weight:700;border-left:3px solid var(--accent);padding-left:8px}
+.rcover .el + div{white-space:pre-line;border-left:3px solid var(--accent);padding-left:8px}
+.rsec{border:1px solid var(--line);border-radius:20px;background:var(--card);box-shadow:var(--shadow);padding:20px 24px;margin-bottom:16px}
+.rhead{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding-bottom:10px;margin-bottom:14px;border-bottom:3px solid var(--accent)}
+.rhead h3{margin:0;font:700 19px/1.2 var(--f-disp);color:var(--ink);text-wrap:balance;min-width:0}
+.rhead .l{display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0}
+.pill{flex:none;font:600 12px var(--f-body);padding:3px 10px;border-radius:99px;background:var(--ground);color:var(--muted)}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}
+.rtext p{margin:0 0 12px;text-align:justify;hyphens:auto}
+.rtext p:last-child{margin-bottom:0}
+.rimgs{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+.rimgs img{display:block;width:100%;height:auto;border:1px solid var(--line);border-radius:8px;background:#fff}
+.rspace{margin-top:14px}
+.rspace h4{margin:0 0 10px;background:var(--accent-soft);border-left:4px solid var(--accent);padding:7px 12px;border-radius:4px;font:700 14px var(--f-disp);color:var(--navy);text-transform:uppercase;letter-spacing:.03em}
+.rspace:first-child{margin-top:0}
+.rimgs figure{margin:0}
+.rimgs figcaption{font-size:12.5px;font-style:italic;color:var(--muted);text-align:center;margin-top:5px}
+
+.dh{display:flex;gap:18px 24px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:22px}
+.dh-l{display:flex;gap:20px;align-items:center;min-width:0;flex-wrap:wrap}
+.dh .logo{width:150px;flex:none}
+.dh h1{margin:0;font:700 clamp(24px,4vw,32px)/1.1 var(--f-disp);text-wrap:balance}
+.dh p{margin:4px 0 0;color:var(--muted)}
+.stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+.stat{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:10px 16px;min-width:120px}
+.stat b{display:block;font:700 24px/1.1 var(--f-disp)}
+.stat span{font-size:12.5px;color:var(--muted);font-weight:600}
+.rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px}
+.rc{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--accent);border-radius:16px;box-shadow:var(--shadow);display:flex;flex-direction:column;min-width:0}
+.rc-main{display:flex;flex-direction:column;gap:3px;text-align:left;background:none;border:0;padding:16px 16px 10px;border-radius:12px;width:100%;min-width:0}
+.rc-main:hover .rc-t{text-decoration:underline;text-decoration-color:var(--accent);text-decoration-thickness:3px;text-underline-offset:3px}
+.rc-t{font:700 18px/1.2 var(--f-disp);overflow-wrap:anywhere}
+.rc-s{color:var(--muted);overflow-wrap:anywhere}
+.rc-m{font-size:12.5px;color:var(--muted);margin-top:6px}
+.rc-bar{height:6px;border-radius:99px;background:var(--line);margin:0 16px 12px;overflow:hidden}
+.rc-bar i{display:block;height:100%;background:var(--accent)}
+.rc-foot{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:0 8px 12px 16px;margin-top:auto}
+.rc-when{font-size:12.5px;color:var(--muted);margin-right:auto}
+.rc-ask{display:flex;align-items:center;gap:8px;flex-wrap:wrap;width:100%;font-size:13.5px}
+.rc-ask span{margin-right:auto;font-weight:600}
+.btn.danger{background:var(--err);border-color:var(--err);color:#fff}
+.callout{border:1.5px dashed var(--line-2);border-radius:18px;padding:30px 20px;text-align:center;color:var(--muted)}
+.callout b{display:block;font:700 22px/1.2 var(--f-disp);color:var(--ink);margin-bottom:6px}
+.callout .btn{margin-top:14px}
+.gen{border:1.5px solid var(--accent);border-radius:20px;padding:22px 24px;background:var(--accent-soft)}
+.gen dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px 18px;margin:0 0 16px}
+.gen dt{font-size:12px;color:var(--muted);font-weight:600}
+.gen dd{margin:0;font-weight:600;overflow-wrap:anywhere}
+.gen .msg{margin-top:14px;font-size:14px}
+.gen .msg.ok{color:var(--ok)}
+.gen .msg.bad{color:var(--err)}
+.gen .fname{font:400 13px var(--f-mono);color:var(--muted);overflow-wrap:anywhere}
+.gen .foot{margin-top:16px}
+@media (max-width:860px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .lib{position:static;max-height:none;padding:16px}
+  .lib-list{flex-direction:row;overflow-x:auto;padding-bottom:6px}
+  .mod{min-width:230px;width:auto}
+  .head{padding:12px 16px 12px}
+  .prog{gap:10px}
+  .dots{gap:6px}
+  .stage{padding:16px}
+  .mcard,.gen,.rsec{padding:18px 16px}
+  .rcover{padding:20px 16px}
+  .dh .logo{width:120px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+
+.shell{max-width:1000px;margin-inline:auto}
+body[data-phase="editor"] .shell{max-width:880px}
+.top{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:18px}
+.crumbs{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:14px;color:var(--muted);min-width:0}
+.crumbs button{background:none;border:0;padding:4px 6px;border-radius:8px;font:600 14px var(--f-body);color:var(--ink)}
+.crumbs button:hover{background:var(--accent-soft)}
+.crumbs .cur{font-weight:700;color:var(--ink);overflow-wrap:anywhere}
+.stage.flat{padding:0}
+.sec-h{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:26px 0 12px}
+.sec-h h2{margin:0;font:700 20px/1.2 var(--f-disp)}
+.sec-h p{margin:2px 0 0;color:var(--muted);font-size:13.5px}
+.newp{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.newp input{flex:1 1 220px;min-width:0}
+.dz{display:block;width:100%;border:2px dashed var(--line-2);border-radius:18px;padding:26px 18px;text-align:center;background:var(--paper);cursor:pointer;transition:background .15s,border-color .15s}
+.dz:hover,.dz.over{border-color:var(--accent);background:var(--accent-soft)}
+.dz b{display:block;font:700 18px var(--f-disp);margin-bottom:4px}
+.dz span{color:var(--muted);font-size:14px}
+.dz.busy{cursor:default;border-style:solid}
+.prog2{margin-top:10px;font-size:13.5px;color:var(--muted)}
+.prog2 .bar2{height:6px;border-radius:99px;background:var(--line);overflow:hidden;margin-top:6px}
+.prog2 .bar2 i{display:block;height:100%;background:var(--accent);transition:width .2s}
+.warns{margin:10px 0 0;padding:10px 14px;border-radius:12px;background:var(--err-soft);color:var(--err);font-size:13.5px}
+.warns p{margin:0}
+.grow{display:grid;grid-template-columns:96px minmax(0,1fr) auto;gap:14px;align-items:center;padding:10px;border:1px solid var(--line);border-radius:14px;background:var(--card);margin-bottom:10px}
+.grow img{width:96px;height:68px;object-fit:cover;border-radius:8px;border:1px solid var(--line);background:#fff}
+.grow .gi{min-width:0;display:flex;flex-direction:column;gap:4px}
+.grow .gi small{color:var(--muted);font-size:12.5px}
+.grow input{padding:7px 10px}
+.sgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.stile{border:1px solid var(--line);border-radius:14px;padding:10px;background:var(--card);display:flex;flex-direction:column;gap:8px;min-width:0}
+.stile.has{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.stile.over{background:var(--accent-soft);border-color:var(--accent)}
+.stile h4{margin:0;font:700 13.5px var(--f-disp);letter-spacing:.03em;display:flex;justify-content:space-between;gap:8px;align-items:center}
+.stile h4 .cnt{font:600 12px var(--f-body);color:var(--muted)}
+.stile .thumbs{grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px;margin-top:0}
+.stile .thumb{padding:4px}
+.stile .thumb img{aspect-ratio:3/4}
+.stile .thumb .rm{top:6px;right:6px;width:24px;height:24px}
+.stile .thumb input{margin-top:4px;padding:4px 6px;font-size:12px}
+.addph{display:flex;align-items:center;justify-content:center;gap:6px;border:1.5px dashed var(--line-2);border-radius:10px;padding:10px;font-size:13px;color:var(--muted);background:var(--ground);cursor:pointer;text-align:center}
+.addph:hover{border-color:var(--accent);background:var(--accent-soft);color:var(--ink)}
+.slot{display:grid;grid-template-columns:minmax(0,260px) minmax(0,1fr);gap:16px;align-items:start;margin-bottom:16px}
+.slot .pv{border:1px solid var(--line);border-radius:12px;background:#fff;overflow:hidden;min-height:90px;display:grid;place-items:center}
+.slot .pv img{display:block;width:100%;height:auto}
+.slot .pv.empty{background:var(--ground);color:var(--muted);font-size:13.5px;padding:18px;text-align:center}
+.slot .sl{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.slot .sl b{font-size:14px}
+.slot .sl small{color:var(--muted);font-size:13px}
+.slot.over .pv{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+select{width:100%;padding:10px 12px;border:1px solid var(--line-2);border-radius:12px;background:var(--paper);color:var(--ink)}
+details.ed{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+details.ed summary{cursor:pointer;font-weight:600;font-size:14px}
+details.ed textarea{margin-top:8px}
+details.ed .blk{margin-top:10px}
+details.ed .blk label{font-size:12px;color:var(--muted);font-weight:600}
+.ptxt p{margin:0 0 10px;text-align:justify}
+.ptxt p.h{font-weight:700;text-align:left;margin-top:14px}
+.ptxt ul,.ptxt ol{margin:0 0 10px;padding-left:22px}
+.ptxt li{margin-bottom:6px}
+.ptxt mark{background:var(--accent-soft);color:inherit;padding:0 3px;border-radius:4px;font-weight:600}
+.ptxt mark.no{background:var(--err-soft);color:var(--err)}
+.pill.warn{background:var(--err-soft);color:var(--err)}
+.mini{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;align-items:center}
+.btn.ghost.on{background:var(--accent-soft,var(--drag));border-color:var(--accent)}
+@media (max-width:860px){
+  .slot{grid-template-columns:minmax(0,1fr)}
+  .grow{grid-template-columns:72px minmax(0,1fr)}
+  .grow .ga{grid-column:1/-1}
+  .grow img{width:72px;height:52px}
+}
+
+body[data-phase="projects"] .main,body[data-phase="project"] .main{background:none;border:0}
+body[data-phase="projects"] .stage,body[data-phase="project"] .stage{padding:8px 0}
+body[data-phase="projects"] .lib,body[data-phase="project"] .lib{display:none}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.modal-bg{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.45);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px))}
+.modal{width:100%;max-width:680px;margin-top:5vh;border:1px solid var(--line);border-radius:20px;background:var(--card);box-shadow:var(--shadow);padding:22px 24px;min-width:0}
+.modal-h{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:14px}
+.modal-h h2{margin:0}.modal-h p{margin:4px 0 0;color:var(--muted,inherit)}
+.modal .foot{margin-top:16px}
+.ph{font-family:var(--f-disp);font-size:28px;margin:0}
+.glist{display:flex;flex-direction:column;gap:12px}
+.gcard{border:1px solid var(--line);border-radius:18px;background:var(--card);box-shadow:var(--shadow);min-width:0;overflow:hidden}
+.gcard.open{border-color:var(--line-2)}
+.ghead{width:100%;display:flex;align-items:center;gap:14px;padding:12px 16px;background:none;border:0;color:inherit;font:inherit;text-align:left;cursor:pointer;min-width:0}
+.ghead:hover,.ghead.over{background:var(--accent-soft)}
+.ghead.over{outline:2px dashed var(--drag-line);outline-offset:-4px}
+.gthumb{width:64px;height:44px;object-fit:cover;border-radius:8px;border:1px solid var(--line);background:var(--paper);flex:none;display:grid;place-items:center;color:var(--muted)}
+.gthumb .i{width:22px;height:22px}
+.gname{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.gname b{font-family:var(--f-disp);font-size:19px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gname small{color:var(--muted);font-size:13px}
+.chev .i{width:22px;height:22px;transition:transform .15s}
+.gcard.open .chev .i{transform:rotate(180deg)}
+.gbody{border-top:1px solid var(--line);padding:16px;display:flex;flex-direction:column;gap:16px}
+.gplan{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
+.gplan>img,.gplan>.pv{width:170px;height:118px;object-fit:contain;border:1px solid var(--line);border-radius:10px;background:#fff;flex:none}
+.gplan .gi{flex:1 1 240px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.sec-h.sm{margin:0;align-items:center}
+.sec-h.sm h3{margin:0;font-family:var(--f-disp);font-size:18px}
+.agpv{display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.agpv img{max-width:100%;max-height:220px;border:1px solid var(--line);border-radius:10px;background:#fff}
+.agpv .pv.empty{border:1px dashed var(--line-2);border-radius:10px;color:var(--muted);width:100%;min-height:90px;display:grid;place-items:center}
+.ghead{width:100%;display:flex;align-items:center;gap:6px;padding:10px 12px 10px 16px;min-width:0;cursor:default}
+.ghead:hover{background:none}
+.ghead:hover,.ghead.over{background:var(--accent-soft)}
+.gmain{flex:1;min-width:0;display:flex;align-items:center;gap:14px;background:none;border:0;color:inherit;font:inherit;text-align:left;cursor:pointer;padding:2px 0}
+.ib.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.droparea{border:2px dashed transparent;border-radius:14px;margin:-2px;padding:2px;display:flex;flex-direction:column;gap:12px;transition:background .12s}
+.droparea.over{background:var(--drag);border-color:var(--drag-line)}
+.dropnote{display:flex;align-items:center;justify-content:center;gap:10px;text-align:center;border:1.5px dashed var(--line-2);border-radius:14px;padding:16px;color:var(--muted);cursor:pointer;min-width:0}
+.dropnote:hover,.dropnote:focus-visible{border-color:var(--drag-line);background:var(--accent-soft);color:var(--ink)}
+.dropnote .i{width:20px;height:20px;flex:none}
+.gcard.open .chev .i{transform:rotate(180deg)}
+.ghead .ib.on{background:var(--accent);color:var(--accent-ink)}
+.rc.rojo{border-left-color:#d64545;background:color-mix(in srgb,#d64545 9%,var(--card))}
+.rc.amarillo{border-left-color:var(--accent);background:color-mix(in srgb,var(--accent) 13%,var(--card))}
+.rc.verde{border-left-color:#2e9b5f;background:color-mix(in srgb,#2e9b5f 14%,var(--card))}
+.rc.rojo .rc-m{color:#c03636;font-weight:600}
+.rc.verde .rc-m{color:var(--ok);font-weight:600}
+.dbar{border:1px solid var(--line);border-radius:16px;background:var(--card);padding:12px 14px;margin:0 0 14px;display:flex;flex-direction:column;gap:10px}
+.dline{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.dico{width:38px;height:38px;border-radius:10px;background:var(--accent-soft);display:grid;place-items:center;flex:none}
+.dtxt{flex:1 1 240px;min-width:0;display:flex;flex-direction:column;gap:2px}
+.dtxt small{color:var(--muted);font-size:13px}
+.pcrumbs{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:12px 0 8px;font-size:14px}
+.pcrumbs button{background:none;border:0;color:var(--ink);font:inherit;font-weight:600;text-decoration:underline;text-underline-offset:3px;padding:2px}
+.plist{display:flex;flex-direction:column;gap:6px;max-height:42vh;overflow-y:auto;border:1px solid var(--line);border-radius:12px;padding:6px}
+.pitem{display:flex;align-items:center;gap:10px;background:none;border:0;color:inherit;font:inherit;text-align:left;padding:10px;border-radius:9px;cursor:pointer;min-width:0}
+.pitem:hover{background:var(--accent-soft)}
+.pitem .i{width:20px;height:20px;flex:none}
+.pitem span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rc-m{overflow-wrap:anywhere}
+
+.modal.wide{max-width:760px}
+.flist{display:flex;flex-direction:column;gap:12px;margin:12px 0}
+.fcard{display:grid;grid-template-columns:150px minmax(0,1fr) auto;gap:14px;align-items:start;border:1px solid var(--line);border-radius:14px;padding:12px;background:var(--card)}
+.fcard .fimg{display:flex;flex-direction:column;gap:8px;align-items:stretch;min-width:0}
+.fcard .fimg img{width:100%;max-height:110px;object-fit:contain;border:1px solid var(--line);border-radius:8px;background:#fff}
+.fcard .fields{min-width:0}
+.fcard .fact{display:flex;flex-direction:column;gap:4px}
+.firmasum{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:16px;border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--card)}
+.firmasum small{display:block;color:var(--muted);margin-top:2px;overflow-wrap:anywhere}
+@media (max-width:640px){.fcard{grid-template-columns:minmax(0,1fr)}.fcard .fact{flex-direction:row}}
+.rc-p,.rc-x{display:block;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.rc-x.pend{color:var(--ink);font-weight:600}
+.fimgbox{margin:12px 0}.fimgbox .pv{min-height:120px;display:grid;place-items:center}.fimgbox img{max-width:100%;max-height:240px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:8px}.fthumb{height:48px;max-width:160px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:6px}
+img.zoomable{cursor:zoom-in}
+.undobar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 12px;padding:10px 14px;border:1px solid var(--accent);border-radius:12px;background:var(--accent-soft)}
+.lb{position:fixed;inset:0;z-index:60;background:rgba(10,10,10,.96);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);outline:none}
+.lb-top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px max(16px,env(safe-area-inset-right,0px)) 10px max(16px,env(safe-area-inset-left,0px));color:#f3f1ec}
+.lb-t{font-weight:600;overflow-wrap:anywhere}
+.lb-x{color:#f3f1ec}
+.lb-stage{flex:1;min-height:0;display:grid;grid-template:minmax(0,1fr)/minmax(0,1fr);place-items:center;padding:0 64px;overflow:hidden}
+.lb-stage img{max-width:100%;max-height:100%;min-height:0;object-fit:contain;cursor:zoom-in;background:#fff;border-radius:6px}
+.lb-stage.zoom{overflow:auto;place-items:start center}
+.lb-stage.zoom img{max-width:none;max-height:none;width:auto;cursor:zoom-out}
+.lb-nav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;border:0;background:rgba(255,255,255,.16);color:#fff;display:grid;place-items:center;cursor:pointer}
+.lb-nav:hover{background:rgba(255,255,255,.28)}
+.lb-nav.prev{left:max(8px,env(safe-area-inset-left,0px))}
+.lb-nav.next{right:max(8px,env(safe-area-inset-right,0px))}
+.lb-nav.next svg{transform:scaleX(-1)}
+.lb-cap{color:#f3f1ec;text-align:center;padding:10px 16px 14px;overflow-wrap:anywhere}
+@media (max-width:640px){.lb-stage{padding:0 8px}.lb-nav{top:auto;bottom:64px;transform:none}}
+.infos{margin:10px 0 0;padding:10px 14px;border-radius:12px;background:var(--accent-soft);color:var(--ink);font-size:13.5px}.infos p{margin:0}
+.chk{display:flex;align-items:center;gap:10px;font-weight:600;cursor:pointer}.chk input{width:18px;height:18px;accent-color:var(--accent)}
+</style>
+
+<div class="shell" id="shell">
+  <div class="main" id="mainCard">
+    <header class="head" id="head" hidden>
+      <div class="bar">
+        <button class="back" id="backBtn" type="button"></button>
+        <div class="bar-r">
+          <span class="save" id="saveState" role="status"></span>
+          <button class="btn ghost sm" id="homeBtn" type="button"></button>
+        </div>
+      </div>
+      <div class="prog">
+        <div class="num" id="stepNum" aria-hidden="true">1</div>
+        <ol class="dots" id="dots" aria-label="Pasos"></ol>
+      </div>
+    </header>
+    <section class="stage" id="stage"></section>
+  </div>
+</div>
+
+<script src="/vendor/jszip.min.js"></script>
+<script src="/vendor/docx.umd.js"></script>
+<script src="/shim.js"></script>
+<script>
+var SPACES = ['PASILLO', 'SALA COMEDOR', 'COCINA', 'HALL', 'ALCOBA SERVICIO', 'ZONA DE OFICIO', 'ESTAR TV', 'BAÑO 1', 'BAÑO 2', 'BAÑO 3', 'ALCOBA 1', 'ALCOBA 2', 'ALCOBA 3'];
+
+function parseInforme(buf, JSZipLib, DOMParserCls) {
+  function norm(s) {
+    return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+  var ALIAS = { 'SALA': 'SALA COMEDOR', 'COMEDOR': 'SALA COMEDOR', 'SALA COMEDOR': 'SALA COMEDOR', 'ZONA DE OFICIOS': 'ZONA DE OFICIO', 'ZONA OFICIO': 'ZONA DE OFICIO', 'ZONA DE OFICIO': 'ZONA DE OFICIO', 'ALCOBA DE SERVICIO': 'ALCOBA SERVICIO', 'ALCOBA SERVICIO': 'ALCOBA SERVICIO', 'ESTAR': 'ESTAR TV', 'ESTAR TV': 'ESTAR TV' };
+  function matchSpace(t) {
+    var n = norm(t);
+    if (!n || n.length > 30) return null;
+    if (ALIAS[n]) return ALIAS[n];
+    for (var i = 0; i < SPACES.length; i++) if (norm(SPACES[i]) === n) return SPACES[i];
+    return null;
+  }
+  function imgSize(b) {
+    try {
+      if (b[0] === 0x89 && b[1] === 0x50) {
+        return { w: ((b[16] << 24) | (b[17] << 16) | (b[18] << 8) | b[19]) >>> 0, h: ((b[20] << 24) | (b[21] << 16) | (b[22] << 8) | b[23]) >>> 0 };
+      }
+      if (b[0] === 0xff && b[1] === 0xd8) {
+        var i = 2;
+        while (i < b.length - 9) {
+          if (b[i] !== 0xff) { i++; continue; }
+          var m = b[i + 1];
+          if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) {
+            return { h: (b[i + 5] << 8) | b[i + 6], w: (b[i + 7] << 8) | b[i + 8] };
+          }
+          i += 2 + ((b[i + 2] << 8) | b[i + 3]);
+        }
+      }
+    } catch (e) {}
+    return null;
+  }
+  function kids(node, name) {
+    var out = [];
+    for (var c = node.firstChild; c; c = c.nextSibling) if (c.nodeType === 1 && c.nodeName === name) out.push(c);
+    return out;
+  }
+  function descend(node, fn) {
+    for (var c = node.firstChild; c; c = c.nextSibling) {
+      if (c.nodeType !== 1) continue;
+      fn(c);
+      descend(c, fn);
+    }
+  }
+
+  return JSZipLib.loadAsync(buf).then(function (zip) {
+    var docF = zip.file('word/document.xml');
+    if (!docF) throw new Error('nodocx');
+    var relF = zip.file('word/_rels/document.xml.rels');
+    var numF = zip.file('word/numbering.xml');
+    return Promise.all([docF.async('string'), relF ? relF.async('string') : Promise.resolve(''), numF ? numF.async('string') : Promise.resolve('')]).then(function (res) {
+      var numFmt = {};
+      (function () {
+        var nx = new DOMParserCls().parseFromString(res[2] || '<r/>', 'application/xml');
+        var absFmt = {};
+        Array.prototype.forEach.call(nx.getElementsByTagName('w:abstractNum'), function (a) {
+          var lv = a.getElementsByTagName('w:lvl')[0], nf = lv && lv.getElementsByTagName('w:numFmt')[0];
+          absFmt[a.getAttribute('w:abstractNumId')] = nf ? nf.getAttribute('w:val') : 'bullet';
+        });
+        Array.prototype.forEach.call(nx.getElementsByTagName('w:num'), function (n) {
+          var ab = n.getElementsByTagName('w:abstractNumId')[0];
+          numFmt[n.getAttribute('w:numId')] = ab ? absFmt[ab.getAttribute('w:val')] : 'bullet';
+        });
+      })();
+      var xml = new DOMParserCls().parseFromString(res[0], 'application/xml');
+      var rels = new DOMParserCls().parseFromString(res[1] || '<r/>', 'application/xml');
+      var rid = {};
+      Array.prototype.forEach.call(rels.getElementsByTagName('Relationship'), function (r) { rid[r.getAttribute('Id')] = r.getAttribute('Target'); });
+      var body = xml.getElementsByTagName('w:body')[0];
+      var paras = [];
+      descend(body, function (n) { if (n.nodeName === 'w:p') paras.push(n); });
+
+      var mode = 'cover', cur = null, newSect = false, photos = 0;
+      var cover = [], intro = [], planosTitulo = '', planos = [], espacios = {}, presu = { img: null, nota: '' }, concl = [], conclTitulo = 'CONCLUSIONES', firma = null, firmasAll = [];
+      var imgJobs = [];
+
+      function img(target) {
+        var o = { t: 'img', target: target, bytes: null, ext: (target.split('.').pop() || '').toLowerCase(), w: 0, h: 0 };
+        imgJobs.push(o);
+        return o;
+      }
+      function isIntro(T) { return /^\s*(\d+[.)]\s*)?INTRODUCCI[OÓ]N\s*:?\s*$/i.test(T); }
+      function isPlano(T) { return T.length <= 70 && /^\s*(\d+[.)]\s*)?PLANOS?\b/i.test(T); }
+      function isConcl(T) { return T.length <= 40 && /^\s*(\d+[.)]\s*)?CONCLUSIONES\b/i.test(T); }
+
+      paras.forEach(function (p) {
+        var toks = [];
+        descend(p, function (n) {
+          if (n.nodeName === 'w:t') {
+            var s = n.textContent;
+            if (toks.length && toks[toks.length - 1].text != null) toks[toks.length - 1].text += s; else toks.push({ text: s });
+          } else if (n.nodeName === 'w:tab' || n.nodeName === 'w:br') {
+            if (toks.length && toks[toks.length - 1].text != null) toks[toks.length - 1].text += ' ';
+          } else if (n.nodeName === 'a:blip') {
+            var id = n.getAttribute('r:embed');
+            if (id && rid[id]) toks.push({ target: rid[id] });
+          }
+        });
+        var ppr = kids(p, 'w:pPr')[0];
+        var sectAfter = !!(ppr && kids(ppr, 'w:sectPr').length);
+        var numPr = ppr && kids(ppr, 'w:numPr')[0];
+        var isLi = !!numPr;
+        var numId = numPr && numPr.getElementsByTagName('w:numId')[0];
+        var liType = numId && numFmt[numId.getAttribute('w:val')] === 'decimal' ? 'ol' : 'li';
+        var style = ppr && kids(ppr, 'w:pStyle')[0];
+        var isHeadStyle = !!(style && /^Heading|^Title/i.test(style.getAttribute('w:val') || ''));
+        var T = toks.filter(function (k) { return k.text != null; }).map(function (k) { return k.text; }).join('').replace(/\s+/g, ' ').trim();
+        var hasImg = toks.some(function (k) { return k.target; });
+        var spaceHere = null;
+        toks.forEach(function (k) { if (k.text != null && !spaceHere) spaceHere = matchSpace(k.text); });
+        var started = newSect;
+        newSect = sectAfter;
+
+        if (mode === 'cover') {
+          if (T && isIntro(T)) { mode = 'intro'; return; }
+          if (T) cover.push(T);
+          return;
+        }
+        if (T && isConcl(T) && mode !== 'cover') { mode = 'conclusiones'; conclTitulo = T.replace(/^\s*\d+[.)]\s*/, ''); return; }
+        if ((mode === 'intro') && T && isPlano(T)) { mode = 'planos'; planosTitulo = T.replace(/^\s*\d+[.)]\s*/, ''); return; }
+        if ((mode === 'planos' || mode === 'imagenes') && T && T.length <= 60 && /^\s*(\d+[.)]\s*)?presupuesto\b/i.test(T) && !spaceHere) { mode = 'presupuesto'; return; }
+        if ((mode === 'intro' || mode === 'planos' || mode === 'imagenes') && spaceHere) { mode = 'imagenes'; cur = spaceHere; if (!espacios[cur]) espacios[cur] = []; }
+        else if (mode === 'imagenes' && started && photos > 0 && hasImg && !spaceHere) { mode = 'presupuesto'; }
+
+        if (mode === 'intro') {
+          if (T && !isHeadStyle) intro.push({ t: isLi ? liType : 'p', x: T });
+        } else if (mode === 'planos') {
+          toks.forEach(function (k) {
+            if (k.target) planos.push(img(k.target));
+          });
+          if (T) planos.push({ t: isLi ? liType : (T === T.toUpperCase() && T.length <= 40 ? 'h' : 'p'), x: T, _at: toks.length });
+        } else if (mode === 'imagenes') {
+          toks.forEach(function (k) {
+            if (k.target && cur) { espacios[cur].push(img(k.target)); photos++; }
+          });
+        } else if (mode === 'presupuesto') {
+          toks.forEach(function (k) { if (k.target && !presu.img) presu.img = img(k.target); });
+          if (T) presu.nota = presu.nota ? presu.nota + ' ' + T : T;
+        } else if (mode === 'conclusiones') {
+          toks.forEach(function (k) { if (k.target) { var fi = img(k.target); if (!firma) firma = fi; firmasAll.push(fi); } });
+          if (T && !isHeadStyle) concl.push({ t: isLi ? liType : 'p', x: T });
+        }
+      });
+
+      if (!presu.img && mode === 'imagenes') {
+        var all = [];
+        Object.keys(espacios).forEach(function (k) { espacios[k].forEach(function (im) { all.push({ k: k, im: im }); }); });
+        var last = all[all.length - 1];
+        if (last && last.im.ext === 'png') { presu.img = last.im; espacios[last.k].pop(); }
+      }
+      Object.keys(espacios).forEach(function (k) { if (!espacios[k].length) delete espacios[k]; });
+
+      var cache = {};
+      return Promise.all(imgJobs.map(function (o) {
+        if (!cache[o.target]) {
+          var f = zip.file('word/' + o.target.replace(/^\.?\//, ''));
+          cache[o.target] = f ? f.async('uint8array') : Promise.resolve(null);
+        }
+        return cache[o.target].then(function (b) {
+          o.bytes = b;
+          var sz = b && imgSize(b);
+          if (sz) { o.w = sz.w; o.h = sz.h; }
+        });
+      })).then(function () {
+        function ok(o) { return o && o.bytes && /^(png|jpe?g|gif|bmp|webp)$/.test(o.ext); }
+        planos = planos.filter(function (b) { return b.t !== 'img' || ok(b); });
+        var plans = planos.filter(function (b) { return b.t === 'img' && b.w >= 800; });
+        plans.forEach(function (b, i) { b.role = i === 0 ? 'grupo' : i === 1 ? 'individual' : 'fijo'; });
+        planos.forEach(function (b) { if (b.t === 'img' && !b.role) b.role = 'fijo'; });
+        if (!planos.some(function (b) { return b.role === 'individual'; })) {
+          var gi = -1;
+          planos.forEach(function (b, i) { if (b.role === 'grupo') gi = i; });
+          var lastImg = -1;
+          planos.forEach(function (b, i) { if (b.t === 'img') lastImg = i; });
+          planos.splice(Math.max(gi, lastImg) + 1, 0, { t: 'img', role: 'individual', bytes: null, w: 0, h: 0, ext: '' });
+        }
+        if (!planos.some(function (b) { return b.role === 'grupo'; })) planos.unshift({ t: 'img', role: 'grupo', bytes: null, w: 0, h: 0, ext: '' });
+        Object.keys(espacios).forEach(function (k) { espacios[k] = espacios[k].filter(ok); });
+        if (!ok(presu.img)) presu.img = null;
+        if (!ok(firma)) firma = null;
+        firmasAll = firmasAll.filter(ok);
+
+        var cv = { subtitulo: '', apartamento: '', conjunto: '', elaboradores: '', fecha: '' };
+        var rest = cover.slice();
+        function take(re) {
+          for (var i = 0; i < rest.length; i++) if (re.test(rest[i])) return rest.splice(i, 1)[0];
+          return '';
+        }
+        cv.apartamento = take(/^\s*(apartamento|apto|casa|local|oficina)\b/i);
+        cv.conjunto = take(/^\s*(conjunto|edificio|urbanizaci|torres|condominio|residencial|agrupaci)/i);
+        var ei = -1;
+        rest.forEach(function (s, i) { if (ei < 0 && /^\s*elaborad[oa]\s+por/i.test(s)) ei = i; });
+        var MON = /(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)/i;
+        var fi = -1;
+        rest.forEach(function (s, i) { if (MON.test(s) && /(19|20)\d\d/.test(s)) fi = i; });
+        if (fi > -1) cv.fecha = rest[fi];
+        if (ei > -1) cv.elaboradores = rest.filter(function (s, i) { return i > ei && i !== fi; }).join('\n');
+        var used = {};
+        if (ei > -1) used[ei] = 1;
+        if (fi > -1) used[fi] = 1;
+        var sub = rest.filter(function (s, i) { return !used[i] && (ei < 0 || i < ei); });
+        cv.subtitulo = sub[0] || '';
+
+        var vars = { seguro: '', poliza: '', siniestro: '', valor: '' };
+        var blocks = intro.concat(concl);
+        function scan(re) {
+          for (var i = 0; i < blocks.length; i++) { var m = re.exec(blocks[i].x); if (m) return m[1].trim(); }
+          return '';
+        }
+        vars.seguro = scan(/\bante\s+(.+?),\s+en el marco/i);
+        vars.poliza = scan(/p[oó]liza\s+(?:No\.?|n[uú]mero|N°)\s*([\w\-.]+)/i).replace(/[.,;]+$/, '');
+        vars.siniestro = scan(/siniestro\s+(?:No\.?|n[uú]mero|N°)\s*([\w\-.]+)/i).replace(/[.,;]+$/, '');
+        vars.valor = scan(/asciende a\s+(.+?),\s+e incluye/i);
+        function tag(v, name) {
+          if (!v) return;
+          blocks.forEach(function (b) { b.x = b.x.split(v).join('{{' + name + '}}'); });
+        }
+        tag(vars.seguro, 'SEGURO');
+        tag(vars.siniestro, 'SINIESTRO');
+        tag(vars.poliza, 'POLIZA');
+        tag(vars.valor, 'VALOR');
+
+        planos.forEach(function (b) { delete b._at; });
+        return { cover: cv, vars: vars, intro: intro, planosTitulo: planosTitulo, planos: planos, espacios: espacios, presupuesto: presu, concl: concl, conclTitulo: conclTitulo, firma: firma, firmas: firmasAll };
+      });
+    });
+  });
+}
+if (typeof module !== 'undefined') module.exports = { parseInforme: parseInforme, SPACES: SPACES };
+
+</script>
+<script>
+function buildReport2(D, r) {
+  var NAVY = "1A1A1A", ACCENT = "FBAA11", GRAY = "5F5F5F", BAND = "FFF3D6", INK = "1F1F1F";
+  var FONT = "Calibri";
+  var CENTER = D.AlignmentType.CENTER;
+  var NONE = { style: D.BorderStyle.NONE, size: 0, color: "FFFFFF" };
+
+  function fit(w, h, maxW, maxH) {
+    var k = Math.min(maxW / w, maxH / h, 1);
+    return { width: Math.max(1, Math.round(w * k)), height: Math.max(1, Math.round(h * k)) };
+  }
+
+  function fill(text) {
+    var v = r.vars || {};
+    return String(text || "")
+      .replace(/\{\{SEGURO\}\}/g, v.seguro || "")
+      .replace(/\{\{POLIZA\}\}/g, v.poliza || "")
+      .replace(/\{\{SINIESTRO\}\}/g, v.siniestro || "")
+      .replace(/\{\{VALOR\}\}/g, v.valor || "")
+      .replace(/\{\{APARTAMENTO\}\}/g, (r.cover && r.cover.apartamento) || "")
+      .replace(/\{\{CONJUNTO\}\}/g, (r.cover && r.cover.conjunto) || "");
+  }
+
+  function textPara(b, keepNext) {
+    var t = fill(b.x).replace(/\s+/g, " ").trim();
+    if (!t) return null;
+    if (b.t === "h") {
+      return new D.Paragraph({
+        keepNext: true,
+        spacing: { before: 240, after: 120 },
+        children: [new D.TextRun({ text: t, bold: true, size: 24, color: NAVY, font: FONT })]
+      });
+    }
+    if (b.t === "ol") {
+      return new D.Paragraph({
+        numbering: { reference: "numeros", level: 0 },
+        alignment: D.AlignmentType.JUSTIFIED,
+        keepNext: !!keepNext,
+        spacing: { after: 160, line: 276, lineRule: D.LineRuleType.AUTO },
+        children: [new D.TextRun({ text: t, font: FONT, size: 22, color: INK })]
+      });
+    }
+    if (b.t === "li") {
+      return new D.Paragraph({
+        numbering: { reference: "viñetas", level: 0 },
+        keepNext: !!keepNext,
+        spacing: { after: 100, line: 276, lineRule: D.LineRuleType.AUTO },
+        children: [new D.TextRun({ text: t, font: FONT, size: 22, color: INK })]
+      });
+    }
+    return new D.Paragraph({
+      alignment: D.AlignmentType.JUSTIFIED,
+      keepNext: !!keepNext,
+      spacing: { after: 200, line: 276, lineRule: D.LineRuleType.AUTO },
+      children: [new D.TextRun({ text: t, font: FONT, size: 22, color: INK })]
+    });
+  }
+
+  function sectionTitle(text, first) {
+    return new D.Paragraph({
+      heading: D.HeadingLevel.HEADING_1,
+      pageBreakBefore: true,
+      keepNext: true,
+      spacing: { before: 0, after: 280 },
+      border: { bottom: { style: D.BorderStyle.SINGLE, size: 18, color: ACCENT, space: 4 } },
+      children: [new D.TextRun({ text: text, bold: true, size: 32, color: NAVY, font: FONT })]
+    });
+  }
+
+  function imagePara(im, maxW, maxH, keepNext) {
+    var d = fit(im.w, im.h, maxW, maxH);
+    return new D.Paragraph({
+      alignment: CENTER,
+      keepNext: !!keepNext,
+      spacing: { before: 60, after: 200 },
+      children: [new D.ImageRun({ data: im.data, type: im.type || "jpg", transformation: d })]
+    });
+  }
+
+  function photoTable(photos) {
+    var n = photos.length;
+    var maxH = n <= 2 ? 320 : n <= 4 ? 240 : 190;
+    var maxW = n === 1 ? 330 : 280;
+    var rows = [];
+    for (var i = 0; i < n; i += 2) {
+      var pair = n === 1 ? [photos[i]] : [photos[i], photos[i + 1]];
+      rows.push(new D.TableRow({
+        cantSplit: true,
+        children: pair.map(function (p) {
+          var kids = [];
+          if (p) {
+            var d = fit(p.w, p.h, maxW, maxH);
+            kids.push(new D.Paragraph({ alignment: CENTER, keepNext: !!p.caption, spacing: { after: 60 }, children: [new D.ImageRun({ data: p.data, type: p.type || "jpg", transformation: d })] }));
+            if (p.caption) kids.push(new D.Paragraph({ alignment: CENTER, spacing: { after: 120 }, children: [new D.TextRun({ text: p.caption, italics: true, size: 18, color: GRAY, font: FONT })] }));
+            else kids.push(new D.Paragraph({ spacing: { after: 80 }, children: [] }));
+          } else {
+            kids.push(new D.Paragraph(""));
+          }
+          return new D.TableCell({
+            width: { size: n === 1 ? 9360 : 4680, type: D.WidthType.DXA },
+            borders: { top: NONE, bottom: NONE, left: NONE, right: NONE },
+            margins: { top: 60, bottom: 60, left: 80, right: 80 },
+            children: kids
+          });
+        })
+      }));
+    }
+    var cols = n === 1 ? [9360] : [4680, 4680];
+    return new D.Table({
+      width: { size: 9360, type: D.WidthType.DXA },
+      columnWidths: cols,
+      borders: { top: NONE, bottom: NONE, left: NONE, right: NONE, insideHorizontal: NONE, insideVertical: NONE },
+      rows: rows
+    });
+  }
+
+  var c = r.cover || {};
+  var children = [];
+
+  children.push(new D.Paragraph({
+    spacing: { before: 2400, after: 320 },
+    border: { bottom: { style: D.BorderStyle.SINGLE, size: 36, color: ACCENT, space: 8 } },
+    children: [new D.TextRun({ text: "INFORME", bold: true, size: 96, color: NAVY, font: FONT })]
+  }));
+  children.push(new D.Table({
+    width: { size: 9360, type: D.WidthType.DXA },
+    columnWidths: [9360],
+    borders: { top: NONE, bottom: NONE, left: NONE, right: NONE, insideHorizontal: NONE, insideVertical: NONE },
+    rows: [new D.TableRow({ children: [new D.TableCell({
+      width: { size: 9360, type: D.WidthType.DXA },
+      borders: { top: NONE, bottom: NONE, left: NONE, right: NONE },
+      shading: { type: D.ShadingType.CLEAR, color: "auto", fill: ACCENT },
+      margins: { top: 130, bottom: 130, left: 240, right: 240 },
+      children: [new D.Paragraph({ children: [new D.TextRun({ text: (c.subtitulo || "INSPECCIÓN Y VALORACIÓN DE DAÑOS").toUpperCase(), bold: true, size: 32, color: NAVY, font: FONT })] })]
+    })] })]
+  }));
+  children.push(new D.Paragraph({
+    spacing: { before: 700, after: 80 },
+    children: [new D.TextRun({ text: c.apartamento || "", bold: true, size: 40, color: NAVY, font: FONT })]
+  }));
+  children.push(new D.Paragraph({
+    children: [new D.TextRun({ text: c.conjunto || "", bold: true, size: 28, color: NAVY, font: FONT })]
+  }));
+  if (c.fecha) children.push(new D.Paragraph({
+    spacing: { before: 400 },
+    children: [new D.TextRun({ text: c.fecha, size: 24, color: GRAY, font: FONT })]
+  }));
+  var elab = String(c.elaboradores || "").split(/\n/).map(function (l) { return l.trim(); }).filter(Boolean);
+  if (elab.length) children.push(new D.Paragraph({
+    spacing: { before: 1000, after: 80 },
+    border: { left: { style: D.BorderStyle.SINGLE, size: 24, color: ACCENT, space: 8 } },
+    children: [new D.TextRun({ text: "Elaborado por:", bold: true, size: 20, color: NAVY, font: FONT })]
+  }));
+  elab.forEach(function (l) {
+    children.push(new D.Paragraph({
+      spacing: { after: 40 },
+      border: { left: { style: D.BorderStyle.SINGLE, size: 24, color: ACCENT, space: 8 } },
+      children: [new D.TextRun({ text: l, size: 22, color: INK, font: FONT })]
+    }));
+  });
+
+  children.push(sectionTitle("INTRODUCCIÓN"));
+  (r.intro || []).forEach(function (b, i, a) {
+    var p = textPara(b, (b.t === "li" || b.t === "ol") && a[i + 1] && a[i + 1].t === b.t);
+    if (p) children.push(p);
+  });
+
+  children.push(sectionTitle((r.planosTitulo || "PLANO CON EL REGISTRO DE LAS AFECTACIONES").toUpperCase()));
+  var pb = r.planos || [];
+  pb.forEach(function (b, i) {
+    if (b.t === "img") {
+      if (!b.img) return;
+      var legend = b.role === "fijo";
+      children.push(imagePara(b.img, legend ? 420 : 600, legend ? 260 : 420, false));
+    } else {
+      var next = pb[i + 1];
+      var p = textPara(b, next && next.t === "img");
+      if (p) children.push(p);
+    }
+  });
+
+  var spaces = r.espacios || [];
+  if (spaces.length) {
+    children.push(sectionTitle("INFORME FOTOGRÁFICO"));
+    spaces.forEach(function (sp) {
+      if (!sp.photos.length) return;
+      children.push(new D.Paragraph({
+        heading: D.HeadingLevel.HEADING_2,
+        keepNext: true,
+        spacing: { before: 280, after: 120 },
+        shading: { type: D.ShadingType.CLEAR, color: "auto", fill: BAND },
+        border: { left: { style: D.BorderStyle.SINGLE, size: 36, color: ACCENT, space: 6 } },
+        children: [new D.TextRun({ text: sp.name.toUpperCase(), bold: true, size: 24, color: NAVY, font: FONT })]
+      }));
+      children.push(photoTable(sp.photos));
+    });
+  }
+
+  if (r.presupuesto && (r.presupuesto.img || r.presupuesto.nota)) {
+    children.push(sectionTitle("PRESUPUESTO"));
+    if (r.presupuesto.img) children.push(imagePara(r.presupuesto.img, 620, 700, !!r.presupuesto.nota));
+    if (r.presupuesto.nota && r.presupuesto.img) {
+      children.push(new D.Paragraph({
+        spacing: { after: 120 },
+        children: [new D.TextRun({ text: r.presupuesto.nota, italics: true, size: 20, color: GRAY, font: FONT })]
+      }));
+    } else if (r.presupuesto.nota) {
+      var np = textPara({ t: "p", x: r.presupuesto.nota }, false);
+      if (np) children.push(np);
+    }
+  }
+
+  children.push(sectionTitle((r.conclTitulo || "CONCLUSIONES").toUpperCase()));
+  var cb = r.concl || [];
+  cb.forEach(function (b, i) {
+    var last = i === cb.length - 1;
+    var p = textPara(b, last && !!r.firma);
+    if (p) children.push(p);
+  });
+  if (r.firma) children.push(imagePara(r.firma, 520, 220, false));
+
+  var footer = new D.Footer({
+    children: [new D.Paragraph({
+      tabStops: [{ type: D.TabStopType.RIGHT, position: 9360 }],
+      border: { top: { style: D.BorderStyle.SINGLE, size: 12, color: ACCENT, space: 6 } },
+      children: [
+        new D.TextRun({ text: "\tPágina ", size: 18, color: GRAY, font: FONT }),
+        new D.TextRun({ children: [D.PageNumber.CURRENT], size: 18, color: GRAY, font: FONT }),
+        new D.TextRun({ text: " de ", size: 18, color: GRAY, font: FONT }),
+        new D.TextRun({ children: [D.PageNumber.TOTAL_PAGES], size: 18, color: GRAY, font: FONT })
+      ]
+    })]
+  });
+
+  return new D.Document({
+    background: { color: "FFFFFF" },
+    creator: "Generador de informes",
+    title: "Informe " + (c.apartamento || ""),
+    styles: {
+      default: { document: { run: { font: FONT, size: 22, color: INK } } },
+      paragraphStyles: [
+        { id: "Heading1", name: "Heading 1", basedOn: "Normal", next: "Normal", quickFormat: true,
+          run: { font: FONT, size: 32, bold: true, color: NAVY },
+          paragraph: { spacing: { before: 0, after: 280 }, keepNext: true } },
+        { id: "Heading2", name: "Heading 2", basedOn: "Normal", next: "Normal", quickFormat: true,
+          run: { font: FONT, size: 24, bold: true, color: NAVY },
+          paragraph: { spacing: { before: 280, after: 120 }, keepNext: true } }
+      ]
+    },
+    numbering: {
+      config: [{
+        reference: "numeros",
+        levels: [{ level: 0, format: D.LevelFormat.DECIMAL, text: "%1.", alignment: D.AlignmentType.START,
+          style: { paragraph: { indent: { left: 540, hanging: 360 } } } }]
+      }, {
+        reference: "viñetas",
+        levels: [{ level: 0, format: D.LevelFormat.BULLET, text: "•", alignment: D.AlignmentType.START,
+          style: { paragraph: { indent: { left: 540, hanging: 270 } } } }]
+      }]
+    },
+    sections: [{
+      properties: {
+        titlePage: true,
+        page: { size: { width: 12240, height: 15840 }, margin: { top: 1440, right: 1440, bottom: 1300, left: 1440, header: 500, footer: 500 } }
+      },
+      footers: { default: footer, first: new D.Footer({ children: [new D.Paragraph("")] }) },
+      children: children
+    }]
+  });
+}
+if (typeof module !== "undefined") module.exports = buildReport2;
+
+</script>
+<script>
+(function () {
+  'use strict';
+
+  const MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  const STEPS = [
+    { id: 'portada', label: 'Portada', title: 'Portada' },
+    { id: 'intro', label: 'Introducción', title: 'Introducción' },
+    { id: 'planos', label: 'Planos', title: 'Planos' },
+    { id: 'imagenes', label: 'Imágenes', title: 'Imágenes por espacio' },
+    { id: 'presupuesto', label: 'Presupuesto', title: 'Presupuesto' },
+    { id: 'conclusiones', label: 'Conclusiones', title: 'Conclusiones' },
+    { id: 'generar', label: 'Generar', title: 'Generar informe' }
+  ];
+  const ICONS = {
+    pencil: '<path d="M4 20l1-4L16.5 4.5a2 2 0 0 1 3 3L8 19z"/><path d="M14 7l3 3"/>',
+    x: '<path d="M6 6l12 12M18 6L6 18"/>',
+    check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+    back: '<path d="M19 12H5M11 6l-6 6 6 6"/>',
+    next: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    up: '<path d="M12 19V5M5 12l7-7 7 7"/>',
+    doc: '<path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4M10 12h5M10 16h5"/>',
+    wand: '<path d="M5 19L16 8"/><path d="M14 6l4 4"/><path d="M18 3v3M16.5 4.5h3M6 5v2M5 6h2"/>',
+    trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+    grid: '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>',
+    img: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 8"/>',
+    down: '<path d="M12 4v11M7 11l5 5 5-5M5 20h14"/>',
+    gear: '<circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6L7 7M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"/>',
+    chev: '<path d="M6 9l6 6 6-6"/>',
+    folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'
+  };
+  function icon(n) {
+    const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('class', 'i'); s.setAttribute('aria-hidden', 'true');
+    s.innerHTML = ICONS[n];
+    return s;
+  }
+  function h(tag, attrs, kids) {
+    const e = document.createElement(tag);
+    if (attrs) for (const k in attrs) {
+      const v = attrs[k];
+      if (v == null || v === false) continue;
+      if (k === 'class') e.className = v;
+      else if (k === 'text') e.textContent = v;
+      else if (k === 'value') e.value = v;
+      else if (k.slice(0, 2) === 'on') e.addEventListener(k.slice(2), v);
+      else if (v === true) e.setAttribute(k, '');
+      else e.setAttribute(k, v);
+    }
+    (kids || []).forEach(function (c) { if (c == null || c === false) return; e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
+    return e;
+  }
+  const $ = (s) => document.querySelector(s);
+  const uid = () => Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
+  const toTop = () => { try { window.scrollTo(0, 0); } catch (e) {} };
+  function store(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} }
+  function load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function ago(ms) {
+    if (!ms) return '';
+    const d = Date.now() - ms, m = Math.round(d / 60000);
+    if (d < 45000) return 'hace un momento';
+    if (m < 60) return 'hace ' + Math.max(1, m) + ' min';
+    if (m < 1440) return 'hace ' + Math.round(m / 60) + ' h';
+    if (m < 10080) { const n = Math.round(m / 1440); return 'hace ' + n + (n === 1 ? ' día' : ' días'); }
+    const dt = new Date(ms); return 'el ' + dt.getDate() + ' de ' + MONTHS[dt.getMonth()] + ' de ' + dt.getFullYear();
+  }
+  const clone = (o) => { try { return JSON.parse(JSON.stringify(o || {})); } catch (e) { return {}; } };
+  const has = (v) => !!String(v == null ? '' : v).trim();
+  const natCmp = (a, b) => String(a).localeCompare(String(b), 'es', { numeric: true, sensitivity: 'base' });
+
+  let db = null, assets = null, dbState = 'loading';
+  let projects = [], reports = [], projReady = false, repReady = false;
+  let view = 'projects', PID = null, R = null, step = 'portada';
+  let confirmDel = null, filterText = '', showSettings = false, selGroup = '', newGroupName = '';
+  let imp = { busy: false, msg: '', done: 0, total: 0, warns: [], infos: [], note: '' };
+  let genState = { busy: false, msg: '', kind: '' };
+  let navNext = null;
+
+  function mutateProject(fn) {
+    const d = proj(PID); if (!d) return Promise.resolve();
+    fn(d);
+    return saveProject(PID);
+  }
+  const proj = (id) => { const p = projects.filter((x) => x.id === id)[0]; return p ? p.data : null; };
+  const projReports = (pid) => reports.filter((r) => r.data.projectId === pid);
+
+  /* ---------- imágenes ---------- */
+  function decode(blob) {
+    if (typeof createImageBitmap === 'function') {
+      return createImageBitmap(blob).catch(() => decodeImg(blob));
+    }
+    return decodeImg(blob);
+  }
+  function decodeImg(blob) {
+    return new Promise((res, rej) => {
+      const url = URL.createObjectURL(blob), im = new Image();
+      im.onload = () => { res({ width: im.naturalWidth, height: im.naturalHeight, _img: im, _url: url }); };
+      im.onerror = () => { URL.revokeObjectURL(url); rej(new Error('decode')); };
+      im.src = url;
+    });
+  }
+  function processBlob(blob, maxDim) {
+    return decode(blob).then((src) => {
+      const k = Math.min(1, maxDim / Math.max(src.width, src.height));
+      const w = Math.max(1, Math.round(src.width * k)), hh = Math.max(1, Math.round(src.height * k));
+      const c = document.createElement('canvas'); c.width = w; c.height = hh;
+      const x = c.getContext('2d'); x.fillStyle = '#ffffff'; x.fillRect(0, 0, w, hh);
+      x.drawImage(src._img || src, 0, 0, w, hh);
+      if (src._url) URL.revokeObjectURL(src._url);
+      if (src.close) src.close();
+      return new Promise((res, rej) => c.toBlob((b) => { if (b) res({ blob: b, w: w, h: hh }); else rej(new Error('encode')); }, 'image/jpeg', 0.9));
+    });
+  }
+  function mimeOf(ext) { return ext === 'png' ? 'image/png' : ext === 'gif' ? 'image/gif' : ext === 'bmp' ? 'image/bmp' : ext === 'webp' ? 'image/webp' : 'image/jpeg'; }
+  function makeItem(p) { return { aid: null, w: p.w, h: p.h, cap: '', blob: p.blob, url: URL.createObjectURL(p.blob) }; }
+  function fileToItem(file, maxDim) { return processBlob(file, maxDim).then(makeItem); }
+  function hydrate(r) { return r && r.aid ? { aid: r.aid, w: r.w || 1, h: r.h || 1, cap: r.cap || '', blob: null, url: '/_blob/' + r.aid } : null; }
+  function refOf(it) { return it && it.aid ? { aid: it.aid, w: it.w, h: it.h, cap: it.cap || '' } : null; }
+  async function sha(bytes) {
+    try {
+      const d = await crypto.subtle.digest('SHA-256', bytes);
+      return Array.prototype.map.call(new Uint8Array(d), (b) => b.toString(16).padStart(2, '0')).join('');
+    } catch (e) { return 'len' + bytes.length; }
+  }
+  async function uploadItem(it) {
+    if (it.aid || !it.blob) return;
+    if (!assets) { it.err = 'assets no disponible'; return; }
+    try { const r = await Promise.race([assets.upload(it.blob, { type: 'image/jpeg' }), new Promise((_, rej) => setTimeout(() => rej({ code: 'timeout' }), 45000))]); it.aid = r.id; } catch (e) { it.err = (e && (e.code || e.message)) || 'error'; }
+  }
+
+  /* ---------- modelo ---------- */
+  function emptyReport(pid) {
+    return {
+      id: uid(), projectId: pid, createdAt: Date.now(), step: 'portada', source: '',
+      cover: { subtitulo: '', apartamento: '', conjunto: '', elaboradores: '', fecha: '' },
+      vars: { seguro: '', poliza: '', siniestro: '', valor: '' },
+      intro: [], planosTitulo: 'PLANO CON EL REGISTRO DE LAS AFECTACIONES', planos: [], grupoId: '',
+      espacios: {}, presupuesto: { item: null, nota: '' }, concl: [], conclTitulo: 'CONCLUSIONES', firma: null, completado: false, drive: null, importError: '', exportado: null
+    };
+  }
+  function serialize(st) {
+    const esp = {};
+    Object.keys(st.espacios).forEach((k) => {
+      const l = st.espacios[k].filter((i) => i.aid).map(refOf);
+      if (l.length) esp[k] = l;
+    });
+    return {
+      v: 2, projectId: st.projectId, createdAt: st.createdAt, updatedAt: Date.now(), step: st.step, source: st.source,
+      cover: st.cover, vars: st.vars, intro: st.intro, planosTitulo: st.planosTitulo, grupoId: st.grupoId,
+      planos: st.planos.map((b) => b.t === 'img' ? { t: 'img', role: b.role, ref: refOf(b.item) } : b),
+      espacios: esp, presupuesto: { ref: refOf(st.presupuesto.item), nota: st.presupuesto.nota },
+      concl: st.concl, conclTitulo: st.conclTitulo, firma: refOf(st.firma),
+      completado: !!st.completado, drive: st.drive || null, importError: st.importError || '', exportado: st.exportado || null
+    };
+  }
+  function fromData(id, d) {
+    const st = emptyReport(d.projectId);
+    st.id = id; st.createdAt = d.createdAt || st.createdAt; st.step = d.step || 'portada'; st.source = d.source || '';
+    Object.keys(st.cover).forEach((k) => { if (d.cover && typeof d.cover[k] === 'string') st.cover[k] = d.cover[k]; });
+    Object.keys(st.vars).forEach((k) => { if (d.vars && typeof d.vars[k] === 'string') st.vars[k] = d.vars[k]; });
+    st.intro = (d.intro || []).map((b) => ({ t: b.t, x: b.x }));
+    st.planosTitulo = d.planosTitulo || st.planosTitulo;
+    st.grupoId = d.grupoId || '';
+    st.planos = (d.planos || []).map((b) => b.t === 'img' ? { t: 'img', role: b.role, item: hydrate(b.ref) } : { t: b.t, x: b.x });
+    st.espacios = {};
+    Object.keys(d.espacios || {}).forEach((k) => { st.espacios[k] = d.espacios[k].map(hydrate).filter(Boolean); });
+    st.presupuesto = { item: hydrate(d.presupuesto && d.presupuesto.ref), nota: (d.presupuesto && d.presupuesto.nota) || '' };
+    st.concl = (d.concl || []).map((b) => ({ t: b.t, x: b.x }));
+    st.conclTitulo = d.conclTitulo || st.conclTitulo;
+    st.firma = hydrate(d.firma);
+    st.completado = !!d.completado; st.drive = d.drive || null; st.importError = d.importError || ''; st.exportado = d.exportado || null;
+    return st;
+  }
+  function collectAids(obj, set) {
+    if (!obj || typeof obj !== 'object') return set;
+    if (Array.isArray(obj)) { obj.forEach((x) => collectAids(x, set)); return set; }
+    if (typeof obj.aid === 'string') set.add(obj.aid);
+    Object.keys(obj).forEach((k) => { if (k !== 'aid') collectAids(obj[k], set); });
+    return set;
+  }
+  function stateItems(st) {
+    const out = [];
+    st.planos.forEach((b) => { if (b.t === 'img' && b.item) out.push(b.item); });
+    Object.keys(st.espacios).forEach((k) => st.espacios[k].forEach((i) => out.push(i)));
+    if (st.presupuesto.item) out.push(st.presupuesto.item);
+    if (st.firma) out.push(st.firma);
+    return out;
+  }
+  function moduleGaps(d) {
+    const g = [], c = d.cover || {}, v = d.vars || {};
+    if (!has(c.apartamento) || !has(c.conjunto)) g.push('portada');
+    if (!(d.intro || []).length || !has(v.seguro) || !has(v.poliza) || !has(v.siniestro)) g.push('introducción');
+    else if (formatoDiffs(d, proj(d.projectId)).indexOf('intro') > -1) g.push('introducción distinta al formato');
+    const p = proj(d.projectId), grp = p && (p.grupos || []).filter((x) => x.id === d.grupoId)[0];
+    const ind = (d.planos || []).filter((b) => b.t === 'img' && b.role === 'individual')[0];
+    if (!(grp && grp.aid) || !(ind && ind.ref)) g.push('planos');
+    if (!Object.keys(d.espacios || {}).length) g.push('imágenes');
+    if (presRequired(proj(d.projectId)) && !has(d.presupuesto && d.presupuesto.nota)) g.push('presupuesto');
+    if (!(d.concl || []).length || !has(v.valor)) g.push('conclusiones');
+    else if (formatoDiffs(d, proj(d.projectId)).indexOf('concl') > -1) g.push('conclusiones distintas al formato');
+    return g;
+  }
+  const NOTA_PRESUPUESTO = 'Nota: Los items cuya cantidad se encuentra en cero, corresponde a que no se requiere.';
+  const presRequired = (p) => !(p && p.presupuestoObligatorio === false);
+  function normText(x) { return String(x || '').toLowerCase().replace(/\{\{[a-z]+\}\}/g, '{}').replace(/\[[^\]]*\]/g, '[]').replace(/[\u2018\u2019\u201c\u201d]/g, '"').replace(/\s+/g, ' ').trim(); }
+  function blocksKey(bl) { return (bl || []).map((b) => (b.t || 'p') + '|' + normText(b.x)).filter((s) => s.length > 2).join('\n'); }
+  function formatoDiffs(d, p) {
+    const f = p && p.formato, out = [];
+    if (!f) return out;
+    if (blocksKey(d.intro) !== blocksKey(f.intro)) out.push('intro');
+    if (blocksKey(d.concl) !== blocksKey(f.concl)) out.push('concl');
+    return out;
+  }
+  function cardState(d) { return d.completado ? 'verde' : (d.importError || moduleGaps(d).length ? 'rojo' : 'amarillo'); }
+  function gaps(d) {
+    const g = [];
+    if (!has(d.cover && d.cover.apartamento)) g.push('apartamento');
+    const v = d.vars || {};
+    if (!has(v.seguro)) g.push('aseguradora');
+    if (!has(v.poliza)) g.push('póliza');
+    if (!has(v.siniestro)) g.push('siniestro');
+    if (!has(v.valor)) g.push('valor');
+    const p = proj(d.projectId);
+    const grp = p && (p.grupos || []).filter((x) => x.id === d.grupoId)[0];
+    if (!grp) g.push('plano de grupo');
+    const ind = (d.planos || []).filter((b) => b.t === 'img' && b.role === 'individual')[0];
+    if (!ind || !ind.ref) g.push('plano individual');
+    if (!Object.keys(d.espacios || {}).length) g.push('fotos');
+    if (presRequired(proj(d.projectId)) && !has(d.presupuesto && d.presupuesto.nota)) g.push('presupuesto');
+    const fd = formatoDiffs(d, p);
+    if (fd.indexOf('intro') > -1) g.push('introducción distinta al formato');
+    if (fd.indexOf('concl') > -1) g.push('conclusiones distintas al formato');
+    return g;
+  }
+
+  /* ---------- guardado ---------- */
+  let lastDbErr = '', saveTimer = null, chain = Promise.resolve(), orphans = [], partial = false;
+  function setSave(state) {
+    const t = { saving: 'Guardando…', saved: 'Guardado', partial: 'Guardado, pero algunas imágenes no se pudieron subir', error: 'No se pudo guardar. Reintentaremos con el próximo cambio', off: 'Sin guardado: la base de datos no está disponible' }[state] || '';
+    const e = $('#saveState'); if (e) e.textContent = t;
+  }
+  function touch() { if (R) queueSave(); }
+  function queueSave() {
+    if (!R) return;
+    if (!db) { setSave('off'); return; }
+    setSave('saving');
+    clearTimeout(saveTimer);
+    const st = R;
+    saveTimer = setTimeout(() => flush(st), 700);
+  }
+  async function doSave(st) {
+    if (!db) return;
+    try {
+      await Promise.all(stateItems(st).map(uploadItem));
+      partial = stateItems(st).some((i) => !i.aid);
+      const mine = orphans.splice(0);
+      try { await db.doc('informes2/' + st.id).set(serialize(st)); }
+      catch (e) { orphans = mine.concat(orphans); throw e; }
+      await gcAssets(mine);
+      if (R === st) setSave(partial ? 'partial' : 'saved');
+    } catch (e) { if (R === st) setSave('error'); }
+  }
+  function flush(st) { clearTimeout(saveTimer); chain = chain.then(() => doSave(st)); return chain; }
+  async function saveProject(pid) {
+    const d = proj(pid);
+    if (!db || !d) return;
+    d.updatedAt = Date.now();
+    try { await db.doc('proyectos/' + pid).set(d); lastDbErr = ''; return true; } catch (e) { lastDbErr = (e && (e.code || e.message)) || 'error'; return false; }
+  }
+  let pTimers = {};
+  function saveProjectLater(pid) { clearTimeout(pTimers[pid]); pTimers[pid] = setTimeout(() => saveProject(pid), 700); }
+  async function gcAssets(aids) {
+    if (!assets || !aids || !aids.length) return;
+    const used = new Set();
+    reports.forEach((r) => { if (!(R && r.id === R.id)) collectAids(r.data, used); });
+    projects.forEach((p) => collectAids(p.data, used));
+    if (R) collectAids(serialize(R), used);
+    if (globalCfg.firma && globalCfg.firma.aid) used.add(globalCfg.firma.aid);
+    await Promise.all(aids.filter((a) => a && !used.has(a)).map((a) => assets.delete(a).catch(() => {})));
+  }
+  function dropItem(it) { if (it && it.aid) orphans.push(it.aid); }
+  function commitUndo() { undoStack.forEach((e) => dropItem(e.item)); undoStack = []; }
+  function pushUndo(label, item, restore) {
+    if (!item) return;
+    undoStack.push({ label: label, item: item, restore: restore, rid: R && R.id });
+    while (undoStack.length > 12) dropItem(undoStack.shift().item);
+  }
+  function doUndo() {
+    const e = undoStack.pop();
+    if (!e) return;
+    if (!R || e.rid !== R.id) { dropItem(e.item); return; }
+    e.restore(); touch(); renderStage();
+  }
+  function undoBar() {
+    const e = undoStack[undoStack.length - 1];
+    return h('div', { class: 'undobar', role: 'status' }, [
+      h('span', { text: e.label + (undoStack.length > 1 ? ' (' + undoStack.length + ' cambios por deshacer)' : '') }),
+      h('button', { class: 'btn sm', type: 'button', onclick: doUndo }, [icon('back'), 'Deshacer'])
+    ]);
+  }
+  let lbEl = null;
+  function openLightbox(list, start, title) {
+    if (lbEl) lbEl.remove();
+    let i = Math.max(0, Math.min(start || 0, list.length - 1)), zoomed = false;
+    const back = h('div', { class: 'lb', role: 'dialog', 'aria-modal': 'true', 'aria-label': title || 'Imagen', tabindex: '-1' });
+    lbEl = back;
+    const close = () => { back.remove(); lbEl = null; document.removeEventListener('keydown', onKey, true); };
+    const step = (d) => { i = (i + d + list.length) % list.length; zoomed = false; draw(); };
+    function onKey(e) {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); }
+      else if (e.key === 'ArrowLeft' && list.length > 1) { e.preventDefault(); step(-1); }
+      else if (e.key === 'ArrowRight' && list.length > 1) { e.preventDefault(); step(1); }
+    }
+    function draw() {
+      back.innerHTML = '';
+      const it = list[i];
+      const img = h('img', { src: it.url, alt: (title || 'Imagen') + ' ' + (i + 1) });
+      img.addEventListener('click', (e) => { e.stopPropagation(); zoomed = !zoomed; stage.classList.toggle('zoom', zoomed); });
+      const stage = h('div', { class: 'lb-stage' + (zoomed ? ' zoom' : '') }, [img]);
+      back.appendChild(h('div', { class: 'lb-top' }, [
+        h('span', { class: 'lb-t', text: (title || '') + (list.length > 1 ? ' · ' + (i + 1) + ' de ' + list.length : '') }),
+        h('button', { class: 'ib lb-x', type: 'button', 'aria-label': 'Cerrar', onclick: close }, [icon('x')])
+      ]));
+      back.appendChild(stage);
+      if (list.length > 1) {
+        back.appendChild(h('button', { class: 'lb-nav prev', type: 'button', 'aria-label': 'Anterior', onclick: (e) => { e.stopPropagation(); step(-1); } }, [icon('back')]));
+        back.appendChild(h('button', { class: 'lb-nav next', type: 'button', 'aria-label': 'Siguiente', onclick: (e) => { e.stopPropagation(); step(1); } }, [icon('back')]));
+      }
+      if (it.cap) back.appendChild(h('div', { class: 'lb-cap', text: it.cap }));
+    }
+    back.addEventListener('click', (e) => { if (e.target === back || e.target.classList.contains('lb-stage')) close(); });
+    document.addEventListener('keydown', onKey, true);
+    draw();
+    document.body.appendChild(back);
+    back.focus();
+  }
+
+  /* ---------- importar .docx ---------- */
+  function setImp(p) { Object.assign(imp, p); renderDz(); }
+  async function importFiles(files, gid) {
+    if (imp.busy) return;
+    const list = files.filter((f) => /\.docx$/i.test(f.name));
+    const skipped = files.length - list.length;
+    imp = { busy: true, msg: '', done: 0, total: 0, warns: [], infos: [], note: '', gid: gid || '' };
+    selGroup = gid || '';
+    if (skipped) imp.warns.push(skipped + (skipped === 1 ? ' archivo no es un .docx y se omitió.' : ' archivos no son .docx y se omitieron.'));
+    renderDz();
+    let lastId = null;
+    for (let i = 0; i < list.length; i++) {
+      const f = list[i];
+      setImp({ msg: 'Importando ' + f.name + (list.length > 1 ? ' (' + (i + 1) + ' de ' + list.length + ')' : '') + '…', done: 0, total: 0 });
+      try {
+        const j = await api('/api/import?projectId=' + encodeURIComponent(PID) + '&groupId=' + encodeURIComponent(gid || '') + '&name=' + encodeURIComponent(f.name), { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: f });
+        (j.warns || []).forEach((w) => imp.warns.push(w));
+        (j.infos || []).forEach((w) => { const m = f.name + ': ' + w; if (imp.infos.indexOf(m) < 0) imp.infos.push(m); });
+        const d = await api('/api/doc/informes2/' + encodeURIComponent(j.id));
+        if (!reports.some((r) => r.id === j.id)) reports.unshift({ id: j.id, data: d });
+        lastId = j.id;
+      } catch (e) { imp.warns.push(f.name + ': ' + ((e && e.message) || 'no se pudo procesar el archivo.')); }
+    }
+    imp.busy = false; imp.msg = '';
+    imp.note = lastId ? (list.length === 1 ? 'Informe importado.' : 'Importación terminada.') : '';
+    renderDz();
+    if (lastId && list.length === 1) openReport(lastId);
+  }
+
+  /* ---------- generar Word ---------- */
+  async function itemBytes(it) {
+    let blob = it.blob;
+    if (!blob) {
+      const r = await fetch(it.url);
+      if (!r.ok) throw new Error('http');
+      blob = await r.blob();
+    }
+    return new Uint8Array(await blob.arrayBuffer());
+  }
+  async function toGen(it, cap) { return it ? { data: await itemBytes(it), w: it.w, h: it.h, caption: cap || '' } : null; }
+  async function presupuestoForDoc(st, p) {
+    const img = await toGen(st.presupuesto.item);
+    let nota = st.presupuesto.nota || '';
+    if (!presRequired(p) && !img && !has(nota)) nota = NOTA_PRESUPUESTO;
+    return { img: img, nota: nota };
+  }
+  async function buildDoc(st) {
+    const p = proj(st.projectId) || {};
+    const g = (p.grupos || []).filter((x) => x.id === st.grupoId)[0];
+    const grupoItem = g && g.aid ? { aid: g.aid, w: g.w, h: g.h, url: '/_blob/' + g.aid, blob: null } : null;
+    const planos = [];
+    for (const b of st.planos) {
+      if (b.t === 'img') planos.push({ t: 'img', role: b.role, img: await toGen(b.role === 'grupo' ? grupoItem : b.item) });
+      else planos.push({ t: b.t, x: b.x });
+    }
+    const SP = window.SPACES || [];
+    const names = SP.filter((n) => (st.espacios[n] || []).length).concat(Object.keys(st.espacios).filter((n) => SP.indexOf(n) < 0 && st.espacios[n].length));
+    const espacios = [];
+    for (const n of names) {
+      const ph = [];
+      for (const it of st.espacios[n]) ph.push(await toGen(it, it.cap));
+      espacios.push({ name: n, photos: ph });
+    }
+    const rep = {
+      cover: st.cover, vars: st.vars, intro: st.intro, planosTitulo: st.planosTitulo, planos: planos, espacios: espacios,
+      presupuesto: await presupuestoForDoc(st, p),
+      concl: st.concl, conclTitulo: st.conclTitulo, firma: await toGen(globalCfg.firma && globalCfg.firma.aid ? hydrate(globalCfg.firma) : st.firma)
+    };
+    return window.docx.Packer.toBlob(buildReport2(window.docx, rep));
+  }
+  function fileNameOf(st) {
+    const a = String(st.cover.apartamento || '').replace(/^\s*apartamento\s+/i, '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim();
+    return ('Informe ' + (a || 'apartamento') + '.docx').slice(0, 120);
+  }
+  async function saveBlob(blob, name) {
+    const dl = await getCap('downloads');
+    if (!dl) throw { code: 'unavailable' };
+    return dl.save({ filename: name, data: blob });
+  }
+  function errMsg(e) {
+    const code = e && e.code;
+    return code === 'declined' ? 'Descarga cancelada. Puedes volver a intentarlo cuando quieras.'
+      : code === 'unavailable' || code === 'not_granted' || code === 'capability_disabled' ? 'La descarga de archivos no está disponible en esta vista. Abre el artifact en claude.ai para descargar el Word.'
+      : code === 'rate_limited' ? 'Hay otra descarga pendiente. Espera un momento e inténtalo de nuevo.'
+      : 'No se pudo generar el informe. Revisa las imágenes cargadas e inténtalo de nuevo.';
+  }
+  async function generateEditor() {
+    if (genState.busy) return;
+    if (!window.docx || typeof buildReport2 !== 'function') { genState = { busy: false, kind: 'bad', msg: 'No se pudo cargar el generador de Word. Recarga la página.' }; renderStage(); return; }
+    const st = R;
+    genState = { busy: true, kind: '', msg: '' }; renderStage();
+    try {
+      const blob = await buildDoc(st);
+      const name = fileNameOf(st);
+      await saveBlob(blob, name);
+      genState = { busy: false, kind: 'ok', msg: 'Informe generado: ' + name };
+    } catch (e) { genState = { busy: false, kind: 'bad', msg: errMsg(e) }; }
+    if (R === st) renderStage();
+  }
+  let cardBusy = null, cardMsg = {}, driveBusy = null;
+  async function sendCardToDrive(r) {
+    if (cardBusy || driveBusy) return;
+    driveBusy = r.id; cardMsg[r.id] = ''; renderProject();
+    try {
+      const j = await api('/api/drive/send?id=' + encodeURIComponent(r.id), { method: 'POST' });
+      cardMsg[r.id] = j.updated ? 'Actualizado en Drive' : 'Enviado a Drive';
+    } catch (e) { cardMsg[r.id] = (e && e.message) || 'No se pudo enviar a Drive'; }
+    driveBusy = null; if (view === 'project') renderProject();
+  }
+  async function sendEditorToDrive() {
+    if (genState.busy || !R) return;
+    const st = R;
+    genState = { busy: true, kind: '', msg: '' }; renderStage();
+    try {
+      await flush(st);
+      const j = await api('/api/drive/send?id=' + encodeURIComponent(st.id), { method: 'POST' });
+      genState = { busy: false, kind: 'ok', msg: (j.updated ? 'Actualizado en Drive: ' : 'Enviado a Drive: ') + j.name };
+    } catch (e) { genState = { busy: false, kind: 'bad', msg: (e && e.message) || 'No se pudo enviar a Drive.' }; }
+    if (R === st) renderStage();
+  }
+  async function generateFromList(r) {
+    if (cardBusy) return;
+    cardBusy = r.id; cardMsg[r.id] = ''; renderProject();
+    try {
+      const st = fromData(r.id, r.data);
+      const blob = await buildDoc(st);
+      await saveBlob(blob, fileNameOf(st));
+      cardMsg[r.id] = 'Descargado';
+    } catch (e) { cardMsg[r.id] = errMsg(e); }
+    cardBusy = null; if (view === 'project') renderProject();
+  }
+
+  /* ---------- navegación entre vistas ---------- */
+  function setPhase(p) { document.body.setAttribute('data-phase', p); $('#head').hidden = p !== 'editor'; }
+  function showProjects() {
+    commitUndo();
+    const st = R; clearTimeout(saveTimer);
+    R = null; PID = null; view = 'projects'; confirmDel = null; store('hya2-open', null);
+    if (st) flush(st);
+    renderAll(); toTop();
+  }
+  function openProject(id) {
+    PID = id; view = 'project'; R = null; confirmDel = null; filterText = ''; driveEdit = { open: false, draft: null }; driveOpen = false;
+    store('hya2-open', JSON.stringify({ p: id }));
+    renderAll(); toTop(); setTimeout(pollSync, 0); setTimeout(pollExport, 0);
+  }
+  function showProject() {
+    commitUndo();
+    const st = R; clearTimeout(saveTimer);
+    R = null; view = 'project'; confirmDel = null;
+    store('hya2-open', JSON.stringify({ p: PID }));
+    if (st) flush(st);
+    renderAll(); toTop(); setTimeout(pollSync, 0); setTimeout(pollExport, 0);
+  }
+  function openReport(id) {
+    const r = reports.filter((x) => x.id === id)[0];
+    if (!r) return;
+    R = fromData(id, r.data); PID = R.projectId; view = 'editor'; genState = { busy: false, msg: '', kind: '' };
+    step = 'portada'; R.step = 'portada';
+    store('hya2-open', JSON.stringify({ p: PID, r: id }));
+    setSave('saved'); renderAll(); toTop();
+  }
+  function goStep(id) {
+    if (!STEPS.some((s) => s.id === id)) return;
+    step = id; R.step = id; queueSave(); renderAll(); toTop();
+  }
+  const stepIdx = () => Math.max(0, STEPS.map((s) => s.id).indexOf(step));
+
+  /* ---------- vistas: proyectos ---------- */
+  function renderProjects(st) {
+    st.appendChild(h('div', { class: 'dh' }, [
+      h('div', { class: 'dh-l' }, [h('div', null, [h('h1', { text: 'Proyectos' }), h('p', { text: 'Cada proyecto agrupa los informes de un conjunto residencial.' })])]),
+      h('button', { class: 'btn ghost sm', type: 'button', onclick: openFirmas }, [icon('pencil'), 'Firmas'])
+    ]));
+    if (dbState === 'none') { st.appendChild(h('div', { class: 'err', text: 'La base de datos no está disponible en esta vista. Abre el artifact en claude.ai para guardar proyectos e informes.' })); return; }
+    const inp = h('input', { type: 'text', id: 'newProj', placeholder: 'Nombre del proyecto, por ejemplo Torres de Vizcaya', maxlength: '80' });
+    const create = async () => {
+      const name = inp.value.trim();
+      if (!name || !db) return;
+      const id = uid();
+      const data = { name: name, createdAt: Date.now(), updatedAt: Date.now(), defaults: { conjunto: '', subtitulo: '', elaboradores: '', seguro: '', poliza: '', siniestro: '' }, grupos: [], fijos: {} };
+      projects.unshift({ id: id, data: data });
+      try { await db.doc('proyectos/' + id).set(data); } catch (e) {}
+      openProject(id);
+    };
+    inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') create(); });
+    st.appendChild(h('div', { class: 'newp' }, [inp, h('button', { class: 'btn', type: 'button', onclick: create }, [icon('plus'), 'Crear proyecto'])]));
+    st.appendChild(h('div', { class: 'sec-h' }, [h('div', null, [h('h2', { text: 'Tus proyectos' })])]));
+    if (!projReady) { st.appendChild(h('div', { class: 'callout', text: 'Cargando…' })); return; }
+    if (!projects.length) {
+      st.appendChild(h('div', { class: 'callout' }, [h('b', { text: 'Aún no hay proyectos' }), 'Crea el primero con el nombre del conjunto residencial.']));
+      return;
+    }
+    const grid = h('div', { class: 'rgrid' });
+    projects.slice().sort((a, b) => (b.data.updatedAt || 0) - (a.data.updatedAt || 0)).forEach((p) => {
+      const rs = projReports(p.id);
+      const askDel = confirmDel === 'p:' + p.id;
+      grid.appendChild(h('div', { class: 'rc' }, [
+        h('button', { class: 'rc-main', type: 'button', onclick: () => openProject(p.id) }, [
+          h('span', { class: 'rc-t', text: p.data.name || 'Sin nombre' }),
+          h('span', { class: 'rc-s', text: (p.data.defaults && p.data.defaults.conjunto) || 'Sin conjunto definido' }),
+          h('span', { class: 'rc-m', text: rs.length + (rs.length === 1 ? ' informe' : ' informes') + ' · ' + (p.data.grupos || []).length + ' planos de grupo' })
+        ]),
+        h('div', { class: 'rc-foot' }, askDel ? [
+          h('div', { class: 'rc-ask' }, [h('span', { text: '¿Eliminar este proyecto?' }),
+            h('button', { class: 'btn danger sm', type: 'button', onclick: () => deleteProject(p) }, ['Eliminar']),
+            h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { confirmDel = null; renderAll(); } }, ['Cancelar'])])
+        ] : [
+          h('span', { class: 'rc-when', text: ago(p.data.updatedAt) }),
+          h('button', { class: 'btn ghost sm', type: 'button', onclick: () => openProject(p.id) }, ['Abrir']),
+          rs.length ? null : h('button', { class: 'ib', type: 'button', 'aria-label': 'Eliminar proyecto', title: 'Eliminar proyecto', onclick: () => { confirmDel = 'p:' + p.id; renderAll(); } }, [icon('trash')])
+        ])
+      ]));
+    });
+    st.appendChild(grid);
+  }
+  async function deleteProject(p) {
+    confirmDel = null;
+    const aids = Array.from(collectAids(p.data, new Set()));
+    projects = projects.filter((x) => x.id !== p.id);
+    renderAll();
+    if (db) { try { await db.doc('proyectos/' + p.id).delete(); } catch (e) {} }
+    await gcAssets(aids);
+  }
+
+  /* ---------- vistas: proyecto ---------- */
+  let undoStack = [], driveEdit = { open: false, draft: null }, driveOpen = false, firmasOpen = false, globalCfg = { firma: null };
+  let picker = { open: false, stack: [], items: [], loading: false, err: '', ref: '' }, driveSync = { busy: false, msg: '', done: 0, total: 0, summary: '', errs: [] }, driveExp = { busy: false, msg: '', done: 0, total: 0, summary: '', errs: [], gid: '' }, editGroups = new Set(), planErr = '', openGroups = new Set(), addGroupOpen = false, agName = '', agItem = null, agBusy = false, openedOnce = false;
+  const modalOpen = () => showSettings || addGroupOpen || picker.open;
+  function dzFill(box, gid) {
+    box.innerHTML = '';
+    if (imp.gid !== gid) return;
+    if (imp.busy) {
+      box.appendChild(h('div', { class: 'prog2' }, [h('span', { text: (imp.msg || 'Procesando…') + (imp.total ? ' · ' + imp.done + ' de ' + imp.total + ' imágenes' : '') }), imp.total ? h('div', { class: 'bar2' }, [h('i', { style: 'width:' + Math.round(imp.done / imp.total * 100) + '%' })]) : null]));
+    } else if (imp.note) box.appendChild(h('div', { class: 'prog2', text: imp.note }));
+    if (imp.warns.length) box.appendChild(h('div', { class: 'warns' }, imp.warns.map((w) => h('p', { text: w }))));
+    if (imp.infos && imp.infos.length) box.appendChild(h('div', { class: 'infos' }, imp.infos.map((w) => h('p', { text: w }))));
+  }
+  function renderDz() { document.querySelectorAll('.dzbox').forEach((b) => dzFill(b, b.getAttribute('data-g') || '')); }
+  function dfield(label, key, p, opts) {
+    opts = opts || {};
+    const el = opts.area ? h('textarea', { rows: '3' }) : h('input', { type: 'text' });
+    el.value = (p.defaults && p.defaults[key]) || '';
+    el.addEventListener('input', () => { const q = proj(PID); if (!q) return; q.defaults = q.defaults || {}; q.defaults[key] = el.value; saveProjectLater(PID); });
+    return h('div', { class: 'fld' + (opts.wide ? ' wide' : '') }, [h('label', { text: label }), el]);
+  }
+  async function readDoc(file) {
+    const res = await parseInforme(await file.arrayBuffer(), window.JSZip, window.DOMParser);
+    const tm = /TORRE\s+[A-Z0-9]+/i.exec((res.cover && res.cover.apartamento) || '');
+    const pb = res.planos.filter((b) => b.t === 'img' && b.role === 'grupo' && b.bytes)[0] || null;
+    return { res: res, tower: tm ? 'Torre ' + tm[0].split(/\s+/)[1].toUpperCase() : '', plan: pb };
+  }
+  async function planItem(pb) { return makeItem(await processBlob(new Blob([pb.bytes], { type: mimeOf(pb.ext) }), 2200)); }
+  function fillDefaults(p, res, force) {
+    const d = p.defaults = p.defaults || {}, c = res.cover || {}, v = res.vars || {};
+    const src = { conjunto: c.conjunto, subtitulo: c.subtitulo, elaboradores: c.elaboradores, seguro: v.seguro, poliza: v.poliza, siniestro: v.siniestro };
+    Object.keys(src).forEach((k) => { if (has(src[k]) && (force || !has(d[k]))) d[k] = src[k]; });
+  }
+  function docPicker(label, onFile, busyLabel) {
+    const fi = h('input', { type: 'file', accept: '.docx', hidden: true, onchange: (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) run(f); } });
+    const b = h('button', { class: 'btn ghost sm', type: 'button', onclick: () => fi.click() }, [icon('doc'), label]);
+    async function run(f) {
+      b.disabled = true; b.lastChild.textContent = busyLabel || 'Leyendo…';
+      try { await onFile(f); } catch (e) { b.disabled = false; b.lastChild.textContent = e && e.message === 'noplan' ? 'Ese Word no trae plano de grupo. Probar otro' : 'No se pudo leer ese Word. Reintentar'; }
+    }
+    return h('span', null, [b, fi]);
+  }
+  async function setGroupPlan(p, g, file) {
+    try {
+      const it = makeItem(await processBlob(file, 2200)); await uploadItem(it);
+      if (!it.aid) { planErr = 'No se pudo subir el plano (' + (it.err || 'error') + ').'; renderProject(); return; }
+      let old = null;
+      await mutateProject((q) => { const gg = (q.grupos || []).filter((x) => x.id === g.id)[0]; if (gg) { old = gg.aid; gg.aid = it.aid; gg.w = it.w; gg.h = it.h; gg.hash = ''; } });
+      if (old) gcAssets([old]);
+    } catch (e) { planErr = 'No se pudo leer esa imagen.'; }
+    renderProject();
+  }
+  function counts(rs) {
+    const n = { rojo: 0, amarillo: 0, verde: 0 };
+    rs.forEach((r) => { n[cardState(r.data)]++; });
+    const out = [];
+    if (n.rojo) out.push(n.rojo + ' en rojo');
+    if (n.amarillo) out.push(n.amarillo + ' por revisar');
+    if (n.verde) out.push(n.verde + ' completados');
+    return out.length ? ' · ' + out.join(' · ') : '';
+  }
+  function groupCard(p, g) {
+    const gid = g ? g.id : '';
+    const rs = projReports(PID).filter((r) => (r.data.grupoId || '') === gid || (!g && !(p.grupos || []).some((x) => x.id === r.data.grupoId)))
+      .sort((a, b) => natCmp(a.data.cover && a.data.cover.apartamento, b.data.cover && b.data.cover.apartamento));
+    const open = openGroups.has(gid);
+    const name = g ? (g.name || 'Grupo') : 'Sin grupo';
+    const toggle = () => { if (open) openGroups.delete(gid); else openGroups.add(gid); renderProject(); };
+    const editing = editGroups.has(gid);
+    const head = h('div', { class: 'ghead',
+      ondragover: (e) => { e.preventDefault(); head.classList.add('over'); },
+      ondragleave: () => head.classList.remove('over'),
+      ondrop: (e) => { e.preventDefault(); e.stopPropagation(); head.classList.remove('over'); const f = Array.prototype.slice.call((e.dataTransfer && e.dataTransfer.files) || []); if (f.length) { openGroups.add(gid); renderProject(); importFiles(f, gid); } } }, [
+      h('button', { class: 'gmain', type: 'button', 'aria-expanded': open ? 'true' : 'false', onclick: toggle }, [
+        g && g.aid ? h('img', { class: 'gthumb', src: '/_blob/' + g.aid, alt: '' }) : h('span', { class: 'gthumb empty' }, [icon('folder')]),
+        h('span', { class: 'gname' }, [h('b', { text: name }), h('small', { text: rs.length + (rs.length === 1 ? ' informe' : ' informes') + counts(rs) + (g && !g.aid ? ' · sin plano de grupo' : '') })])
+      ]),
+      g ? h('button', { class: 'ib' + (editing ? ' on' : ''), type: 'button', title: 'Editar nombre y plano', 'aria-label': 'Editar nombre y plano del grupo', 'aria-pressed': editing ? 'true' : 'false', onclick: () => { if (editing) editGroups.delete(gid); else { editGroups.add(gid); openGroups.add(gid); } confirmDel = null; renderProject(); } }, [icon('pencil')]) : null,
+      h('button', { class: 'ib chev', type: 'button', 'aria-label': open ? 'Cerrar grupo' : 'Abrir grupo', onclick: toggle }, [icon('chev')])
+    ]);
+    const card = h('div', { class: 'gcard' + (open ? ' open' : '') }, [head]);
+    if (!open) return card;
+    const body = h('div', { class: 'gbody' });
+    if (g && editing) {
+      const ni = h('input', { type: 'text', maxlength: '60', 'aria-label': 'Nombre del grupo' }); ni.value = g.name || '';
+      ni.addEventListener('input', () => { const q = proj(PID), gg = q && (q.grupos || []).filter((x) => x.id === g.id)[0]; if (gg) gg.name = ni.value; saveProjectLater(PID); });
+      ni.addEventListener('change', () => renderProject());
+      const fi = h('input', { type: 'file', accept: 'image/*', hidden: true, onchange: (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) setGroupPlan(p, g, f); } });
+      const askG = confirmDel === 'g:' + g.id;
+      body.appendChild(h('div', { class: 'gplan' }, [
+        g.aid ? h('img', { src: '/_blob/' + g.aid, alt: 'Plano del grupo ' + name }) : h('div', { class: 'pv empty', text: 'Sin plano' }),
+        h('div', { class: 'gi' }, [
+          h('div', { class: 'fld' }, [h('label', { text: 'Nombre del grupo' }), ni]),
+          h('div', { class: 'mini' }, [
+            h('button', { class: 'btn ghost sm', type: 'button', onclick: () => fi.click() }, [icon('img'), g.aid ? 'Cambiar plano de grupo' : 'Subir plano de grupo']),
+            docPicker('Tomar el plano de un Word', async (f) => {
+              const d = await readDoc(f);
+              if (!d.plan) throw new Error('noplan');
+              const it = await planItem(d.plan); await uploadItem(it);
+              if (it.aid) { const hh = await sha(d.plan.bytes); let old = null; await mutateProject((q) => { const gg = (q.grupos || []).filter((x) => x.id === g.id)[0]; if (gg) { old = gg.aid; gg.aid = it.aid; gg.w = it.w; gg.h = it.h; gg.hash = hh; } fillDefaults(q, d.res, false); }); if (old) gcAssets([old]); } else { planErr = 'No se pudo subir el plano (' + (it.err || 'error') + ').'; }
+              renderProject();
+            }),
+            rs.length ? null : (askG ? [
+              h('button', { class: 'btn danger sm', type: 'button', onclick: () => { mutateProject((q) => { q.grupos = (q.grupos || []).filter((x) => x.id !== g.id); }); confirmDel = null; openGroups.delete(gid); gcAssets([g.aid]); renderProject(); } }, ['Eliminar grupo']),
+              h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { confirmDel = null; renderProject(); } }, ['Cancelar'])
+            ] : h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { confirmDel = 'g:' + g.id; renderProject(); } }, [icon('trash'), 'Eliminar grupo'])),
+          ].flat().filter(Boolean)),
+          fi
+        ])
+      ]));
+    }
+    if (planErr) { body.appendChild(h('div', { class: 'err', role: 'alert', text: planErr })); planErr = ''; }
+    const gDriveN = rs.filter((r) => exportPending(r.data)).length;
+    const fiw = h('input', { type: 'file', accept: '.docx', multiple: true, hidden: true, onchange: (e) => { const f = Array.prototype.slice.call(e.target.files); e.target.value = ''; if (f.length) importFiles(f, gid); } });
+    body.appendChild(h('div', { class: 'sec-h sm' }, [h('h3', { text: 'Informes (' + rs.length + ')' }),
+      h('div', { class: 'mini' }, [
+        h('button', { class: 'btn ghost sm', type: 'button', disabled: imp.busy ? true : null, onclick: () => fiw.click() }, [icon('doc'), 'Subir Word']),
+        gDriveN > 0 || rs.some((r) => r.data.drive && r.data.drive.folderId) ? h('button', { class: 'btn ghost sm', type: 'button', title: 'Sube a Drive una copia \"(Corregido)\" de cada informe completado de este grupo', disabled: (driveExp.busy || !gDriveN) ? true : null, onclick: () => exportDrive(gid) }, [icon('up'), driveExp.busy && driveExp.gid === gid ? 'Exportando…' : 'Exportar a Drive' + (gDriveN ? ' (' + gDriveN + ')' : '')]) : null,
+        h('button', { class: 'btn sm', type: 'button', onclick: () => newBlank(gid) }, [icon('plus'), 'Nuevo informe']), fiw])]));
+    if (driveExp.gid === gid && (driveExp.busy || driveExp.summary || driveExp.errs.length)) {
+      const de = driveExp;
+      if (de.busy) body.appendChild(h('div', { class: 'prog2' }, [h('span', { text: 'Exportando · ' + de.msg + (de.total ? ' · ' + de.done + ' de ' + de.total : '') }), de.total ? h('div', { class: 'bar2' }, [h('i', { style: 'width:' + Math.round(de.done / de.total * 100) + '%' })]) : null]));
+      else if (de.summary) body.appendChild(h('div', { class: 'prog2', text: de.summary }));
+      if (de.errs.length) body.appendChild(h('div', { class: 'warns' }, de.errs.slice(0, 8).map((w) => h('p', { text: w }))));
+    }
+    const dz = h('div', { class: 'dzbox', 'data-g': gid }); body.appendChild(dz); dzFill(dz, gid);
+    const area = h('div', { class: 'droparea',
+      ondragover: (e) => { e.preventDefault(); e.stopPropagation(); if (!imp.busy) area.classList.add('over'); },
+      ondragleave: (e) => { if (!area.contains(e.relatedTarget)) area.classList.remove('over'); },
+      ondrop: (e) => { e.preventDefault(); e.stopPropagation(); area.classList.remove('over'); const f = Array.prototype.slice.call((e.dataTransfer && e.dataTransfer.files) || []); if (f.length) importFiles(f, gid); } });
+    if (!repReady) area.appendChild(h('div', { class: 'callout', text: 'Cargando…' }));
+    else {
+      if (rs.length) { const grid = h('div', { class: 'rgrid' }); rs.forEach((r) => grid.appendChild(reportCard(r, p))); area.appendChild(grid); }
+      area.appendChild(h('div', { class: 'dropnote', role: 'button', tabindex: '0', onclick: () => { if (!imp.busy) fiw.click(); }, onkeydown: (e) => { if ((e.key === 'Enter' || e.key === ' ') && !imp.busy) { e.preventDefault(); fiw.click(); } } },
+        [icon('doc'), rs.length ? 'Arrastra aquí otro Word para añadirlo a este grupo' : 'Este grupo aún no tiene informes. Arrastra aquí un Word (.docx) o haz clic para elegirlo']));
+    }
+    body.appendChild(area);
+    card.appendChild(body);
+    return card;
+  }
+  function addGroupModal(p) {
+    const close = () => { addGroupOpen = false; agName = ''; agItem = null; renderProject(); };
+    const ni = h('input', { type: 'text', maxlength: '60', placeholder: 'Por ejemplo Torre B', id: 'agName' }); ni.value = agName;
+    const fi = h('input', { type: 'file', accept: 'image/*', hidden: true, onchange: (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) take(f); } });
+    async function take(f) { try { agItem = makeItem(await processBlob(f, 2200)); } catch (e) {} paint(); }
+    const pv = h('div', { class: 'agpv' });
+    const fromDoc = docPicker('Rellenar desde un Word', async (f) => {
+      const d = await readDoc(f);
+      if (d.tower && !has(agName)) agName = d.tower;
+      if (d.plan) agItem = await planItem(d.plan);
+      await mutateProject((q) => fillDefaults(q, d.res, false));
+      addGroupOpen = true; renderProject();
+    }, 'Leyendo el Word…');
+    const errBox = h('div', { class: 'err', role: 'alert', hidden: true });
+    const showErr = (m) => { errBox.textContent = m; errBox.hidden = !m; };
+    const create = h('button', { class: 'btn', type: 'button', onclick: async () => {
+      if (!has(agName) || agBusy) return;
+      agBusy = true; create.disabled = true; create.textContent = 'Creando…'; showErr('');
+      const g = { id: uid(), name: agName.trim(), aid: null, w: 0, h: 0, hash: '' };
+      let planMsg = '';
+      if (agItem) { await uploadItem(agItem); if (agItem.aid) { g.aid = agItem.aid; g.w = agItem.w; g.h = agItem.h; } else planMsg = 'No se pudo subir el plano (' + (agItem.err || 'error') + '). Súbelo luego desde el grupo.'; }
+      const ok = await mutateProject((q) => { q.grupos = q.grupos || []; q.grupos.push(g); });
+      agBusy = false;
+      if (!ok) { create.disabled = false; create.textContent = 'Crear grupo'; showErr('No se pudo guardar el grupo (' + (lastDbErr || 'error') + '). Inténtalo de nuevo.'); return; }
+      openGroups.add(g.id); addGroupOpen = false; agName = ''; agItem = null;
+      if (planMsg) planErr = planMsg;
+      renderProject();
+    } }, ['Crear grupo']);
+    function paint() {
+      pv.innerHTML = '';
+      pv.appendChild(agItem ? h('img', { src: agItem.url, alt: 'Plano del grupo' }) : h('div', { class: 'pv empty', text: 'Sin plano todavía' }));
+      pv.appendChild(h('div', { class: 'mini' }, [h('button', { class: 'btn ghost sm', type: 'button', onclick: () => fi.click() }, [icon('img'), agItem ? 'Cambiar plano' : 'Subir plano de grupo']), agItem ? h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { agItem = null; paint(); } }, ['Quitar']) : null]));
+    }
+    ni.addEventListener('input', () => { agName = ni.value; create.disabled = !has(agName); });
+    create.disabled = !has(agName);
+    paint();
+    const box = h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Añadir grupo' }, [
+      h('div', { class: 'modal-h' }, [h('div', null, [h('h2', { text: 'Añadir grupo' }), h('p', { text: 'Un grupo reúne los apartamentos que comparten plano, por ejemplo la torre B.' })]),
+        h('button', { class: 'ib', type: 'button', 'aria-label': 'Cerrar', onclick: close }, [icon('x')])]),
+      h('div', { class: 'fields' }, [h('div', { class: 'fld wide' }, [h('label', { text: 'Nombre del grupo' }), ni]), h('div', { class: 'fld wide' }, [h('label', { text: 'Plano de grupo (opcional, puedes subirlo después)' }), pv, fi]), h('div', { class: 'fld wide' }, [fromDoc, h('span', { class: 'help', text: 'Toma de un informe el nombre de la torre, el plano de grupo y los datos del proyecto.' })])]),
+      errBox, h('div', { class: 'foot' }, [h('button', { class: 'btn ghost', type: 'button', onclick: close }, ['Cancelar']), create])
+    ]);
+    const back = h('div', { class: 'modal-bg', onclick: (e) => { if (e.target === back) close(); } }, [box]);
+    back.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+    setTimeout(() => ni.focus(), 0);
+    return back;
+  }
+  function renderProject() {
+    if (view !== 'project') return;
+    const st = $('#stage'); st.innerHTML = '';
+    const p = proj(PID);
+    if (!p) { st.appendChild(h('div', { class: 'callout', text: projReady ? 'No se encontró el proyecto.' : 'Cargando…' })); return; }
+    st.appendChild(h('div', { class: 'top' }, [h('div', { class: 'crumbs' }, [
+      h('button', { type: 'button', onclick: showProjects }, [icon('back'), ' Proyectos']), h('span', { text: '/' }), h('span', { class: 'cur', text: p.name })]),
+      h('div', { class: 'mini' }, [
+        h('button', { class: 'btn ghost sm' + (driveOpen ? ' on' : ''), type: 'button', 'aria-pressed': driveOpen ? 'true' : 'false', onclick: () => { driveOpen = !driveOpen; if (!driveOpen) driveEdit = { open: false, draft: null }; renderProject(); } }, [icon('folder'), 'Drive']),
+        h('button', { class: 'btn ghost sm', type: 'button', onclick: openFirmas }, [icon('pencil'), 'Firmas']),
+        h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { showSettings = true; renderProject(); } }, [icon('gear'), 'Ajustes del proyecto'])
+      ])]));
+    const gs = p.grupos || [];
+    if (!openedOnce && gs.length && projReady && repReady) { openedOnce = true; openGroups.add(gs[0].id); }
+    st.appendChild(h('div', { class: 'sec-h' }, [h('div', null, [h('h1', { class: 'ph', text: 'Grupos' }), h('p', { text: 'Cada grupo reúne los apartamentos que comparten plano. Ábrelo para ver sus informes o arrastra un Word encima.' })]),
+      h('button', { class: 'btn', type: 'button', onclick: () => { addGroupOpen = true; renderProject(); } }, [icon('plus'), 'Añadir grupo'])]));
+    if (driveOpen) st.appendChild(driveBar(p));
+    const orphan = projReports(PID).some((r) => !gs.some((x) => x.id === r.data.grupoId));
+    if (!gs.length && !orphan) {
+      st.appendChild(h('div', { class: 'callout' }, [h('b', { text: 'Aún no hay grupos' }), 'Crea el primero, por ejemplo Torre B, y sube su plano. Después arrastra ahí los informes de Word.']));
+    }
+    const list = h('div', { class: 'glist' });
+    gs.forEach((g) => list.appendChild(groupCard(p, g)));
+    if (orphan) list.appendChild(groupCard(p, null));
+    st.appendChild(list);
+    if (showSettings) st.appendChild(settingsModal(p));
+    if (addGroupOpen) st.appendChild(addGroupModal(p));
+    if (picker.open) st.appendChild(pickerModal(p));
+  }
+
+  function presToggle(p) {
+    const cb = h('input', { type: 'checkbox', id: 'presReq' });
+    cb.checked = presRequired(p);
+    cb.addEventListener('change', () => { mutateProject((q) => { q.presupuestoObligatorio = cb.checked; }).then(renderProject); });
+    return h('div', { class: 'fld wide' }, [
+      h('label', { class: 'chk', for: 'presReq' }, [cb, h('span', { text: 'Presupuesto obligatorio' })]),
+      h('span', { class: 'help', text: 'Si lo desactivas, un informe sin presupuesto no se marca como falta y el Word lleva solo la nota «' + NOTA_PRESUPUESTO + '» en esa sección, sin imagen.' })
+    ]);
+  }
+  function settingsModal(p) {
+    const close = () => { showSettings = false; renderProject(); };
+    const nameInp = h('input', { type: 'text', maxlength: '80' }); nameInp.value = p.name || '';
+    nameInp.addEventListener('input', () => { const q = proj(PID); if (q) q.name = nameInp.value; saveProjectLater(PID); });
+    const last = projReports(PID).slice().sort((a, b) => (b.data.updatedAt || 0) - (a.data.updatedAt || 0))[0];
+    const fromDoc = docPicker('Rellenar desde un Word', async (f) => {
+      const d = await readDoc(f); await mutateProject((q) => fillDefaults(q, d.res, true)); renderProject();
+    });
+    const fillBtn = h('button', { class: 'btn ghost sm', type: 'button', disabled: last ? null : true, onclick: () => {
+      const c = last.data.cover || {}, v = last.data.vars || {};
+      mutateProject((q) => { const d = q.defaults = q.defaults || {};
+        d.conjunto = c.conjunto || d.conjunto || ''; d.subtitulo = c.subtitulo || d.subtitulo || ''; d.elaboradores = c.elaboradores || d.elaboradores || '';
+        d.seguro = v.seguro || d.seguro || ''; d.poliza = v.poliza || d.poliza || ''; d.siniestro = v.siniestro || d.siniestro || ''; }).then(renderProject);
+    } }, [icon('wand'), 'Rellenar con el último informe']);
+    const box = h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Ajustes del proyecto' }, [
+      h('div', { class: 'modal-h' }, [h('div', null, [h('h2', { text: 'Ajustes del proyecto' }), h('p', { text: 'Sirven para rellenar con un clic los informes nuevos. Cada informe puede cambiarlos.' })]),
+        h('button', { class: 'ib', type: 'button', 'aria-label': 'Cerrar', onclick: close }, [icon('x')])]),
+      h('div', { class: 'fields' }, [
+        h('div', { class: 'fld wide' }, [h('label', { text: 'Nombre del proyecto' }), nameInp]),
+        dfield('Conjunto residencial', 'conjunto', p, { wide: true }),
+        dfield('Aseguradora', 'seguro', p),
+        dfield('Póliza', 'poliza', p),
+        dfield('Siniestro', 'siniestro', p),
+        dfield('Título de la portada', 'subtitulo', p, { wide: true }),
+        dfield('Elaborado por (uno por línea)', 'elaboradores', p, { area: true, wide: true }),
+        presToggle(p)
+      ]),
+      h('div', { class: 'foot' }, [fromDoc, fillBtn, h('button', { class: 'btn', type: 'button', onclick: close }, ['Listo'])])
+    ]);
+    const back = h('div', { class: 'modal-bg', onclick: (e) => { if (e.target === back) close(); } }, [box]);
+    back.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+    return back;
+  }
+  async function setCompleted(r, v) {
+    r.data.completado = v; r.data.updatedAt = Date.now();
+    if (db) { try { await db.doc('informes2/' + r.id).set(r.data); } catch (e) {} }
+    renderProject();
+  }
+  function exportPending(d) { return !!(d && d.completado && !d.importError && d.drive && d.drive.folderId && (!d.exportado || (d.updatedAt || 0) > (d.exportado.at || 0))); }
+  function reportCard(r, p) {
+    const d = r.data, c = d.cover || {};
+    const nSp = Object.keys(d.espacios || {}).length;
+    const nPh = Object.keys(d.espacios || {}).reduce((n, k) => n + d.espacios[k].length, 0);
+    const state = cardState(d), mg = moduleGaps(d);
+    const askDel = confirmDel === 'r:' + r.id;
+    const msg = state === 'verde' ? 'Completado' : d.importError ? d.importError : state === 'amarillo' ? 'Mismo formato. Revisa y márcalo como completado.' : 'No coincide el formato: ' + mg.join(', ');
+    return h('div', { class: 'rc ' + state }, [
+      h('button', { class: 'rc-main', type: 'button', onclick: () => openReport(r.id) }, [
+        h('span', { class: 'rc-t', text: c.apartamento || 'Sin apartamento' }),
+        h('span', { class: 'rc-s', text: nSp + (nSp === 1 ? ' espacio' : ' espacios') + ' · ' + nPh + (nPh === 1 ? ' foto' : ' fotos') }),
+        h('span', { class: 'rc-m', text: msg }),
+        d.drive && d.drive.path ? h('span', { class: 'rc-p', title: d.drive.path + ' / ' + (d.drive.name || ''), text: 'Drive: ' + d.drive.path }) : null,
+        d.completado && d.drive ? h('span', { class: 'rc-x' + (exportPending(d) ? ' pend' : ''), text: exportPending(d) ? (d.exportado ? 'Cambios sin exportar' : 'Pendiente de exportar a Drive') : 'Exportado a Drive ' + ago(d.exportado.at) }) : null
+      ]),
+      h('div', { class: 'rc-foot' }, askDel ? [
+        h('div', { class: 'rc-ask' }, [h('span', { text: '¿Eliminar este informe?' }),
+          h('button', { class: 'btn danger sm', type: 'button', onclick: () => deleteReport(r) }, ['Eliminar']),
+          h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { confirmDel = null; renderProject(); } }, ['Cancelar'])])
+      ] : [
+        h('span', { class: 'rc-when', text: cardMsg[r.id] || ago(d.updatedAt) }),
+        state === 'amarillo' ? h('button', { class: 'btn sm', type: 'button', onclick: () => setCompleted(r, true) }, [icon('check'), 'Marcar completado']) : null,
+        state === 'verde' ? h('button', { class: 'btn ghost sm', type: 'button', onclick: () => setCompleted(r, false) }, ['Quitar completado']) : null,
+        d.importError || !(d.drive && d.drive.folderId) ? null : h('button', { class: 'btn ghost sm', type: 'button', title: 'Sube una copia "(Corregido)" a la carpeta de Drive donde estaba el original', disabled: (cardBusy || driveBusy) ? true : null, onclick: () => sendCardToDrive(r) }, [icon('up'), driveBusy === r.id ? 'Enviando…' : (d.exportado && !exportPending(d) ? 'En Drive' : 'Enviar a Drive')]),
+        d.importError ? null : h('button', { class: 'btn ghost sm', type: 'button', disabled: cardBusy ? true : null, onclick: () => generateFromList(r) }, [icon('down'), cardBusy === r.id ? 'Generando…' : 'Word']),
+        h('button', { class: 'ib', type: 'button', 'aria-label': 'Eliminar informe', title: 'Eliminar informe', onclick: () => { confirmDel = 'r:' + r.id; renderProject(); } }, [icon('trash')])
+      ])
+    ]);
+  }
+  async function deleteReport(r) {
+    confirmDel = null;
+    const aids = Array.from(collectAids(r.data, new Set()));
+    reports = reports.filter((x) => x.id !== r.id);
+    renderProject();
+    if (db) { try { await db.doc('informes2/' + r.id).delete(); } catch (e) {} }
+    await gcAssets(aids);
+  }
+  function newBlank(gid) {
+    const p = proj(PID); if (!p) return;
+    const all = projReports(PID).slice().sort((a, b) => (b.data.updatedAt || 0) - (a.data.updatedAt || 0));
+    const rs = all.filter((r) => (r.data.grupoId || '') === (gid || '')).concat(all);
+    const base = rs.length ? fromData(rs[0].id, rs[0].data) : emptyReport(PID);
+    if (!rs.length) { base.planos = [{ t: 'img', role: 'grupo', item: null }, { t: 'img', role: 'individual', item: null }]; }
+    const st = emptyReport(PID);
+    const d = p.defaults || {};
+    st.cover = { subtitulo: d.subtitulo || base.cover.subtitulo, apartamento: '', conjunto: d.conjunto || base.cover.conjunto, elaboradores: d.elaboradores || base.cover.elaboradores, fecha: base.cover.fecha };
+    st.vars = { seguro: d.seguro || base.vars.seguro, poliza: d.poliza || base.vars.poliza, siniestro: d.siniestro || base.vars.siniestro, valor: '' };
+    st.intro = base.intro.map((b) => ({ t: b.t, x: b.x }));
+    st.planosTitulo = base.planosTitulo; st.grupoId = gid || '';
+    st.planos = base.planos.map((b) => b.t === 'img' ? { t: 'img', role: b.role, item: b.role === 'fijo' ? b.item : null } : { t: b.t, x: b.x });
+    st.concl = base.concl.map((b) => ({ t: b.t, x: b.x })); st.conclTitulo = base.conclTitulo; st.firma = base.firma;
+    st.presupuesto.nota = base.presupuesto.nota;
+    if (p.formato) {
+      if (p.formato.intro && p.formato.intro.length) st.intro = p.formato.intro.map((b) => ({ t: b.t, x: b.x }));
+      if (p.formato.concl && p.formato.concl.length) { st.concl = p.formato.concl.map((b) => ({ t: b.t, x: b.x })); }
+      applyFormatoPlanos(st, p.formato);
+      if (has(p.formato.presupuestoNota)) st.presupuesto.nota = p.formato.presupuestoNota;
+    }
+    reports.unshift({ id: st.id, data: serialize(st) });
+    R = st; view = 'editor'; step = 'portada'; setSave('saving'); queueSave(); renderAll(); toTop();
+  }
+
+  /* ---------- editor ---------- */
+  function renderHead() {
+    const back = $('#backBtn'); back.innerHTML = ''; back.appendChild(icon('back')); back.appendChild(document.createTextNode('Atrás'));
+    const home = $('#homeBtn'); home.innerHTML = ''; home.appendChild(icon('grid')); home.appendChild(document.createTextNode('Proyecto'));
+    const idx = stepIdx();
+    back.disabled = idx === 0;
+    $('#stepNum').textContent = String(idx + 1);
+    const pct = genState.kind === 'ok' && step === 'generar' ? 100 : Math.round(idx / STEPS.length * 100);
+    const ol = $('#dots'); ol.innerHTML = '';
+    STEPS.forEach((s, i) => {
+      const state = i < idx ? 'done' : i === idx ? 'current' : 'pending';
+      ol.appendChild(h('li', null, [
+        h('button', { class: 'dotb', type: 'button', 'data-s': state, title: s.label, 'aria-label': 'Paso ' + (i + 1) + ': ' + s.label, 'aria-current': state === 'current' ? 'step' : null, onclick: () => goStep(s.id) }),
+        state === 'current' ? h('span', { class: 'tip', text: pct + '%' }) : null
+      ]));
+    });
+  }
+  function stageHead(sub) {
+    const i = stepIdx();
+    return h('div', { class: 'stage-head' }, [
+      h('p', { class: 'kick', text: 'PASO ' + (i + 1) + ' DE ' + STEPS.length + ' · ' + (R.cover.apartamento || 'SIN APARTAMENTO').toUpperCase() }),
+      h('h2', { text: STEPS[i].title }),
+      h('p', { text: sub })
+    ]);
+  }
+  function navFoot(hint) {
+    const i = stepIdx();
+    const prev = i > 0 ? STEPS[i - 1].id : null, next = i < STEPS.length - 1 ? STEPS[i + 1].id : null;
+    return h('div', { class: 'foot' }, [
+      h('span', { class: 'hint', text: hint || '' }),
+      prev ? h('button', { class: 'btn ghost', type: 'button', onclick: () => goStep(prev) }, [icon('back'), 'Atrás']) : null,
+      next ? h('button', { class: 'btn', type: 'button', onclick: () => goStep(next) }, ['Siguiente', icon('next')]) : null
+    ]);
+  }
+  function field(label, get, set, o) {
+    o = o || {};
+    const el = o.area ? h('textarea', { rows: String(o.rows || 3) }) : h('input', { type: 'text' });
+    el.value = get() || '';
+    if (o.placeholder) el.setAttribute('placeholder', o.placeholder);
+    el.addEventListener('input', () => { set(el.value); touch(); if (o.onInput) o.onInput(); });
+    return h('div', { class: 'fld' + (o.wide ? ' wide' : '') }, [h('label', { text: label }), el, o.help ? h('span', { class: 'help', text: o.help }) : null]);
+  }
+  function varText(x, vars) {
+    const frag = document.createDocumentFragment();
+    const NAMES = { SEGURO: ['seguro', 'aseguradora'], POLIZA: ['poliza', 'póliza'], SINIESTRO: ['siniestro', 'siniestro'], VALOR: ['valor', 'valor'] };
+    String(x || '').split(/(\{\{[A-Z]+\}\})/).forEach((part) => {
+      const m = /^\{\{([A-Z]+)\}\}$/.exec(part);
+      if (m && NAMES[m[1]]) {
+        const v = (vars[NAMES[m[1]][0]] || '').trim();
+        frag.appendChild(h('mark', { class: v ? '' : 'no', text: v || '[falta ' + NAMES[m[1]][1] + ']' }));
+      } else frag.appendChild(document.createTextNode(part));
+    });
+    return frag;
+  }
+  function blocksView(blocks, vars) {
+    const box = h('div', { class: 'ptxt' });
+    let list = null, lt = null;
+    blocks.forEach((b) => {
+      if (b.t === 'li' || b.t === 'ol') {
+        if (!list || lt !== b.t) { list = h(b.t === 'ol' ? 'ol' : 'ul'); lt = b.t; box.appendChild(list); }
+        const li = h('li'); li.appendChild(varText(b.x, vars)); list.appendChild(li);
+      } else {
+        list = null; lt = null;
+        const p = h('p', { class: b.t === 'h' ? 'h' : '' }); p.appendChild(varText(b.x, vars)); box.appendChild(p);
+      }
+    });
+    if (!blocks.length) box.appendChild(h('p', { class: 'help', text: 'Sin texto.' }));
+    return box;
+  }
+  function blocksEditor(blocks, onChange, label) {
+    const det = h('details', { class: 'ed' }, [h('summary', { text: label || 'Editar el texto' })]);
+    blocks.forEach((b, i) => {
+      const ta = h('textarea', { rows: String(Math.max(2, Math.ceil((b.x || '').length / 90))) }); ta.value = b.x || '';
+      ta.addEventListener('input', () => { b.x = ta.value; touch(); onChange(); });
+      const kind = b.t === 'h' ? 'Título' : b.t === 'li' ? 'Viñeta' : b.t === 'ol' ? 'Punto numerado' : 'Párrafo';
+      det.appendChild(h('div', { class: 'blk' }, [h('label', { text: kind + ' ' + (i + 1) }), ta]));
+    });
+    det.appendChild(h('p', { class: 'help', text: 'Las etiquetas {{SEGURO}}, {{POLIZA}}, {{SINIESTRO}} y {{VALOR}} se reemplazan por los datos del informe.' }));
+    return det;
+  }
+  function varsCard(keys, onInput) {
+    const defs = (proj(PID) && proj(PID).defaults) || {};
+    const L = { seguro: 'Aseguradora', poliza: 'Póliza', siniestro: 'Siniestro', valor: 'Valor total' };
+    const fields = keys.map((k) => field(L[k], () => R.vars[k], (v) => { R.vars[k] = v; }, { onInput: onInput, placeholder: k === 'valor' ? '$0' : '' }));
+    const canFill = keys.some((k) => has(defs[k]));
+    const bar = h('div', { class: 'varbar' }, [
+      h('div', { class: 'vb-info' }, [h('b', { text: 'Datos que cambian en este informe' }), h('div', { class: 'vb-note', text: 'Se insertan en el texto donde está su etiqueta.' })]),
+      h('div', { class: 'vb-act' }, canFill ? [h('button', { class: 'btn ghost sm', type: 'button', onclick: () => {
+        keys.forEach((k) => { if (has(defs[k])) R.vars[k] = defs[k]; });
+        touch(); renderStage();
+      } }, [icon('wand'), 'Usar los del proyecto'])] : [])
+    ]);
+    return h('div', null, [bar, h('div', { class: 'fields' }, fields)]);
+  }
+  function slot(label, getItem, setItem, o) {
+    o = o || {};
+    const it = getItem();
+    const fi = h('input', { type: 'file', accept: 'image/*', hidden: true, onchange: (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) take(f); } });
+    async function take(file) {
+      try {
+        const ni = await fileToItem(file, o.maxDim || 2200);
+        dropItem(getItem()); setItem(ni); touch(); renderStage();
+      } catch (e) { alert_('No se pudo leer esa imagen.'); }
+    }
+    const pv = it ? h('div', { class: 'pv' }, [h('img', { src: it.url, alt: label, class: 'zoomable', tabindex: '0', role: 'button', title: 'Ampliar', onclick: () => openLightbox([it], 0, label), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openLightbox([it], 0, label); } } })]) : h('div', { class: 'pv empty', text: o.emptyText || 'Sin imagen' });
+    const box = h('div', { class: 'slot',
+      ondragover: (e) => { e.preventDefault(); e.stopPropagation(); box.classList.add('over'); },
+      ondragleave: () => box.classList.remove('over'),
+      ondrop: (e) => { e.preventDefault(); e.stopPropagation(); box.classList.remove('over'); const f = e.dataTransfer && e.dataTransfer.files[0]; if (f && /^image\//.test(f.type)) take(f); }
+    }, [
+      pv,
+      h('div', { class: 'sl' }, [
+        h('b', { text: label }),
+        o.help ? h('small', { text: o.help }) : null,
+        h('div', { class: 'mini' }, [
+          h('button', { class: 'btn ghost sm', type: 'button', onclick: () => fi.click() }, [icon('img'), it ? 'Cambiar imagen' : 'Subir imagen']),
+          it && o.removable ? h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { const cur = getItem(); setItem(null); pushUndo('Se quitó la imagen de ' + label.toLowerCase() + '.', cur, () => setItem(cur)); touch(); renderStage(); } }, [icon('trash'), 'Quitar']) : null
+        ]),
+        h('small', { text: 'También puedes arrastrar una imagen sobre este cuadro.' }),
+        fi
+      ])
+    ]);
+    return box;
+  }
+  function alert_(msg) { genState = { busy: false, kind: 'bad', msg: msg }; const s = $('#stage'); if (s) { const e = h('div', { class: 'err', role: 'alert', text: msg }); s.insertBefore(e, s.firstChild); setTimeout(() => e.remove(), 4000); } }
+
+  function renderStage() {
+    if (view !== 'editor' || !R) return;
+    renderHead();
+    const st = $('#stage'); st.innerHTML = '';
+    const fn = { portada: stepPortada, intro: stepIntro, planos: stepPlanos, imagenes: stepImagenes, presupuesto: stepPresupuesto, conclusiones: stepConclusiones, generar: stepGenerar }[step];
+    fn(st);
+    if (undoStack.length) st.insertBefore(undoBar(), st.firstChild);
+  }
+  function stepPortada(st) {
+    st.appendChild(stageHead('Datos de la portada. El número de apartamento cambia en cada informe.'));
+    const p = proj(PID) || {}, d = p.defaults || {};
+    const fill = h('button', { class: 'btn ghost sm', type: 'button', onclick: () => {
+      if (has(d.conjunto)) R.cover.conjunto = d.conjunto;
+      if (has(d.subtitulo)) R.cover.subtitulo = d.subtitulo;
+      if (has(d.elaboradores)) R.cover.elaboradores = d.elaboradores;
+      touch(); renderStage();
+    } }, [icon('wand'), 'Rellenar con los datos del proyecto']);
+    st.appendChild(h('div', { class: 'mcard' }, [
+      h('div', { class: 'varbar' }, [h('div', { class: 'vb-info' }, [h('b', { text: 'Datos del proyecto' }), h('div', { class: 'vb-note', text: (d.conjunto || 'Sin conjunto definido en el proyecto') })]), h('div', { class: 'vb-act' }, [fill])]),
+      h('div', { class: 'fields' }, [
+        field('Apartamento', () => R.cover.apartamento, (v) => { R.cover.apartamento = v; }, { wide: true, placeholder: 'APARTAMENTO 801 TORRE B' }),
+        field('Conjunto residencial', () => R.cover.conjunto, (v) => { R.cover.conjunto = v; }, { wide: true }),
+        field('Título de la portada', () => R.cover.subtitulo, (v) => { R.cover.subtitulo = v; }, { wide: true }),
+        field('Fecha', () => R.cover.fecha, (v) => { R.cover.fecha = v; }),
+        field('Elaborado por (uno por línea)', () => R.cover.elaboradores, (v) => { R.cover.elaboradores = v; }, { area: true, rows: 3, wide: true })
+      ])
+    ]));
+    st.appendChild(navFoot(has(R.cover.apartamento) ? '' : 'Falta el apartamento'));
+  }
+  function formatoBanner(which, blocks, redraw) {
+    const p = proj(PID), f = p && p.formato;
+    if (!f) return null;
+    if (formatoDiffs(serialize(R), p).indexOf(which) < 0) return null;
+    return h('div', { class: 'warns' }, [
+      h('p', { text: 'Este texto no coincide con el formato del proyecto' + (f.from ? ' (' + f.from + ')' : '') + '. Solo deben cambiar las variables.' }),
+      h('div', { class: 'mini' }, [h('button', { class: 'btn ghost sm', type: 'button', onclick: () => {
+        R[which] = (f[which] || []).map((b) => ({ t: b.t, x: b.x }));
+        touch(); renderStage();
+      } }, [icon('wand'), 'Restaurar el texto del formato'])])
+    ]);
+  }
+  function stepIntro(st) {
+    st.appendChild(stageHead('El texto es fijo. Cambian la aseguradora, la póliza y el siniestro.'));
+    const card = h('div', { class: 'mcard' });
+    const prev = h('div', { class: 'rtext' });
+    const draw = () => { prev.innerHTML = ''; prev.appendChild(blocksView(R.intro, R.vars)); };
+    card.appendChild(varsCard(['seguro', 'poliza', 'siniestro'], draw));
+    card.appendChild(h('div', { style: 'margin-top:16px' }, [prev]));
+    draw();
+    card.appendChild(blocksEditor(R.intro, draw));
+    st.appendChild(card);
+    { const bn = formatoBanner('intro'); if (bn) st.insertBefore(bn, card); }
+    st.appendChild(navFoot());
+  }
+  function formatoFromReport(st) {
+    return {
+      intro: st.intro.map((b) => ({ t: b.t, x: b.x })), concl: st.concl.map((b) => ({ t: b.t, x: b.x })),
+      planosTitulo: st.planosTitulo,
+      planos: st.planos.map((b) => b.t === 'img' ? { t: 'img', role: b.role, ref: b.role === 'fijo' ? refOf(b.item) : null } : { t: b.t, x: b.x }),
+      presupuestoNota: st.presupuesto.nota || '',
+      from: st.cover.apartamento || st.source || '', at: Date.now()
+    };
+  }
+  function applyFormatoPlanos(st, f) {
+    if (!f || !f.planos) return;
+    const keep = {};
+    st.planos.forEach((b) => { if (b.t === 'img' && (b.role === 'grupo' || b.role === 'individual')) keep[b.role] = b; });
+    st.planosTitulo = f.planosTitulo || st.planosTitulo;
+    const out = f.planos.map((b) => b.t === 'img' ? (b.role === 'fijo' ? { t: 'img', role: 'fijo', item: hydrate(b.ref) } : (keep[b.role] || { t: 'img', role: b.role, item: null })) : { t: b.t, x: b.x });
+    if (!out.some((b) => b.t === 'img' && b.role === 'grupo')) out.unshift(keep.grupo || { t: 'img', role: 'grupo', item: null });
+    if (!out.some((b) => b.t === 'img' && b.role === 'individual')) out.push(keep.individual || { t: 'img', role: 'individual', item: null });
+    st.planos = out;
+  }
+  function stepPlanos(st) {
+    st.appendChild(stageHead('Un plano por grupo de apartamentos y el plano individual con el marcado de las afectaciones.'));
+    const p = proj(PID) || { grupos: [] };
+    p.grupos = p.grupos || [];
+    const card = h('div', { class: 'mcard' });
+    { const f = p.formato;
+      if (f && f.planos) card.appendChild(h('div', { class: 'firmasum', style: 'margin:0 0 14px' }, [
+        h('div', { style: 'flex:1;min-width:200px' }, [h('b', { text: 'Formato del proyecto' }), h('small', { text: 'Los textos y la imagen fija de esta sección no cambian. Rellénalos con los de ' + (f.from || 'el informe de referencia') + '.' })]),
+        h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { applyFormatoPlanos(R, f); touch(); renderStage(); } }, [icon('wand'), 'Rellenar con el formato'])
+      ])); }
+    const sel = h('select', { id: 'grpSel', 'aria-label': 'Plano de grupo' }, [h('option', { value: '', text: '— Sin plano de grupo —' })].concat(p.grupos.map((g) => h('option', { value: g.id, text: g.name || 'Grupo' }))));
+    sel.value = R.grupoId && p.grupos.some((g) => g.id === R.grupoId) ? R.grupoId : '';
+    sel.addEventListener('change', () => { R.grupoId = sel.value; touch(); renderStage(); });
+    const fi = h('input', { type: 'file', accept: 'image/*', hidden: true, onchange: async (e) => {
+      const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+      try {
+        const it = makeItem(await processBlob(f, 2200)); await uploadItem(it);
+        if (!it.aid) { alert_('No se pudo subir la imagen. Inténtalo de nuevo.'); return; }
+        const g = { id: uid(), name: 'Plano de grupo ' + (p.grupos.length + 1), aid: it.aid, w: it.w, h: it.h, hash: 'u' + it.aid };
+        p.grupos.push(g); R.grupoId = g.id; await saveProject(PID); touch(); renderStage();
+      } catch (x) { alert_('No se pudo leer esa imagen.'); }
+    } });
+    const g = p.grupos.filter((x) => x.id === R.grupoId)[0];
+    card.appendChild(h('div', { class: 'fields' }, [
+      h('div', { class: 'fld wide' }, [h('label', { text: 'Plano de grupo' }), sel, h('span', { class: 'help', text: 'Es el mismo para todos los apartamentos del grupo (por ejemplo del 101 al 1301 de la torre B).' })])
+    ]));
+    card.appendChild(h('div', { class: 'slot', style: 'margin-top:14px' }, [
+      g && g.aid ? h('div', { class: 'pv' }, [h('img', { src: '/_blob/' + g.aid, alt: g.name })]) : h('div', { class: 'pv empty', text: 'Elige un plano de grupo' }),
+      h('div', { class: 'sl' }, [h('b', { text: g ? g.name : 'Plano de grupo' }), h('div', { class: 'mini' }, [h('button', { class: 'btn ghost sm', type: 'button', onclick: () => fi.click() }, [icon('plus'), 'Subir un plano de grupo nuevo'])]), fi])
+    ]));
+    const ind = R.planos.filter((b) => b.t === 'img' && b.role === 'individual')[0];
+    if (ind) card.appendChild(slot('Plano individual con el marcado', () => ind.item, (v) => { ind.item = v; }, { help: 'La prueba de la evidencia marcada sobre el plano de este apartamento.', emptyText: 'Sube el plano marcado' }));
+    R.planos.filter((b) => b.t === 'img' && b.role === 'fijo').forEach((b, i) => {
+      card.appendChild(slot('Imagen fija del informe' + (i ? ' ' + (i + 1) : ''), () => b.item, (v) => { b.item = v; }, { help: 'Es igual en todos los informes (por ejemplo la tabla de variables).', removable: true }));
+    });
+    card.appendChild(blocksEditor(R.planos.filter((b) => b.t !== 'img'), () => {}, 'Editar los textos de esta sección'));
+    st.appendChild(card);
+    st.appendChild(navFoot());
+  }
+  function stepImagenes(st) {
+    st.appendChild(stageHead('Agrega fotos solo a los espacios donde hay daños. Los espacios sin fotos no aparecen en el informe.'));
+    const SP = window.SPACES || [];
+    const grid = h('div', { class: 'sgrid' });
+    SP.forEach((name) => {
+      const list = R.espacios[name] || [];
+      const fi = h('input', { type: 'file', accept: 'image/*', multiple: true, hidden: true, onchange: (e) => { const f = Array.prototype.slice.call(e.target.files); e.target.value = ''; addPhotos(name, f); } });
+      const tile = h('div', { class: 'stile' + (list.length ? ' has' : ''),
+        ondragover: (e) => { e.preventDefault(); e.stopPropagation(); tile.classList.add('over'); },
+        ondragleave: (e) => { if (!tile.contains(e.relatedTarget)) tile.classList.remove('over'); },
+        ondrop: (e) => { e.preventDefault(); e.stopPropagation(); tile.classList.remove('over'); addPhotos(name, Array.prototype.slice.call((e.dataTransfer && e.dataTransfer.files) || [])); }
+      }, [h('h4', null, [h('span', { text: name }), h('span', { class: 'cnt', text: list.length ? list.length + (list.length === 1 ? ' foto' : ' fotos') : 'sin fotos' })])]);
+      if (list.length) {
+        const th = h('div', { class: 'thumbs' });
+        list.forEach((it, i) => {
+          const cap = h('input', { type: 'text', placeholder: 'Leyenda', 'aria-label': 'Leyenda de la foto' }); cap.value = it.cap || '';
+          cap.addEventListener('input', () => { it.cap = cap.value; touch(); });
+          th.appendChild(h('div', { class: 'thumb' }, [
+            h('img', { src: it.url, alt: name + ' ' + (i + 1), class: 'zoomable', tabindex: '0', role: 'button', title: 'Ampliar', onclick: () => openLightbox(list, i, name), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openLightbox(list, i, name); } } }),
+            h('button', { class: 'rm', type: 'button', 'aria-label': 'Quitar foto', onclick: () => { list.splice(i, 1); if (!list.length) delete R.espacios[name]; pushUndo('Se quitó una foto de ' + name + '.', it, () => { const l = R.espacios[name] = R.espacios[name] || []; l.splice(Math.min(i, l.length), 0, it); }); touch(); renderStage(); } }, [icon('x')]),
+            cap
+          ]));
+        });
+        tile.appendChild(th);
+      }
+      tile.appendChild(h('div', { class: 'addph', role: 'button', tabindex: '0', onclick: () => fi.click(), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fi.click(); } } }, [icon('plus'), list.length ? 'Agregar más fotos' : 'Agregar fotos o arrastrarlas aquí']));
+      tile.appendChild(fi);
+      grid.appendChild(tile);
+    });
+    st.appendChild(grid);
+    const n = Object.keys(R.espacios).length;
+    st.appendChild(navFoot(n ? n + (n === 1 ? ' espacio con fotos' : ' espacios con fotos') : 'Aún no hay fotos'));
+    const extra = Object.keys(R.espacios).filter((k) => SP.indexOf(k) < 0);
+    if (extra.length) st.appendChild(h('div', { class: 'err', text: 'Hay espacios fuera de la lista que se conservan: ' + extra.join(', ') }));
+  }
+  async function addPhotos(name, files) {
+    const imgs = files.filter((f) => /^image\//.test(f.type));
+    if (!imgs.length) return;
+    const list = R.espacios[name] = R.espacios[name] || [];
+    for (const f of imgs) { try { list.push(await fileToItem(f, 1600)); } catch (e) {} }
+    if (!list.length) delete R.espacios[name];
+    touch(); renderStage();
+  }
+  function stepPresupuesto(st) {
+    const req = presRequired(proj(PID));
+    st.appendChild(stageHead(req ? 'Texto de la sección de presupuesto. La imagen de la hoja es opcional.' : 'El presupuesto es opcional en este proyecto. Si no cargas nada, el Word lleva solo la nota: ' + NOTA_PRESUPUESTO));
+    const card = h('div', { class: 'mcard' });
+    { const f = proj(PID) && proj(PID).formato;
+      if (f && has(f.presupuestoNota)) card.appendChild(h('div', { class: 'firmasum', style: 'margin:0 0 14px' }, [
+        h('div', { style: 'flex:1;min-width:200px' }, [h('b', { text: 'Formato del proyecto' }), h('small', { text: 'El texto no cambia: «' + f.presupuestoNota + '»' })]),
+        h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { R.presupuesto.nota = f.presupuestoNota; touch(); renderStage(); } }, [icon('wand'), 'Rellenar con el formato'])
+      ])); }
+    card.appendChild(h('div', { class: 'fields' }, [field(req ? 'Texto de la sección (obligatorio)' : 'Texto de la sección (opcional)', () => R.presupuesto.nota, (v) => { R.presupuesto.nota = v; }, { wide: true, area: true, rows: 5, placeholder: req ? '' : NOTA_PRESUPUESTO })]));
+    card.appendChild(h('div', { style: 'margin-top:16px' }, [slot('Imagen del presupuesto (opcional)', () => R.presupuesto.item, (v) => { R.presupuesto.item = v; }, { emptyText: 'Sin imagen', help: 'Imagen del Excel de presupuesto, si la hay.', removable: true })]));
+    st.appendChild(card);
+    st.appendChild(navFoot());
+  }
+  function firmasSummary() {
+    const gf = globalCfg.firma && globalCfg.firma.aid ? globalCfg.firma : null;
+    let msg;
+    if (gf) msg = 'Se usa la imagen de firmas global en todos los informes.';
+    else if (R && R.firma) msg = 'Se usa la imagen de firmas de este informe. Puedes cargar una global para todos.';
+    else msg = 'Aún no hay imagen de firmas.';
+    return h('div', { class: 'firmasum' }, [
+      gf ? h('img', { class: 'fthumb', src: '/_blob/' + gf.aid, alt: 'Firmas' }) : null,
+      h('div', { style: 'flex:1;min-width:160px' }, [h('b', { text: 'Firmas' }), h('small', { text: msg })]),
+      h('button', { class: 'btn ghost sm', type: 'button', onclick: openFirmas }, [icon('pencil'), 'Editar firmas'])
+    ]);
+  }
+  function stepConclusiones(st) {
+    st.appendChild(stageHead('El texto es fijo. Cambia el valor total del apartamento.'));
+    const card = h('div', { class: 'mcard' });
+    const prev = h('div', { class: 'rtext' });
+    const draw = () => { prev.innerHTML = ''; prev.appendChild(blocksView(R.concl, R.vars)); };
+    card.appendChild(varsCard(['valor', 'seguro', 'poliza', 'siniestro'], draw));
+    card.appendChild(h('div', { style: 'margin-top:16px' }, [prev]));
+    draw();
+    { const bn = formatoBanner('concl'); if (bn) card.insertBefore(bn, card.firstChild); }
+    card.appendChild(blocksEditor(R.concl, draw));
+    card.appendChild(firmasSummary());
+    st.appendChild(card);
+    st.appendChild(navFoot());
+  }
+  function stepGenerar(st) {
+    st.appendChild(stageHead('Revisa que no falte nada y descarga el Word.'));
+    const d = serialize(R);
+    const g = gaps(d);
+    const nSp = Object.keys(R.espacios).length;
+    const nPh = Object.keys(R.espacios).reduce((n, k) => n + R.espacios[k].length, 0);
+    const box = h('div', { class: 'gen' }, [
+      h('dl', null, [
+        h('div', null, [h('dt', { text: 'Apartamento' }), h('dd', { text: R.cover.apartamento || '—' })]),
+        h('div', null, [h('dt', { text: 'Conjunto' }), h('dd', { text: R.cover.conjunto || '—' })]),
+        h('div', null, [h('dt', { text: 'Espacios con fotos' }), h('dd', { text: String(nSp) + ' (' + nPh + ' fotos)' })]),
+        h('div', null, [h('dt', { text: 'Valor total' }), h('dd', { text: R.vars.valor || '—' })]),
+        h('div', null, [h('dt', { text: 'Archivo' }), h('dd', { class: 'fname', text: fileNameOf(R) })])
+      ]),
+      h('div', { class: 'firmasum' }, [
+        h('div', { style: 'flex:1;min-width:200px' }, [h('b', { text: 'Formato del proyecto' }), h('small', { text: (proj(PID) && proj(PID).formato) ? 'Introducción y conclusiones se comparan con ' + (proj(PID).formato.from || 'el informe elegido') + '. Planos y presupuesto se autorrellenan en los informes nuevos.' : 'Aún no hay formato. Usa este informe como modelo: compara los textos de los demás y autorrellena planos y presupuesto.' })]),
+        h('button', { class: 'btn ghost sm', type: 'button', onclick: async () => {
+          const src = formatoFromReport(R);
+          await mutateProject((q) => { q.formato = src; });
+          renderStage();
+        } }, [icon('check'), (proj(PID) && proj(PID).formato) ? 'Usar este informe como formato' : 'Usar como formato'])
+      ]),
+      R.presupuesto.item ? null : h('div', { class: 'infos' }, [h('p', { text: presRequired(proj(PID)) ? 'Sin imagen de presupuesto. Es opcional: solo el texto de la sección es obligatorio.' : 'El presupuesto es opcional en este proyecto' + (has(R.presupuesto.nota) ? '.' : ': el Word lleva solo la nota «' + NOTA_PRESUPUESTO + '».') })]),
+      g.length ? h('div', { class: 'warns' }, [h('p', { text: 'Revisar: ' + g.join(', ') + '. Puedes generar igual y completarlo después.' })]) : h('div', { class: 'pill ok', text: 'Todo listo' }),
+      h('div', { class: 'foot' }, [
+        h('button', { class: 'btn ghost', type: 'button', onclick: () => goStep('conclusiones') }, [icon('back'), 'Atrás']),
+        R.drive && R.drive.folderId && !R.importError ? h('button', { class: 'btn ghost', type: 'button', disabled: genState.busy ? true : null, onclick: sendEditorToDrive, title: 'Sube una copia "(Corregido)" a la carpeta de Drive donde estaba el original' }, [icon('up'), 'Enviar a Drive']) : null,
+        h('button', { class: 'btn', type: 'button', disabled: genState.busy ? true : null, onclick: generateEditor }, [icon('down'), genState.busy ? 'Generando…' : 'Generar y descargar Word'])
+      ])
+    ]);
+    if (genState.msg) box.appendChild(h('div', { class: 'msg ' + genState.kind, role: 'status', text: genState.msg }));
+    st.appendChild(box);
+  }
+
+
+  async function api(path, opts) {
+    const r = await fetch(path, opts);
+    let j = null;
+    try { j = await r.json(); } catch (e) {}
+    if (r.status === 401 && window.HYA_AUTH) { location.href = '/login'; throw new Error('Sesión expirada'); }
+    if (!r.ok) throw new Error((j && j.error) || ('Error ' + r.status));
+    return j;
+  }
+  async function pickerLoad(parent) {
+    picker.loading = true; picker.err = ''; renderProject();
+    try { const j = await api('/api/drive/folders?parent=' + encodeURIComponent(parent || 'root')); picker.items = j.folders || []; if (j.root) picker.rootName = j.root.name; }
+    catch (e) { picker.err = e.message; picker.items = []; }
+    picker.loading = false; renderProject();
+  }
+  function openPicker() { picker = { open: true, stack: [], items: [], loading: true, err: '', ref: '', rootName: '' }; renderProject(); pickerLoad('root'); }
+  function pickerModal(p) {
+    const close = () => { picker.open = false; renderProject(); };
+    const ref = h('input', { type: 'text', placeholder: 'O pega el enlace de la carpeta del proyecto', id: 'drvRef' }); ref.value = picker.ref || '';
+    ref.addEventListener('input', () => { picker.ref = ref.value; });
+    const go = async () => {
+      if (!has(picker.ref)) return;
+      picker.loading = true; picker.err = ''; renderProject();
+      try { const f = await api('/api/drive/folder?ref=' + encodeURIComponent(picker.ref)); picker.stack = [{ id: f.id, name: f.name }]; picker.ref = ''; await pickerLoad(f.id); }
+      catch (e) { picker.err = e.message; picker.loading = false; renderProject(); }
+    };
+    ref.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
+    const cur = picker.stack[picker.stack.length - 1];
+    const crumbs = h('div', { class: 'pcrumbs' }, [h('button', { type: 'button', onclick: () => { picker.stack = []; pickerLoad('root'); } }, [picker.rootName || 'Carpeta raíz'])]);
+    picker.stack.forEach((f, i) => { crumbs.appendChild(h('span', { text: '/' })); crumbs.appendChild(h('button', { type: 'button', onclick: () => { picker.stack = picker.stack.slice(0, i + 1); pickerLoad(f.id); } }, [f.name])); });
+    const list = h('div', { class: 'plist' });
+    if (picker.loading) list.appendChild(h('div', { class: 'none', text: 'Cargando carpetas…' }));
+    else if (picker.err) list.appendChild(h('div', { class: 'err', role: 'alert', text: picker.err }));
+    else if (!picker.items.length) list.appendChild(h('div', { class: 'none', text: 'No hay carpetas aquí.' }));
+    else picker.items.forEach((f) => list.appendChild(h('button', { class: 'pitem', type: 'button', onclick: () => { picker.stack.push({ id: f.id, name: f.name }); pickerLoad(f.id); } }, [icon('folder'), h('span', { text: f.name })])));
+    const use = h('button', { class: 'btn', type: 'button', disabled: cur ? null : true, onclick: () => {
+      driveEdit.draft = { id: cur.id, name: cur.name };
+      picker.open = false; renderProject();
+    } }, [cur ? 'Usar «' + cur.name + '»' : 'Usar esta carpeta']);
+    const box = h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Elegir carpeta de Drive' }, [
+      h('div', { class: 'modal-h' }, [h('div', null, [h('h2', { text: 'Elegir carpeta de Drive' }), h('p', { text: 'Entra a la carpeta del proyecto, la que contiene las carpetas de cada torre.' })]), h('button', { class: 'ib', type: 'button', 'aria-label': 'Cerrar', onclick: close }, [icon('x')])]),
+      h('div', { class: 'newp' }, [ref, h('button', { class: 'btn ghost sm', type: 'button', onclick: go }, ['Abrir enlace'])]),
+      crumbs, list,
+      h('div', { class: 'foot' }, [h('button', { class: 'btn ghost', type: 'button', onclick: close }, ['Cancelar']), use])
+    ]);
+    const back = h('div', { class: 'modal-bg', onclick: (e) => { if (e.target === back) close(); } }, [box]);
+    back.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+    return back;
+  }
+  function driveBar(p) {
+    const d = p.drive, ds = driveSync;
+    const npend = projReports(p.id || PID).filter((r) => exportPending(r.data)).length;
+    const box = h('div', { class: 'dbar' });
+    if (driveEdit.open) {
+      const dr = driveEdit.draft;
+      const changed = (dr ? dr.id : '') !== (d ? d.id : '');
+      box.appendChild(h('div', { class: 'dline' }, [
+        h('span', { class: 'dico' }, [icon('folder')]),
+        h('div', { class: 'dtxt' }, [h('b', { text: dr ? dr.name : 'Sin carpeta de Drive' }), h('small', { text: 'Elige la carpeta del proyecto, la que contiene una subcarpeta por torre. Los cambios se aplican al guardar.' })]),
+        h('div', { class: 'mini' }, [
+          h('button', { class: 'btn ghost sm', type: 'button', onclick: openPicker }, [icon('folder'), dr ? 'Cambiar carpeta' : 'Elegir carpeta']),
+          dr ? h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { driveEdit.draft = null; renderProject(); } }, ['Quitar']) : null
+        ])
+      ]));
+      box.appendChild(h('div', { class: 'foot' }, [
+        h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { driveEdit = { open: false, draft: null }; renderProject(); } }, ['Cancelar']),
+        h('button', { class: 'btn sm', type: 'button', disabled: changed ? null : true, onclick: async () => {
+          const nd = driveEdit.draft ? { id: driveEdit.draft.id, name: driveEdit.draft.name } : null;
+          await mutateProject((q) => { q.drive = nd; });
+          driveEdit = { open: false, draft: null }; renderProject();
+        } }, [icon('check'), 'Guardar'])
+      ]));
+      return box;
+    }
+    box.appendChild(h('div', { class: 'dline' }, [
+      h('span', { class: 'dico' }, [icon('folder')]),
+      h('div', { class: 'dtxt' }, [h('b', { text: d ? d.name : 'Sin carpeta de Drive' }), h('small', { text: d ? 'Carpeta vinculada. Cada subcarpeta es una torre y cada documento Google que empiece con «inf» es un informe.' : 'Vincula la carpeta del proyecto para traer los informes de cada torre.' })]),
+      h('div', { class: 'mini' }, [
+        d ? h('button', { class: 'btn sm', type: 'button', disabled: ds.busy ? true : null, onclick: syncDrive }, [icon('down'), ds.busy ? 'Sincronizando…' : 'Sincronizar con Drive']) : null,
+        d ? h('button', { class: 'btn ghost sm', type: 'button', disabled: (driveExp.busy || !npend) ? true : null, onclick: () => exportDrive('') }, [icon('up'), driveExp.busy ? 'Exportando…' : 'Exportar completados' + (npend ? ' (' + npend + ')' : '')]) : null,
+        h('button', { class: 'ib', type: 'button', title: 'Editar carpeta de Drive', 'aria-label': 'Editar carpeta de Drive', disabled: ds.busy ? true : null, onclick: () => { driveEdit = { open: true, draft: d ? { id: d.id, name: d.name } : null }; renderProject(); } }, [icon('pencil')])
+      ])
+    ]));
+    if (ds.busy) box.appendChild(h('div', { class: 'prog2' }, [h('span', { text: ds.msg + (ds.total ? ' · ' + ds.done + ' de ' + ds.total : '') }), ds.total ? h('div', { class: 'bar2' }, [h('i', { style: 'width:' + Math.round(ds.done / ds.total * 100) + '%' })]) : null]));
+    else if (ds.summary) box.appendChild(h('div', { class: 'prog2', text: ds.summary }));
+    const de = driveExp.gid ? { busy: false, summary: '', errs: [] } : driveExp;
+    if (de.busy) box.appendChild(h('div', { class: 'prog2' }, [h('span', { text: 'Exportando · ' + de.msg + (de.total ? ' · ' + de.done + ' de ' + de.total : '') }), de.total ? h('div', { class: 'bar2' }, [h('i', { style: 'width:' + Math.round(de.done / de.total * 100) + '%' })]) : null]));
+    else if (de.summary) box.appendChild(h('div', { class: 'prog2', text: de.summary }));
+    if (de.errs.length) box.appendChild(h('div', { class: 'warns' }, de.errs.slice(0, 8).map((w) => h('p', { text: w }))));
+    if (ds.errs.length) box.appendChild(h('div', { class: 'warns' }, ds.errs.slice(0, 8).map((w) => h('p', { text: w })).concat(ds.errs.length > 8 ? [h('p', { text: 'Y ' + (ds.errs.length - 8) + ' más.' })] : [])));
+    return box;
+  }
+  function refreshDriveUi() {
+    if (view !== 'project') return;
+    const old = document.querySelector('.dbar');
+    const p = proj(PID);
+    if (old && p && !modalOpen()) old.replaceWith(driveBar(p));
+    else if (!modalOpen()) renderProject();
+  }
+  let pollT = null;
+  function applySync(j) {
+    const wasBusy = driveSync.busy;
+    driveSync = { busy: !!j.busy, msg: j.msg || '', done: j.done || 0, total: j.total || 0, summary: j.summary || '', errs: j.errs || [] };
+    return wasBusy;
+  }
+  async function pollSync() {
+    clearTimeout(pollT); pollT = null;
+    if (view !== 'project' || !PID) return;
+    const pid = PID;
+    try {
+      const j = await api('/api/drive/sync?projectId=' + encodeURIComponent(pid));
+      const was = applySync(j);
+      refreshDriveUi();
+      if (j.busy) pollT = setTimeout(pollSync, 1500);
+      else if (was) { renderProject(); }
+    } catch (e) { pollT = setTimeout(pollSync, 4000); }
+  }
+  let expT = null;
+  async function pollExport() {
+    clearTimeout(expT); expT = null;
+    if (view !== 'project' || !PID) return;
+    try {
+      const j = await api('/api/drive/export?projectId=' + encodeURIComponent(PID));
+      driveExp = { busy: !!j.busy, msg: j.msg || '', done: j.done || 0, total: j.total || 0, summary: j.summary || '', errs: j.errs || [], gid: j.gid || '' };
+      if (driveExp.gid) { if (!modalOpen()) renderProject(); } else refreshDriveUi();
+      if (j.busy) expT = setTimeout(pollExport, 1500);
+    } catch (e) { expT = setTimeout(pollExport, 4000); }
+  }
+  async function exportDrive(gid) {
+    if (driveExp.busy) return;
+    const g = typeof gid === 'string' ? gid : '';
+    driveExp = { busy: true, msg: 'Preparando…', done: 0, total: 0, summary: '', errs: [], gid: g };
+    refreshDriveUi();
+    try {
+      await api('/api/drive/export?projectId=' + encodeURIComponent(PID) + (g ? '&groupId=' + encodeURIComponent(g) : ''), { method: 'POST' });
+      expT = setTimeout(pollExport, 800);
+    } catch (e) {
+      driveExp = { busy: false, msg: '', done: 0, total: 0, summary: '', errs: [(e && e.message) || 'No se pudo exportar.'], gid: g };
+    }
+    if (g) renderProject(); else refreshDriveUi();
+  }
+  async function syncDrive() {
+    const p0 = proj(PID);
+    if (!p0 || !p0.drive || driveSync.busy) return;
+    driveSync = { busy: true, msg: 'Buscando informes en Drive…', done: 0, total: 0, summary: '', errs: [] };
+    refreshDriveUi();
+    try {
+      const j = await api('/api/drive/sync?projectId=' + encodeURIComponent(PID), { method: 'POST' });
+      applySync(j);
+      pollT = setTimeout(pollSync, 1000);
+    } catch (e) {
+      driveSync = { busy: false, msg: '', done: 0, total: 0, summary: '', errs: [(e && e.message) || 'No se pudo leer Drive.'] };
+    }
+    refreshDriveUi();
+  }
+
+
+  /* ---------- firma global ---------- */
+  function openFirmas() {
+    if (firmasOpen) return;
+    firmasOpen = true;
+    let draft = globalCfg.firma ? Object.assign({}, globalCfg.firma) : null;
+    const added = [];
+    let err = '', busy = false;
+    const back = h('div', { class: 'modal-bg' });
+    const close = () => { firmasOpen = false; back.remove(); };
+    const cancel = () => { added.forEach((a) => { if (assets) assets.delete(a).catch(() => {}); }); close(); };
+    back.addEventListener('mousedown', (e) => { back.dataset.down = e.target === back ? '1' : ''; });
+    back.addEventListener('click', (e) => { if (e.target === back && back.dataset.down) cancel(); });
+    back.addEventListener('keydown', (e) => { if (e.key === 'Escape') cancel(); });
+    async function take(file) {
+      try {
+        const it = await fileToItem(file, 1600); await uploadItem(it);
+        if (!it.aid) throw new Error('No se pudo subir la imagen.');
+        added.push(it.aid); draft = { aid: it.aid, w: it.w, h: it.h }; err = '';
+      } catch (x) { err = (x && x.message) || 'No se pudo leer esa imagen.'; }
+      draw();
+    }
+    const fi = h('input', { type: 'file', accept: 'image/*', hidden: true, onchange: (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) take(f); } });
+    const fromDoc = docPicker('Tomarla de un Word', async (file) => {
+      try {
+        const r = await fetch('/api/firmas/extract', { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: file });
+        if (r.status === 401 && window.HYA_AUTH) { location.href = '/login'; return; }
+        let j = null; try { j = await r.json(); } catch (x) {}
+        if (!r.ok) err = (j && j.error) || 'No se pudo leer ese Word.';
+        else if (!j.firma) err = 'Ese Word no trae ninguna imagen después del título de conclusiones.';
+        else { added.push(j.firma.aid); draft = j.firma; err = ''; }
+      } catch (x) { err = 'No se pudo enviar el archivo al servidor.'; }
+      draw();
+    }, 'Leyendo…');
+    function draw() {
+      back.innerHTML = '';
+      const pv = draft ? h('div', { class: 'pv' }, [h('img', { src: '/_blob/' + draft.aid, alt: 'Firmas' })]) : h('div', { class: 'pv empty', text: 'Sin imagen de firmas' });
+      const save = h('button', { class: 'btn', type: 'button', disabled: busy ? true : null, onclick: async () => {
+        if (!db) { err = 'La base de datos no está disponible.'; draw(); return; }
+        busy = true; draw();
+        const old = globalCfg.firma && globalCfg.firma.aid;
+        try {
+          await db.doc('config/global').set({ firma: draft, updatedAt: Date.now() });
+          globalCfg = { firma: draft };
+          const keep = draft && draft.aid;
+          added.filter((a) => a !== keep).concat(old && old !== keep ? [old] : []).forEach((a) => { if (assets) assets.delete(a).catch(() => {}); });
+          close();
+          if (view === 'editor' && step === 'conclusiones') renderStage();
+        } catch (e) { busy = false; err = 'No se pudo guardar. Inténtalo de nuevo.'; draw(); }
+      } }, [icon('check'), busy ? 'Guardando…' : 'Guardar']);
+      const box = h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Firmas' }, [
+        h('div', { class: 'modal-h' }, [h('div', null, [h('h2', { text: 'Firmas de los informes' }), h('p', { text: 'Una sola imagen para todos los proyectos. Se agrega al final de las conclusiones en cada Word.' })]), h('button', { class: 'ib', type: 'button', 'aria-label': 'Cerrar', onclick: cancel }, [icon('x')])]),
+        h('div', { class: 'fimgbox' }, [pv]),
+        err ? h('div', { class: 'err', role: 'alert', text: err }) : null,
+        h('div', { class: 'foot' }, [
+          h('button', { class: 'btn ghost sm', type: 'button', onclick: () => fi.click() }, [icon('img'), draft ? 'Cambiar imagen' : 'Subir imagen']), fi,
+          draft ? h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { draft = null; draw(); } }, [icon('trash'), 'Quitar']) : null,
+          fromDoc,
+          h('button', { class: 'btn ghost', type: 'button', onclick: cancel }, ['Cancelar']),
+          save
+        ])
+      ]);
+      back.appendChild(box);
+    }
+    draw();
+    document.body.appendChild(back);
+  }
+
+  /* ---------- arranque ---------- */
+  function renderAll() {
+    setPhase(view === 'editor' ? 'editor' : view);
+    const st = $('#stage');
+    if (view === 'projects') { st.innerHTML = ''; renderProjects(st); }
+    else if (view === 'project') renderProject();
+    else renderStage();
+  }
+  function getCap(name) {
+    if (!(window.claude && window.claude.use)) return Promise.resolve(null);
+    try { return Promise.resolve(window.claude.use(name)).catch(() => null); } catch (e) { return Promise.resolve(null); }
+  }
+  window.addEventListener('dragover', (e) => e.preventDefault());
+  window.addEventListener('drop', (e) => e.preventDefault());
+  $('#backBtn').addEventListener('click', () => { const i = stepIdx(); if (i > 0) goStep(STEPS[i - 1].id); });
+  $('#homeBtn').addEventListener('click', showProject);
+  renderAll();
+
+  let restored = false;
+  function tryRestore() {
+    if (restored || !projReady || !repReady) return;
+    restored = true;
+    let o = null; try { o = JSON.parse(load('hya2-open') || 'null'); } catch (e) {}
+    if (o && o.p && proj(o.p)) { if (o.r && reports.some((r) => r.id === o.r)) { PID = o.p; openReport(o.r); } else openProject(o.p); }
+  }
+  Promise.all([getCap('db'), getCap('assets')]).then((r) => {
+    db = r[0]; assets = r[1];
+    if (!db) { dbState = 'none'; renderAll(); return; }
+    dbState = 'ok';
+    db.collection('proyectos').orderBy('createdAt', 'desc').limit(200).onSnapshot((snap) => {
+      projects = snap.docs.map((d) => {
+        const nd = clone(d.data()), ex = projects.filter((x) => x.id === d.id)[0];
+        if (ex) { Object.keys(ex.data).forEach((k) => { delete ex.data[k]; }); Object.assign(ex.data, nd); return ex; }
+        return { id: d.id, data: nd };
+      });
+      projReady = true;
+      if (view === 'projects') renderAll();
+      else if (view === 'project' && !imp.busy && !modalOpen() && !document.activeElement.closest('.mcard, .grow')) renderProject();
+      tryRestore();
+    }, () => { projReady = true; renderAll(); });
+    db.collection('informes2').orderBy('updatedAt', 'desc').limit(1000).onSnapshot((snap) => {
+      reports = snap.docs.map((d) => ({ id: d.id, data: clone(d.data()) }));
+      repReady = true;
+      if (view === 'projects') renderAll();
+      else if (view === 'project' && !imp.busy && !modalOpen() && !(document.activeElement && document.activeElement.closest && document.activeElement.closest('.mcard, .grow, .newp'))) renderProject();
+      tryRestore();
+    }, () => { repReady = true; renderAll(); });
+  });
+  if (window.HYA_AUTH) {
+    const out = document.createElement('button');
+    out.type = 'button'; out.textContent = 'Salir'; out.className = 'btn ghost sm';
+    out.style.cssText = 'position:fixed;right:max(12px,env(safe-area-inset-right,0px));bottom:max(12px,env(safe-area-inset-bottom,0px));z-index:30;box-shadow:0 2px 8px rgba(0,0,0,.15)';
+    out.addEventListener('click', async () => { try { await fetch('/api/logout', { method: 'POST' }); } catch (e) {} location.href = '/login'; });
+    document.body.appendChild(out);
+  }
+  getCap('db').then((d) => {
+    if (!d) return;
+    d.collection('config').onSnapshot((snap) => {
+      const g = snap.docs.filter((x) => x.id === 'global')[0];
+      if (g && !firmasOpen) globalCfg = { firma: (g.data() || {}).firma || null };
+    }, () => {});
+  });
+  getCap('downloads');
+  window.SPACES = (typeof SPACES !== 'undefined') ? SPACES : [];
+})();
+
+</script>
+
+</body></html>
