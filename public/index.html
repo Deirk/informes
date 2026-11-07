@@ -754,15 +754,24 @@ function buildReportRef(D, r) {
   (r.intro || []).forEach(function (b) { var p = para(b); if (p) ch.push(p); });
 
   ch.push(h1((r.planosTitulo || "PLANO CON EL REGISTRO DE LAS AFECTACIONES").toUpperCase()));
-  (r.planos || []).forEach(function (b) {
+  var pl = r.planos || [];
+  pl.forEach(function (b) {
     if (b.t === "img") {
-      if (!b.img) return;
-      var fijo = b.role === "fijo";
-      ch.push(img(b.img, fijo ? 402 : MAXW, fijo ? 260 : 560, CENTER));
+      if (b.role === "fijo" && b.img) ch.push(img(b.img, 402, 260, CENTER));
     } else {
       var p = para(b);
       if (p) ch.push(p);
     }
+  });
+  var plans = pl.filter(function (b) { return b.t === "img" && b.role !== "fijo" && b.img; });
+  plans.forEach(function (b, k) {
+    var d = fit(b.img.w, b.img.h, MAXW, plans.length > 1 ? 410 : 700);
+    ch.push(new D.Paragraph({
+      alignment: CENTER,
+      pageBreakBefore: k === 0,
+      spacing: { before: k === 0 ? 0 : 240 },
+      children: [new D.ImageRun({ data: b.img.data, type: b.img.type || "jpg", transformation: d })]
+    }));
   });
 
   var spaces = (r.espacios || []).filter(function (sp) { return sp.photos && sp.photos.length; });
@@ -994,16 +1003,23 @@ function buildReport2(D, r) {
 
   children.push(sectionTitle((r.planosTitulo || "PLANO CON EL REGISTRO DE LAS AFECTACIONES").toUpperCase()));
   var pb = r.planos || [];
-  pb.forEach(function (b, i) {
+  pb.forEach(function (b) {
     if (b.t === "img") {
-      if (!b.img) return;
-      var legend = b.role === "fijo";
-      children.push(imagePara(b.img, legend ? 420 : 600, legend ? 260 : 420, false));
+      if (b.role === "fijo" && b.img) children.push(imagePara(b.img, 420, 260, false));
     } else {
-      var next = pb[i + 1];
-      var p = textPara(b, next && next.t === "img");
+      var p = textPara(b, false);
       if (p) children.push(p);
     }
+  });
+  var plans2 = pb.filter(function (b) { return b.t === "img" && b.role !== "fijo" && b.img; });
+  plans2.forEach(function (b, k) {
+    var d = fit(b.img.w, b.img.h, 600, plans2.length > 1 ? 380 : 700);
+    children.push(new D.Paragraph({
+      alignment: CENTER,
+      pageBreakBefore: k === 0,
+      spacing: { before: k === 0 ? 0 : 200, after: 200 },
+      children: [new D.ImageRun({ data: b.img.data, type: b.img.type || "jpg", transformation: d })]
+    }));
   });
 
   var spaces = r.espacios || [];
