@@ -400,6 +400,7 @@ img.zoomable{cursor:zoom-in}
 @media (max-width:640px){.lb-stage{padding:0 8px}.lb-nav{top:auto;bottom:64px;transform:none}}
 .infos{margin:10px 0 0;padding:10px 14px;border-radius:12px;background:var(--accent-soft);color:var(--ink);font-size:13.5px}.infos p{margin:0}
 .chk{display:flex;align-items:center;gap:10px;font-weight:600;cursor:pointer}.chk input{width:18px;height:18px;accent-color:var(--accent)}
+.subh{display:flex;align-items:center;gap:8px;margin:18px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--ink)}.subh svg{width:16px;height:16px;flex:none}.subh span{margin-left:auto;font-size:12px;color:var(--muted)}
 </style>
 
 <div class="shell" id="shell">
@@ -1625,7 +1626,17 @@ if (typeof module !== "undefined") module.exports = buildReport2;
       ondrop: (e) => { e.preventDefault(); e.stopPropagation(); area.classList.remove('over'); const f = Array.prototype.slice.call((e.dataTransfer && e.dataTransfer.files) || []); if (f.length) importFiles(f, gid); } });
     if (!repReady) area.appendChild(h('div', { class: 'callout', text: 'Cargando…' }));
     else {
-      if (rs.length) { const grid = h('div', { class: 'rgrid' }); rs.forEach((r) => grid.appendChild(reportCard(r, p))); area.appendChild(grid); }
+      if (rs.length) {
+        const subOf = (r) => { const pth = r.data.drive && r.data.drive.path; return pth ? String(pth).split(' / ').slice(2).join(' / ') : ''; };
+        const sets = {}; const order = [];
+        rs.forEach((r) => { const k = subOf(r); if (!sets[k]) { sets[k] = []; order.push(k); } sets[k].push(r); });
+        order.sort((a, b) => (a ? 1 : 0) - (b ? 1 : 0) || a.localeCompare(b, 'es', { numeric: true, sensitivity: 'base' }));
+        if (order.length === 1 && !order[0]) { const grid = h('div', { class: 'rgrid' }); rs.forEach((r) => grid.appendChild(reportCard(r, p))); area.appendChild(grid); }
+        else order.forEach((k) => {
+          area.appendChild(h('div', { class: 'subh' }, [icon('folder'), h('b', { text: k || 'Sin subcarpeta' }), h('span', { text: sets[k].length + (sets[k].length === 1 ? ' informe' : ' informes') })]));
+          const grid = h('div', { class: 'rgrid' }); sets[k].forEach((r) => grid.appendChild(reportCard(r, p))); area.appendChild(grid);
+        });
+      }
       area.appendChild(h('div', { class: 'dropnote', role: 'button', tabindex: '0', onclick: () => { if (!imp.busy) fiw.click(); }, onkeydown: (e) => { if ((e.key === 'Enter' || e.key === ' ') && !imp.busy) { e.preventDefault(); fiw.click(); } } },
         [icon('doc'), rs.length ? 'Arrastra aquí otro Word para añadirlo a este grupo' : 'Este grupo aún no tiene informes. Arrastra aquí un Word (.docx) o haz clic para elegirlo']));
     }
