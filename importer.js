@@ -165,7 +165,7 @@ async function importDocx(store, buf, o) {
   const doc = {
     v: 2, projectId: o.projectId, createdAt: now, updatedAt: now, step: 'portada', source: o.name || '',
     cover: res.cover, vars: res.vars, intro: res.intro, planosTitulo: res.planosTitulo || 'PLANO CON EL REGISTRO DE LAS AFECTACIONES',
-    grupoId: grupoId, planos: planos, espacios: espacios, presupuesto: { ref: presRef, nota: res.presupuesto.nota || (fm && fm.presupuestoNota) || '' },
+    grupoId: grupoId, planos: planos, espacios: espacios, orden: Object.keys(espacios), presupuesto: { ref: presRef, nota: res.presupuesto.nota || (fm && fm.presupuestoNota) || '' },
     concl: res.concl, conclTitulo: res.conclTitulo || 'CONCLUSIONES', firma: firma,
     completado: false, drive: o.drive || null, importError: ''
   };

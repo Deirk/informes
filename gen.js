@@ -348,17 +348,23 @@ function buildReport2(D, r) {
   var spaces = r.espacios || [];
   if (spaces.length) {
     children.push(sectionTitle("INFORME FOTOGRÁFICO"));
+    var firstPhoto = true;
     spaces.forEach(function (sp) {
-      if (!sp.photos.length) return;
-      children.push(new D.Paragraph({
-        heading: D.HeadingLevel.HEADING_2,
-        keepNext: true,
-        spacing: { before: 280, after: 120 },
-        shading: { type: D.ShadingType.CLEAR, color: "auto", fill: BAND },
-        border: { left: { style: D.BorderStyle.SINGLE, size: 36, color: ACCENT, space: 6 } },
-        children: [new D.TextRun({ text: sp.name.toUpperCase(), bold: true, size: 24, color: NAVY, font: FONT })]
-      }));
-      children.push(photoTable(sp.photos));
+      sp.photos.forEach(function (ph, k) {
+        var name = sp.name.toUpperCase() + (k > 0 ? " (" + (k + 1) + ")" : "");
+        children.push(new D.Paragraph({
+          heading: D.HeadingLevel.HEADING_2,
+          pageBreakBefore: !firstPhoto,
+          keepNext: true,
+          spacing: { before: firstPhoto ? 280 : 0, after: 120 },
+          shading: { type: D.ShadingType.CLEAR, color: "auto", fill: BAND },
+          border: { left: { style: D.BorderStyle.SINGLE, size: 36, color: ACCENT, space: 6 } },
+          children: [new D.TextRun({ text: name, bold: true, size: 24, color: NAVY, font: FONT })]
+        }));
+        firstPhoto = false;
+        children.push(imagePara(ph, 600, 740, !!ph.caption));
+        if (ph.caption) children.push(new D.Paragraph({ alignment: CENTER, spacing: { after: 120 }, children: [new D.TextRun({ text: ph.caption, italics: true, size: 18, color: GRAY, font: FONT })] }));
+      });
     });
   }
 

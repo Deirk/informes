@@ -37,7 +37,9 @@ async function buildRep(store, doc, project, cfg) {
     else planos.push({ t: b.t, x: b.x });
   }
   const esp = doc.espacios || {};
-  const names = SPACES.filter((n) => (esp[n] || []).length).concat(Object.keys(esp).filter((n) => SPACES.indexOf(n) < 0 && esp[n].length));
+  const has2 = (n) => (esp[n] || []).length;
+  const ord = (doc.orden || []).filter(has2);
+  const names = ord.concat(SPACES.filter((n) => has2(n) && ord.indexOf(n) < 0)).concat(Object.keys(esp).filter((n) => has2(n) && ord.indexOf(n) < 0 && SPACES.indexOf(n) < 0));
   const espacios = [];
   for (const n of names) {
     const photos = [];
