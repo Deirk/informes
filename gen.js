@@ -1,4 +1,171 @@
+
+function buildReportRef(D, r) {
+  var FONT = "Arial";
+  var CENTER = D.AlignmentType.CENTER;
+  var MAXW = 601;
+  var MAXH = 800;
+
+  function fit(w, h, maxW, maxH) {
+    var k = Math.min(maxW / w, maxH / h, 1);
+    return { width: Math.max(1, Math.round(w * k)), height: Math.max(1, Math.round(h * k)) };
+  }
+  function fill(text) {
+    var v = r.vars || {};
+    return String(text || "")
+      .replace(/\{\{SEGURO\}\}/g, v.seguro || "")
+      .replace(/\{\{POLIZA\}\}/g, v.poliza || "")
+      .replace(/\{\{SINIESTRO\}\}/g, v.siniestro || "")
+      .replace(/\{\{VALOR\}\}/g, v.valor || "")
+      .replace(/\{\{APARTAMENTO\}\}/g, (r.cover && r.cover.apartamento) || "")
+      .replace(/\{\{CONJUNTO\}\}/g, (r.cover && r.cover.conjunto) || "");
+  }
+  function run(text, o) {
+    o = o || {};
+    return new D.TextRun({ text: text, font: FONT, size: o.size || 22, bold: !!o.bold });
+  }
+  function blank(n, size) {
+    var out = [];
+    for (var i = 0; i < (n || 1); i++) out.push(new D.Paragraph({ alignment: CENTER, children: [new D.TextRun({ text: "", font: FONT, size: size || 22 })] }));
+    return out;
+  }
+  function center(text, size, bold) {
+    return new D.Paragraph({ alignment: CENTER, children: [run(text, { size: size, bold: bold })] });
+  }
+  function h1(text, first) {
+    return new D.Paragraph({
+      heading: D.HeadingLevel.HEADING_1,
+      pageBreakBefore: true,
+      keepNext: true,
+      spacing: { before: 0, after: 200 },
+      children: [run(text, { size: 36, bold: true })]
+    });
+  }
+  function h2(text, pageBreak) {
+    return new D.Paragraph({
+      heading: D.HeadingLevel.HEADING_2,
+      pageBreakBefore: !!pageBreak,
+      keepNext: true,
+      spacing: { before: pageBreak ? 0 : 240, after: 120 },
+      children: [run(text, { size: 24, bold: true })]
+    });
+  }
+  function para(b) {
+    var tx = fill(b.x).replace(/\s+/g, " ").trim();
+    if (!tx) return null;
+    if (b.t === "h") return h2(tx, false);
+    if (b.t === "ol" || b.t === "li") {
+      return new D.Paragraph({
+        numbering: { reference: b.t === "ol" ? "numeros" : "vinetas", level: 0 },
+        spacing: { before: 240, after: 0 },
+        children: [run(tx)]
+      });
+    }
+    return new D.Paragraph({ spacing: { before: 240, after: 240 }, children: [run(tx)] });
+  }
+  function img(im, maxW, maxH, align) {
+    var d = fit(im.w, im.h, maxW, maxH);
+    return new D.Paragraph({
+      alignment: align || D.AlignmentType.LEFT,
+      children: [new D.ImageRun({ data: im.data, type: im.type || "jpg", transformation: d })]
+    });
+  }
+
+  var c = r.cover || {};
+  var ch = [];
+  ch.push(center((c.subtitulo || "INSPECCIÓN Y VALORACIÓN DE DAÑOS").toUpperCase(), 28, false));
+  blank(2).forEach(function (p) { ch.push(p); });
+  blank(3, 24).forEach(function (p) { ch.push(p); });
+  ch.push(center(c.apartamento || "", 24, false));
+  ch.push(new D.Paragraph({ children: [run("")] }));
+  ch.push(center(c.conjunto || "", 22, false));
+  blank(8).forEach(function (p) { ch.push(p); });
+  var elab = String(c.elaboradores || "").split(/\n/).map(function (l) { return l.trim(); }).filter(Boolean);
+  if (elab.length) {
+    ch.push(center("ELABORADO POR:", 22, false));
+    elab.forEach(function (l) { ch.push(center("", 22, false)); ch.push(center(l, 22, false)); });
+  }
+  if (c.fecha) {
+    blank(5).forEach(function (p) { ch.push(p); });
+    ch.push(center(c.fecha, 22, false));
+  }
+
+  ch.push(h1("INTRODUCCIÓN"));
+  (r.intro || []).forEach(function (b) { var p = para(b); if (p) ch.push(p); });
+
+  ch.push(h1((r.planosTitulo || "PLANO CON EL REGISTRO DE LAS AFECTACIONES").toUpperCase()));
+  (r.planos || []).forEach(function (b) {
+    if (b.t === "img") {
+      if (!b.img) return;
+      var fijo = b.role === "fijo";
+      ch.push(img(b.img, fijo ? 402 : MAXW, fijo ? 260 : 560, CENTER));
+    } else {
+      var p = para(b);
+      if (p) ch.push(p);
+    }
+  });
+
+  var spaces = (r.espacios || []).filter(function (sp) { return sp.photos && sp.photos.length; });
+  if (spaces.length) {
+    ch.push(h1("INFORME FOTOGRÁFICO"));
+    var firstPage = true;
+    spaces.forEach(function (sp) {
+      sp.photos.forEach(function (ph, k) {
+        var name = sp.name.toUpperCase() + (k > 0 ? " (" + (k + 1) + ")" : "");
+        var pb = !firstPage;
+        firstPage = false;
+        ch.push(h2(name, pb));
+        ch.push(img(ph, MAXW, MAXH, CENTER));
+        if (ph.caption) ch.push(new D.Paragraph({ alignment: CENTER, children: [run(ph.caption, { size: 20 })] }));
+      });
+    });
+  }
+
+  if (r.presupuesto && (r.presupuesto.img || r.presupuesto.nota)) {
+    ch.push(h1("PRESUPUESTO"));
+    if (r.presupuesto.img) ch.push(img(r.presupuesto.img, MAXW, 700, CENTER));
+    if (r.presupuesto.nota) ch.push(new D.Paragraph({ spacing: { before: 240, after: 240 }, children: [run(fill(r.presupuesto.nota))] }));
+  }
+
+  ch.push(h1((r.conclTitulo || "CONCLUSIONES").toUpperCase()));
+  (r.concl || []).forEach(function (b) {
+    var p;
+    if (b.t === "p" || b.t === "ol" || b.t === "li") {
+      var tx = fill(b.x).replace(/\s+/g, " ").trim();
+      if (!tx) return;
+      p = new D.Paragraph({ numbering: { reference: "numeros2", level: 0 }, spacing: { before: 240, after: 0 }, children: [run(tx)] });
+    } else p = para(b);
+    if (p) ch.push(p);
+  });
+  if (r.firma) ch.push(new D.Paragraph({ spacing: { before: 240 }, children: [] }), img(r.firma, MAXW, 300, D.AlignmentType.LEFT));
+
+  var bullet = { level: 0, format: D.LevelFormat.BULLET, text: "●", alignment: D.AlignmentType.START, style: { paragraph: { indent: { left: 720, hanging: 360 } } } };
+  var dec = { level: 0, format: D.LevelFormat.DECIMAL, text: "%1.", alignment: D.AlignmentType.START, style: { paragraph: { indent: { left: 720, hanging: 360 } } } };
+  return new D.Document({
+    creator: "Generador de informes",
+    title: "Informe " + (c.apartamento || ""),
+    styles: {
+      default: { document: { run: { font: FONT, size: 22 }, paragraph: { spacing: { line: 276, lineRule: D.LineRuleType.AUTO } } } },
+      paragraphStyles: [
+        { id: "Heading1", name: "Heading 1", basedOn: "Normal", next: "Normal", quickFormat: true,
+          run: { font: FONT, size: 36, bold: true }, paragraph: { spacing: { before: 0, after: 200 }, keepNext: true } },
+        { id: "Heading2", name: "Heading 2", basedOn: "Normal", next: "Normal", quickFormat: true,
+          run: { font: FONT, size: 24, bold: true }, paragraph: { spacing: { before: 240, after: 120 }, keepNext: true } }
+      ]
+    },
+    numbering: { config: [
+      { reference: "vinetas", levels: [bullet] },
+      { reference: "numeros", levels: [dec] },
+      { reference: "numeros2", levels: [dec] }
+    ] },
+    sections: [{
+      properties: { page: { size: { width: 11909, height: 16834 }, margin: { top: 1440, right: 1440, bottom: 1440, left: 1440, header: 720, footer: 720 } } },
+      children: ch
+    }]
+  });
+}
+
 function buildReport2(D, r) {
+  if (!r.estiloPropio) return buildReportRef(D, r);
   var NAVY = "1A1A1A", ACCENT = "FBAA11", GRAY = "5F5F5F", BAND = "FFF3D6", INK = "1F1F1F";
   var FONT = "Calibri";
   var CENTER = D.AlignmentType.CENTER;

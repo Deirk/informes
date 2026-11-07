@@ -48,7 +48,7 @@ async function buildRep(store, doc, project, cfg) {
   const firmaRef = cfg && cfg.firma && cfg.firma.aid ? cfg.firma : doc.firma;
   return {
     cover: doc.cover, vars: doc.vars, intro: doc.intro, planosTitulo: doc.planosTitulo, planos: planos, espacios: espacios,
-    presupuesto: presupuestoFor(project, doc, presImg),
+    presupuesto: presupuestoFor(project, doc, presImg), estiloPropio: !!(project && project.estiloPropio),
     concl: doc.concl, conclTitulo: doc.conclTitulo, firma: await asImg(store, firmaRef)
   };
 }
