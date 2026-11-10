@@ -218,5 +218,29 @@ module.exports = function createDrive(cfg, root, deps) {
     return res.json();
   }
 
-  return { folders: folders, folder: folder, scan: scan, doc: doc, upload: upload, getClient: getClient };
+  async function replace(o) {
+    await guard(o.fileId);
+    const meta = await json(API + '/' + o.fileId + '?fields=id,name,mimeType&supportsAllDrives=true');
+    const isGoogle = meta.mimeType === 'application/vnd.google-apps.document';
+    if (meta.mimeType !== DOCX && !isGoogle) throw new Error('El archivo original no es un Word ni un Google Docs, no se puede reemplazar.');
+    const boundary = 'hya' + Math.random().toString(16).slice(2);
+    const md = isGoogle ? { mimeType: meta.mimeType } : {};
+    const head = Buffer.from('--' + boundary + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify(md) + '\r\n--' + boundary + '\r\nContent-Type: ' + DOCX + '\r\n\r\n');
+    const tail = Buffer.from('\r\n--' + boundary + '--');
+    const url = 'https://www.googleapis.com/upload/drive/v3/files/' + o.fileId + '?uploadType=multipart&supportsAllDrives=true&fields=id,name,modifiedTime';
+    const res = await fetch(url, { method: 'PATCH', headers: { Authorization: 'Bearer ' + await token(), 'Content-Type': 'multipart/related; boundary=' + boundary }, body: Buffer.concat([head, o.buf, tail]) });
+    if (!res.ok) {
+      let m = '';
+      try { const j = await res.json(); m = (j.error && j.error.message) || ''; } catch (e) {}
+      const err = new Error(res.status === 403 && /scope|insufficient/i.test(m)
+        ? 'La credencial de Google es de solo lectura. Genera de nuevo token.json con npm run auth (o usa una cuenta de servicio con permiso de editor en la carpeta).'
+        : res.status === 403 ? 'Sin permiso para editar ese archivo de Drive. Comparte la carpeta con permiso de editor.'
+        : 'Drive respondió ' + res.status + (m ? ': ' + m : ''));
+      err.status = res.status;
+      throw err;
+    }
+    return res.json();
+  }
+
+  return { folders: folders, folder: folder, scan: scan, doc: doc, upload: upload, replace: replace, getClient: getClient };
 };

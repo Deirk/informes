@@ -1802,7 +1802,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     body.appendChild(h('div', { class: 'sec-h sm' }, [h('h3', { text: 'Informes (' + rs.length + ')' }),
       h('div', { class: 'mini' }, [
         h('button', { class: 'btn ghost sm', type: 'button', disabled: imp.busy ? true : null, onclick: () => fiw.click() }, [icon('doc'), 'Subir Word']),
-        gDriveN > 0 || rs.some((r) => r.data.drive && r.data.drive.folderId) ? h('button', { class: 'btn ghost sm', type: 'button', title: 'Sube a Drive una copia \"(Corregido)\" de cada informe completado de este grupo', disabled: (driveExp.busy || !gDriveN) ? true : null, onclick: () => exportDrive(gid) }, [icon('up'), driveExp.busy && driveExp.gid === gid ? 'Exportando…' : 'Exportar a Drive' + (gDriveN ? ' (' + gDriveN + ')' : '')]) : null,
+        gDriveN > 0 || rs.some((r) => r.data.drive && r.data.drive.folderId) ? h('button', { class: 'btn ghost sm', type: 'button', title: 'Reemplaza en Drive el archivo original de cada informe completado de este grupo', disabled: (driveExp.busy || !gDriveN) ? true : null, onclick: () => exportDrive(gid) }, [icon('up'), driveExp.busy && driveExp.gid === gid ? 'Exportando…' : 'Exportar a Drive' + (gDriveN ? ' (' + gDriveN + ')' : '')]) : null,
         h('button', { class: 'btn sm', type: 'button', onclick: () => newBlank(gid) }, [icon('plus'), 'Nuevo informe']), fiw])]));
     if (driveExp.gid === gid && (driveExp.busy || driveExp.summary || driveExp.errs.length)) {
       const de = driveExp;
@@ -1993,7 +1993,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
         h('span', { class: 'rc-when', text: cardMsg[r.id] || ago(d.updatedAt) }),
         state === 'amarillo' ? h('button', { class: 'btn sm', type: 'button', onclick: () => setCompleted(r, true) }, [icon('check'), 'Marcar completado']) : null,
         state === 'verde' ? h('button', { class: 'btn ghost sm', type: 'button', onclick: () => setCompleted(r, false) }, ['Quitar completado']) : null,
-        d.importError || !(d.drive && d.drive.folderId) ? null : h('button', { class: 'btn ghost sm', type: 'button', title: 'Sube una copia "(Corregido)" a la carpeta de Drive donde estaba el original', disabled: (cardBusy || driveBusy) ? true : null, onclick: () => sendCardToDrive(r) }, [icon('up'), driveBusy === r.id ? 'Enviando…' : (d.exportado && !exportPending(d) ? 'En Drive' : 'Enviar a Drive')]),
+        d.importError || !(d.drive && d.drive.folderId) ? null : h('button', { class: 'btn ghost sm', type: 'button', title: 'Reemplaza el archivo original en Drive con este informe', disabled: (cardBusy || driveBusy) ? true : null, onclick: () => sendCardToDrive(r) }, [icon('up'), driveBusy === r.id ? 'Enviando…' : (d.exportado && !exportPending(d) ? 'En Drive' : 'Enviar a Drive')]),
         d.importError ? null : h('button', { class: 'btn ghost sm', type: 'button', disabled: cardBusy ? true : null, onclick: () => generateFromList(r) }, [icon('down'), cardBusy === r.id ? 'Generando…' : 'Word']),
         h('button', { class: 'ib', type: 'button', 'aria-label': 'Eliminar informe', title: 'Eliminar informe', onclick: () => { confirmDel = 'r:' + r.id; renderProject(); } }, [icon('trash')])
       ])
@@ -2380,7 +2380,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
       g.length ? h('div', { class: 'warns' }, [h('p', { text: 'Revisar: ' + g.join(', ') + '. Puedes generar igual y completarlo después.' })]) : h('div', { class: 'pill ok', text: 'Todo listo' }),
       h('div', { class: 'foot' }, [
         h('button', { class: 'btn ghost', type: 'button', onclick: () => goStep('conclusiones') }, [icon('back'), 'Atrás']),
-        R.drive && R.drive.folderId && !R.importError ? h('button', { class: 'btn ghost', type: 'button', disabled: genState.busy ? true : null, onclick: sendEditorToDrive, title: 'Sube una copia "(Corregido)" a la carpeta de Drive donde estaba el original' }, [icon('up'), 'Enviar a Drive']) : null,
+        R.drive && R.drive.folderId && !R.importError ? h('button', { class: 'btn ghost', type: 'button', disabled: genState.busy ? true : null, onclick: sendEditorToDrive, title: 'Reemplaza el archivo original en Drive con este informe' }, [icon('up'), 'Enviar a Drive']) : null,
         h('button', { class: 'btn', type: 'button', disabled: genState.busy ? true : null, onclick: generateEditor }, [icon('down'), genState.busy ? 'Generando…' : 'Generar y descargar Word'])
       ])
     ]);

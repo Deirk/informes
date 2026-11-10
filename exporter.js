@@ -64,23 +64,15 @@ function copyName(name) { return String(name || 'Informe').replace(/\.docx$/i, '
 async function sendOne(ctx, project, cfgDoc, r) {
   const store = ctx.store;
   const buf = await buildDocx(store, r.data, project, cfgDoc);
-  const name = copyName(r.data.drive.name);
-  const prev = r.data.exportado && r.data.exportado.fileId;
-  let file;
-  let updated = false;
-  if (prev) {
-    try { file = await ctx.drive.upload({ parentId: r.data.drive.folderId, name: name, buf: buf, existingId: prev }); updated = true; }
-    catch (e) { if (e.status === 404) file = await ctx.drive.upload({ parentId: r.data.drive.folderId, name: name, buf: buf }); else throw e; }
-  } else {
-    file = await ctx.drive.upload({ parentId: r.data.drive.folderId, name: name, buf: buf });
-  }
+  const file = await ctx.drive.replace({ fileId: r.data.drive.id, buf: buf });
+  const name = file.name || r.data.drive.name;
   await withLock('r:' + r.id, async () => {
     const fresh = await store.getDoc('informes2', r.id);
     if (!fresh) return;
-    fresh.exportado = { fileId: file.id, name: file.name || name, at: Date.now() };
+    fresh.exportado = { fileId: file.id, name: name, at: Date.now() };
     await store.putDoc('informes2', r.id, fresh);
   });
-  return { name: file.name || name, updated: updated };
+  return { name: name, updated: !!(r.data.exportado && r.data.exportado.fileId) };
 }
 
 async function exportOne(ctx, reportId) {
@@ -122,8 +114,7 @@ async function run(ctx, projectId, job, groupId) {
   }
   job.done = todo.length;
   const parts = [];
-  parts.push(created + (created === 1 ? ' copia creada' : ' copias creadas'));
-  if (updated) parts.push(updated + (updated === 1 ? ' actualizada' : ' actualizadas'));
+  parts.push((created + updated) + ((created + updated) === 1 ? ' original reemplazado' : ' originales reemplazados'));
   if (upToDate > 0) parts.push(upToDate + ' ya estaban al día');
   if (noDrive) parts.push(noDrive + (noDrive === 1 ? ' no viene' : ' no vienen') + ' de Drive y se omitió');
   job.summary = todo.length || noDrive || upToDate ? 'Exportación terminada: ' + parts.join(', ') + '.' : 'No hay informes completados para exportar.';
