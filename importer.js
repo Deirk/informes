@@ -3,7 +3,7 @@ const sharp = require('sharp');
 const JSZip = require('jszip');
 const { JSDOM } = require('jsdom');
 const { parseInforme } = require('./parse');
-const { has } = require('./state');
+const { has, apartamentoFrom, fillApartamento } = require('./state');
 
 const DOMParserCls = new JSDOM('').window.DOMParser;
 const locks = {};
@@ -169,6 +169,11 @@ async function importDocx(store, buf, o) {
     concl: res.concl, conclTitulo: res.conclTitulo || 'CONCLUSIONES', firma: firma,
     completado: false, drive: o.drive || null, importError: ''
   };
+  {
+    const ng = (p0.grupos || []).concat(fx.newGroup ? [fx.newGroup] : []);
+    fillApartamento(doc, { grupos: ng });
+    if (!doc.drive && !has(doc.cover.apartamento)) doc.cover.apartamento = apartamentoFrom({ name: o.name }, (ng.filter((x) => x.id === grupoId)[0] || {}).name) || '';
+  }
   await store.putDoc('informes2', id, doc);
   try { await seedFirma(store, res); } catch (e) {}
   const infos = [];
@@ -200,4 +205,16 @@ async function extractFirma(store, buf) {
   return { aid: await store.putAsset(pr.buf, 'image/jpeg'), w: pr.w, h: pr.h };
 }
 
-module.exports = { extractFirma: extractFirma, importDocx: importDocx, recordFailure: recordFailure, withLock: withLock, uid: uid };
+async function backfillApartamentos(store) {
+  const projects = {};
+  let n = 0;
+  for (const r of await store.listCol('informes2')) {
+    const d = r.data;
+    if (!d || d.importError || has(d.cover && d.cover.apartamento)) continue;
+    if (!projects[d.projectId]) projects[d.projectId] = await store.getDoc('proyectos', d.projectId);
+    if (fillApartamento(d, projects[d.projectId])) { d.updatedAt = Date.now(); await store.putDoc('informes2', r.id, d); n++; }
+  }
+  return n;
+}
+
+module.exports = { backfillApartamentos: backfillApartamentos, extractFirma: extractFirma, importDocx: importDocx, recordFailure: recordFailure, withLock: withLock, uid: uid };

@@ -33,4 +33,31 @@ function cardState(d, project) {
   return d.importError || moduleGaps(d, project).length ? 'rojo' : 'amarillo';
 }
 
-module.exports = { moduleGaps: moduleGaps, cardState: cardState, has: has };
+function apartamentoFrom(meta, groupName) {
+  const m = meta || {};
+  const file = String(m.name || '').replace(/\.docx$/i, '');
+  const parts = String(m.path || '').split(' / ');
+  const folder = parts.length ? parts[parts.length - 1] : '';
+  let num = '';
+  let x = /(?:^|[^0-9])(\d{2,4})(?![0-9])/.exec(file.replace(/^\s*inf[\s\-_.]*/i, ''));
+  if (x) num = x[1];
+  if (!num) { x = /(?:^|[^0-9])(\d{2,4})(?![0-9])/.exec(folder); if (x) num = x[1]; }
+  if (!num) return '';
+  let tower = '';
+  const t = /torre\s*([A-Za-z0-9]+)/i.exec(String(groupName || ''));
+  if (t) tower = t[1].toUpperCase();
+  if (!tower) { const y = /\d{2,4}\s*[-_ ]?\s*([A-Za-z])(?![A-Za-z0-9])/.exec(file) || /\d{2,4}\s*[-_ ]?\s*([A-Za-z])(?![A-Za-z0-9])/.exec(folder); if (y) tower = y[1].toUpperCase(); }
+  return 'APARTAMENTO ' + num + (tower ? ' TORRE ' + tower : '');
+}
+
+function fillApartamento(doc, project) {
+  if (!doc || doc.importError || !doc.cover || has(doc.cover.apartamento)) return false;
+  const g = ((project && project.grupos) || []).filter((x) => x.id === doc.grupoId)[0];
+  const meta = doc.drive || { name: doc.source };
+  const v = apartamentoFrom(meta, g && g.name);
+  if (!v) return false;
+  doc.cover.apartamento = v;
+  return true;
+}
+
+module.exports = { apartamentoFrom: apartamentoFrom, fillApartamento: fillApartamento, moduleGaps: moduleGaps, cardState: cardState, has: has };

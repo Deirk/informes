@@ -400,7 +400,7 @@ img.zoomable{cursor:zoom-in}
 @media (max-width:640px){.lb-stage{padding:0 8px}.lb-nav{top:auto;bottom:64px;transform:none}}
 .infos{margin:10px 0 0;padding:10px 14px;border-radius:12px;background:var(--accent-soft);color:var(--ink);font-size:13.5px}.infos p{margin:0}
 .chk{display:flex;align-items:center;gap:10px;font-weight:600;cursor:pointer}.chk input{width:18px;height:18px;accent-color:var(--accent)}
-.subh{display:flex;align-items:center;gap:8px;margin:18px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--ink)}.subh svg{width:16px;height:16px;flex:none}.subh span{margin-left:auto;font-size:12px;color:var(--muted)}
+.subh{display:flex;align-items:center;gap:8px;margin:18px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--ink)}.subh svg{width:16px;height:16px;flex:none}.subh .btn{margin-left:8px}.subh .btn svg{width:14px;height:14px}.subh .btn+*{}.subh span{margin-left:auto;font-size:12px;color:var(--muted)}
 </style>
 
 <div class="shell" id="shell">
@@ -1802,6 +1802,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     body.appendChild(h('div', { class: 'sec-h sm' }, [h('h3', { text: 'Informes (' + rs.length + ')' }),
       h('div', { class: 'mini' }, [
         h('button', { class: 'btn ghost sm', type: 'button', disabled: imp.busy ? true : null, onclick: () => fiw.click() }, [icon('doc'), 'Subir Word']),
+        rs.some(autoNeeds) ? h('button', { class: 'btn ghost sm', type: 'button', title: 'Rellena las secciones vacías de todos los informes del grupo con el formato y los datos del proyecto', onclick: () => autoFormatoRun(rs) }, [icon('wand'), 'Autogenerar formato (' + rs.filter(autoNeeds).length + ')']) : null,
         gDriveN > 0 || rs.some((r) => r.data.drive && r.data.drive.folderId) ? h('button', { class: 'btn ghost sm', type: 'button', title: 'Reemplaza en Drive el archivo original de cada informe completado de este grupo', disabled: (driveExp.busy || !gDriveN) ? true : null, onclick: () => exportDrive(gid) }, [icon('up'), driveExp.busy && driveExp.gid === gid ? 'Exportando…' : 'Exportar a Drive' + (gDriveN ? ' (' + gDriveN + ')' : '')]) : null,
         h('button', { class: 'btn sm', type: 'button', onclick: () => newBlank(gid) }, [icon('plus'), 'Nuevo informe']), fiw])]));
     if (driveExp.gid === gid && (driveExp.busy || driveExp.summary || driveExp.errs.length)) {
@@ -1824,7 +1825,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
         order.sort((a, b) => (a ? 1 : 0) - (b ? 1 : 0) || a.localeCompare(b, 'es', { numeric: true, sensitivity: 'base' }));
         if (order.length === 1 && !order[0]) { const grid = h('div', { class: 'rgrid' }); rs.forEach((r) => grid.appendChild(reportCard(r, p))); area.appendChild(grid); }
         else order.forEach((k) => {
-          area.appendChild(h('div', { class: 'subh' }, [icon('folder'), h('b', { text: k || 'Sin subcarpeta' }), h('span', { text: sets[k].length + (sets[k].length === 1 ? ' informe' : ' informes') })]));
+          area.appendChild(h('div', { class: 'subh' }, [icon('folder'), h('b', { text: k || 'Sin subcarpeta' }), h('span', { text: sets[k].length + (sets[k].length === 1 ? ' informe' : ' informes') }), (() => { const nn = sets[k].filter(autoNeeds); return nn.length ? h('button', { class: 'btn ghost sm', type: 'button', title: 'Rellena las secciones vacías con el formato y los datos del proyecto', onclick: () => autoFormatoRun(nn) }, [icon('wand'), 'Autogenerar formato (' + nn.length + ')']) : null; })()]));
           const grid = h('div', { class: 'rgrid' }); sets[k].forEach((r) => grid.appendChild(reportCard(r, p))); area.appendChild(grid);
         });
       }
@@ -1964,6 +1965,42 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     back.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
     return back;
   }
+  function autoFormatoDoc(d, p, apply) {
+    const f = p && p.formato, df = (p && p.defaults) || {}, ch = [];
+    d.cover = d.cover || {}; d.vars = d.vars || {};
+    const mark = (l) => { if (ch.indexOf(l) < 0) ch.push(l); };
+    const set = (o, k, v, l) => { if (!has(o[k]) && has(v)) { if (apply) o[k] = v; mark(l); } };
+    set(d.cover, 'conjunto', df.conjunto, 'portada'); set(d.cover, 'subtitulo', df.subtitulo, 'portada'); set(d.cover, 'elaboradores', df.elaboradores, 'portada');
+    set(d.vars, 'seguro', df.seguro, 'introducción'); set(d.vars, 'poliza', df.poliza, 'introducción'); set(d.vars, 'siniestro', df.siniestro, 'introducción');
+    if (f) {
+      if (!(d.intro || []).length && (f.intro || []).length) { if (apply) d.intro = f.intro.map((b) => ({ t: b.t, x: b.x })); mark('introducción'); }
+      if (!(d.concl || []).length && (f.concl || []).length) { if (apply) d.concl = f.concl.map((b) => ({ t: b.t, x: b.x })); mark('conclusiones'); }
+      if (f.planos && !(d.planos || []).some((b) => b.t !== 'img' || (b.role === 'fijo' && b.ref))) {
+        if (apply) {
+          const keep = {};
+          (d.planos || []).forEach((b) => { if (b.t === 'img' && (b.role === 'grupo' || b.role === 'individual')) keep[b.role] = b; });
+          const out = f.planos.map((b) => b.t === 'img' ? (b.role === 'fijo' ? { t: 'img', role: 'fijo', ref: b.ref || null } : (keep[b.role] || { t: 'img', role: b.role, ref: null })) : { t: b.t, x: b.x });
+          if (!out.some((b) => b.t === 'img' && b.role === 'grupo')) out.unshift(keep.grupo || { t: 'img', role: 'grupo', ref: null });
+          if (!out.some((b) => b.t === 'img' && b.role === 'individual')) out.push(keep.individual || { t: 'img', role: 'individual', ref: null });
+          d.planos = out;
+          if (f.planosTitulo) d.planosTitulo = f.planosTitulo;
+        }
+        mark('planos');
+      }
+      if (!has(d.presupuesto && d.presupuesto.nota) && has(f.presupuestoNota)) { if (apply) { d.presupuesto = d.presupuesto || { ref: null, nota: '' }; d.presupuesto.nota = f.presupuestoNota; } mark('presupuesto'); }
+    }
+    return ch;
+  }
+  function autoNeeds(r) { const p = proj(r.data.projectId); return !r.data.importError && !r.data.completado && p ? autoFormatoDoc(r.data, p, false).length > 0 : false; }
+  async function autoFormatoRun(list) {
+    const todo = list.filter(autoNeeds);
+    for (const r of todo) {
+      autoFormatoDoc(r.data, proj(r.data.projectId), true);
+      r.data.updatedAt = Date.now();
+      if (db) { try { await db.doc('informes2/' + r.id).set(r.data); } catch (e) {} }
+    }
+    renderProject();
+  }
   async function setCompleted(r, v) {
     r.data.completado = v; r.data.updatedAt = Date.now();
     if (db) { try { await db.doc('informes2/' + r.id).set(r.data); } catch (e) {} }
@@ -1993,6 +2030,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
         h('span', { class: 'rc-when', text: cardMsg[r.id] || ago(d.updatedAt) }),
         state === 'amarillo' ? h('button', { class: 'btn sm', type: 'button', onclick: () => setCompleted(r, true) }, [icon('check'), 'Marcar completado']) : null,
         state === 'verde' ? h('button', { class: 'btn ghost sm', type: 'button', onclick: () => setCompleted(r, false) }, ['Quitar completado']) : null,
+        autoNeeds(r) ? h('button', { class: 'btn ghost sm', type: 'button', title: 'Rellena las secciones vacías con el formato del proyecto', onclick: () => autoFormatoRun([r]) }, [icon('wand'), 'Autogenerar']) : null,
         d.importError || !(d.drive && d.drive.folderId) ? null : h('button', { class: 'btn ghost sm', type: 'button', title: 'Reemplaza el archivo original en Drive con este informe', disabled: (cardBusy || driveBusy) ? true : null, onclick: () => sendCardToDrive(r) }, [icon('up'), driveBusy === r.id ? 'Enviando…' : (d.exportado && !exportPending(d) ? 'En Drive' : 'Enviar a Drive')]),
         d.importError ? null : h('button', { class: 'btn ghost sm', type: 'button', disabled: cardBusy ? true : null, onclick: () => generateFromList(r) }, [icon('down'), cardBusy === r.id ? 'Generando…' : 'Word']),
         h('button', { class: 'ib', type: 'button', 'aria-label': 'Eliminar informe', title: 'Eliminar informe', onclick: () => { confirmDel = 'r:' + r.id; renderProject(); } }, [icon('trash')])

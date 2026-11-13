@@ -26,7 +26,7 @@ const drive = process.env.HYA_FAKE_DRIVE ? require(path.resolve(process.env.HYA_
 const session = require('./session')(cfg.appPassword, cfg.sessionSecret);
 const sync = require('./sync');
 const exporter = require('./exporter');
-const { importDocx, extractFirma } = require('./importer');
+const { importDocx, extractFirma, backfillApartamentos } = require('./importer');
 
 if (store.kind === 'supabase' && !session.enabled) {
   console.error('Define APP_PASSWORD en el entorno. Con Supabase la aplicación no arranca sin contraseña de acceso.');
@@ -223,6 +223,7 @@ store.init().then(() => {
   const host = cfg.host || (session.enabled ? '0.0.0.0' : '127.0.0.1');
   server.listen(cfg.port, host, () => {
     console.log('Generador de informes HyA en http://localhost:' + cfg.port + ' (almacenamiento: ' + store.kind + ')');
+    backfillApartamentos(store).then((n) => { if (n) { console.log('Apartamento completado desde la ruta en ' + n + ' informes'); notify('informes2'); } }).catch(() => {});
   });
 }).catch((e) => {
   console.error(e.message);

@@ -1,4 +1,4 @@
-const { importDocx, recordFailure, withLock, uid } = require('./importer');
+const { importDocx, recordFailure, withLock, uid, backfillApartamentos } = require('./importer');
 const { cardState } = require('./state');
 
 const jobs = {};
@@ -82,6 +82,8 @@ async function run(ctx, projectId, job) {
     ctx.notify('config');
   }
   job.done = todo.length;
+  try { await backfillApartamentos(store); } catch (e) {}
+  ctx.notify('informes2');
   job.summary = 'Sincronizado. ' + scan.items.length + ' informes en Drive, ' + todo.length + ' nuevos (' + amarillos + ' con el mismo formato, ' + rojos + ' en rojo) y ' + omitted + ' que ya estaban.';
 }
 
