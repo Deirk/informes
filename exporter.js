@@ -1,7 +1,7 @@
 const D = require('docx');
 const buildReport = require('./gen');
 const { SPACES } = require('./parse');
-const { has } = require('./state');
+const { has, cardState, moduleGaps } = require('./state');
 const { withLock } = require('./importer');
 
 const jobs = {};
@@ -11,8 +11,8 @@ function blank() { return { busy: false, msg: '', done: 0, total: 0, summary: ''
 
 function status(projectId) { return jobs[projectId] || blank(); }
 
-function pending(doc) {
-  return !!(doc && doc.completado && !doc.importError && doc.drive && doc.drive.folderId && (!doc.exportado || (doc.updatedAt || 0) > (doc.exportado.at || 0)));
+function pending(doc, project) {
+  return !!(doc && doc.completado && !doc.importError && !moduleGaps(doc, project).length && doc.drive && doc.drive.folderId && (!doc.exportado || (doc.updatedAt || 0) > (doc.exportado.at || 0)));
 }
 
 async function asImg(store, ref, caption) {
@@ -79,6 +79,8 @@ async function exportOne(ctx, reportId) {
   const doc = await ctx.store.getDoc('informes2', reportId);
   if (!doc) throw new Error('Informe no encontrado');
   if (doc.importError) throw new Error('Este informe tiene un error de importación y no se puede enviar.');
+  const gaps = moduleGaps(doc, await ctx.store.getDoc('proyectos', doc.projectId));
+  if (gaps.length) throw new Error('Este informe tiene pendientes y no se puede enviar: ' + gaps.join(', ') + '.');
   if (!doc.drive || !doc.drive.folderId) throw new Error('Este informe no tiene ruta de Drive. Sincroniza el proyecto con Drive para obtenerla.');
   const project = await ctx.store.getDoc('proyectos', doc.projectId);
   const cfgDoc = await ctx.store.getDoc('config', 'global');
@@ -93,9 +95,10 @@ async function run(ctx, projectId, job, groupId) {
   if (!project) throw new Error('Proyecto no encontrado');
   const cfgDoc = await store.getDoc('config', 'global');
   const all = (await store.listCol('informes2')).filter((r) => r.data.projectId === projectId && (!groupId || (r.data.grupoId || '') === groupId) && r.data.completado && !r.data.importError);
-  const todo = all.filter((r) => pending(r.data));
+  const bad = all.filter((r) => cardState(r.data, project) === 'rojo');
+  const todo = all.filter((r) => cardState(r.data, project) !== 'rojo' && pending(r.data, project));
   const noDrive = all.filter((r) => !(r.data.drive && r.data.drive.folderId)).length;
-  const upToDate = all.length - todo.length - noDrive;
+  const upToDate = Math.max(0, all.length - todo.length - noDrive - bad.length);
   job.total = todo.length;
   let created = 0;
   let updated = 0;
@@ -116,8 +119,9 @@ async function run(ctx, projectId, job, groupId) {
   const parts = [];
   parts.push((created + updated) + ((created + updated) === 1 ? ' original reemplazado' : ' originales reemplazados'));
   if (upToDate > 0) parts.push(upToDate + ' ya estaban al día');
+  if (bad.length) parts.push(bad.length + (bad.length === 1 ? ' con pendientes se omitió' : ' con pendientes se omitieron'));
   if (noDrive) parts.push(noDrive + (noDrive === 1 ? ' no viene' : ' no vienen') + ' de Drive y se omitió');
-  job.summary = todo.length || noDrive || upToDate ? 'Exportación terminada: ' + parts.join(', ') + '.' : 'No hay informes completados para exportar.';
+  job.summary = todo.length || noDrive || upToDate || bad.length ? 'Exportación terminada: ' + parts.join(', ') + '.' : 'No hay informes completados para exportar.';
 }
 
 function start(ctx, projectId, groupId) {

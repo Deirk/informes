@@ -19,6 +19,16 @@ function buildReportRef(D, r) {
       .replace(/\{\{APARTAMENTO\}\}/g, (r.cover && r.cover.apartamento) || "")
       .replace(/\{\{CONJUNTO\}\}/g, (r.cover && r.cover.conjunto) || "");
   }
+  function valorRunsRef(raw) {
+    var v = (r.vars && r.vars.valor) || "";
+    var t = fill(String(raw || "").replace(/\{\{VALOR\}\}/g, "\u0001")).replace(/\s+/g, " ").trim();
+    var out = [];
+    t.split("\u0001").forEach(function (piece, i, arr) {
+      if (piece) out.push(run(piece));
+      if (i < arr.length - 1) out.push(new D.TextRun({ text: v || "{{VALOR}}", font: FONT, size: 22, bold: true, shading: { type: D.ShadingType.CLEAR, color: "auto", fill: "FFA500" } }));
+    });
+    return out;
+  }
   function run(text, o) {
     o = o || {};
     return new D.TextRun({ text: text, font: FONT, size: o.size || 22, bold: !!o.bold });
@@ -141,7 +151,7 @@ function buildReportRef(D, r) {
     if (b.t === "p" || b.t === "ol" || b.t === "li") {
       var tx = fill(b.x).replace(/\s+/g, " ").trim();
       if (!tx) return;
-      p = new D.Paragraph({ numbering: { reference: "numeros2", level: 0 }, spacing: { before: 240, after: 0 }, children: [run(tx)] });
+      p = new D.Paragraph({ numbering: { reference: "numeros2", level: 0 }, spacing: { before: 240, after: 0 }, children: valorRunsRef(b.x) });
     } else p = para(b);
     if (p) ch.push(p);
   });
@@ -196,7 +206,20 @@ function buildReport2(D, r) {
       .replace(/\{\{CONJUNTO\}\}/g, (r.cover && r.cover.conjunto) || "");
   }
 
-  function textPara(b, keepNext) {
+  function valorRuns(raw, hl, base) {
+    var v = (r.vars && r.vars.valor) || "";
+    var t = String(raw || "").replace(/\{\{VALOR\}\}/g, hl ? "\u0001" : v);
+    t = fill(t).replace(/\s+/g, " ").trim();
+    if (!hl || t.indexOf("\u0001") < 0) return [new D.TextRun(Object.assign({ text: t }, base))];
+    var out = [];
+    t.split("\u0001").forEach(function (piece, i, arr) {
+      if (piece) out.push(new D.TextRun(Object.assign({ text: piece }, base)));
+      if (i < arr.length - 1) out.push(new D.TextRun(Object.assign({ text: v || "{{VALOR}}", bold: true }, base, { shading: { type: D.ShadingType.CLEAR, color: "auto", fill: "FFA500" } })));
+    });
+    return out;
+  }
+
+  function textPara(b, keepNext, hl) {
     var t = fill(b.x).replace(/\s+/g, " ").trim();
     if (!t) return null;
     if (b.t === "h") {
@@ -212,7 +235,7 @@ function buildReport2(D, r) {
         alignment: D.AlignmentType.JUSTIFIED,
         keepNext: !!keepNext,
         spacing: { after: 160, line: 276, lineRule: D.LineRuleType.AUTO },
-        children: [new D.TextRun({ text: t, font: FONT, size: 22, color: INK })]
+        children: valorRuns(b.x, hl, { font: FONT, size: 22, color: INK })
       });
     }
     if (b.t === "li") {
@@ -220,14 +243,14 @@ function buildReport2(D, r) {
         numbering: { reference: "viñetas", level: 0 },
         keepNext: !!keepNext,
         spacing: { after: 100, line: 276, lineRule: D.LineRuleType.AUTO },
-        children: [new D.TextRun({ text: t, font: FONT, size: 22, color: INK })]
+        children: valorRuns(b.x, hl, { font: FONT, size: 22, color: INK })
       });
     }
     return new D.Paragraph({
       alignment: D.AlignmentType.JUSTIFIED,
       keepNext: !!keepNext,
       spacing: { after: 200, line: 276, lineRule: D.LineRuleType.AUTO },
-      children: [new D.TextRun({ text: t, font: FONT, size: 22, color: INK })]
+      children: valorRuns(b.x, hl, { font: FONT, size: 22, color: INK })
     });
   }
 
@@ -402,7 +425,7 @@ function buildReport2(D, r) {
   var cb = r.concl || [];
   cb.forEach(function (b, i) {
     var last = i === cb.length - 1;
-    var p = textPara(b, last && !!r.firma);
+    var p = textPara(b, last && !!r.firma, true);
     if (p) children.push(p);
   });
   if (r.firma) children.push(imagePara(r.firma, 520, 220, false));

@@ -446,6 +446,17 @@ function parseInforme(buf, JSZipLib, DOMParserCls) {
       if (b[0] === 0x89 && b[1] === 0x50) {
         return { w: ((b[16] << 24) | (b[17] << 16) | (b[18] << 8) | b[19]) >>> 0, h: ((b[20] << 24) | (b[21] << 16) | (b[22] << 8) | b[23]) >>> 0 };
       }
+      if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) return { w: b[6] | (b[7] << 8), h: b[8] | (b[9] << 8) };
+      if (b[0] === 0x42 && b[1] === 0x4d) {
+        var bw = (b[18] | (b[19] << 8) | (b[20] << 16) | (b[21] << 24)), bh = (b[22] | (b[23] << 8) | (b[24] << 16) | (b[25] << 24));
+        return { w: Math.abs(bw), h: Math.abs(bh) };
+      }
+      if (b[0] === 0x52 && b[1] === 0x49 && b[8] === 0x57 && b[9] === 0x45) {
+        var fcc = String.fromCharCode(b[12], b[13], b[14], b[15]);
+        if (fcc === 'VP8X') return { w: 1 + (b[24] | (b[25] << 8) | (b[26] << 16)), h: 1 + (b[27] | (b[28] << 8) | (b[29] << 16)) };
+        if (fcc === 'VP8 ') return { w: (b[26] | (b[27] << 8)) & 0x3fff, h: (b[28] | (b[29] << 8)) & 0x3fff };
+        if (fcc === 'VP8L') { var v = b[21] | (b[22] << 8) | (b[23] << 16) | (b[24] << 24); return { w: (v & 0x3fff) + 1, h: ((v >> 14) & 0x3fff) + 1 }; }
+      }
       if (b[0] === 0xff && b[1] === 0xd8) {
         var i = 2;
         while (i < b.length - 9) {
@@ -504,8 +515,8 @@ function parseInforme(buf, JSZipLib, DOMParserCls) {
       var cover = [], intro = [], planosTitulo = '', planos = [], espacios = {}, presu = { img: null, nota: '' }, concl = [], conclTitulo = 'CONCLUSIONES', firma = null, firmasAll = [];
       var imgJobs = [];
 
-      function img(target) {
-        var o = { t: 'img', target: target, bytes: null, ext: (target.split('.').pop() || '').toLowerCase(), w: 0, h: 0 };
+      function img(target, ew, eh) {
+        var o = { t: 'img', target: target, bytes: null, ext: (target.split('.').pop() || '').toLowerCase(), w: 0, h: 0, ew: ew || 0, eh: eh || 0 };
         imgJobs.push(o);
         return o;
       }
@@ -521,9 +532,17 @@ function parseInforme(buf, JSZipLib, DOMParserCls) {
             if (toks.length && toks[toks.length - 1].text != null) toks[toks.length - 1].text += s; else toks.push({ text: s });
           } else if (n.nodeName === 'w:tab' || n.nodeName === 'w:br') {
             if (toks.length && toks[toks.length - 1].text != null) toks[toks.length - 1].text += ' ';
-          } else if (n.nodeName === 'a:blip') {
-            var id = n.getAttribute('r:embed');
-            if (id && rid[id]) toks.push({ target: rid[id] });
+          } else if (n.nodeName === 'a:blip' || n.nodeName === 'v:imagedata') {
+            var id = n.getAttribute('r:embed') || n.getAttribute('r:id') || n.getAttribute('r:pict');
+            var inFallback = false;
+            for (var fb = n.parentNode; fb; fb = fb.parentNode) if (fb.nodeName === 'mc:Fallback') { inFallback = true; break; }
+            if (id && rid[id] && !inFallback) {
+              var ex = null;
+              for (var an = n.parentNode; an && !ex; an = an.parentNode) {
+                if (an.nodeName === 'wp:inline' || an.nodeName === 'wp:anchor') ex = an.getElementsByTagName('wp:extent')[0] || null;
+              }
+              toks.push({ target: rid[id], ew: ex ? Math.round(Number(ex.getAttribute('cx')) / 9525) : 0, eh: ex ? Math.round(Number(ex.getAttribute('cy')) / 9525) : 0 });
+            }
           }
         });
         var ppr = kids(p, 'w:pPr')[0];
@@ -556,7 +575,7 @@ function parseInforme(buf, JSZipLib, DOMParserCls) {
           if (T && !isHeadStyle) intro.push({ t: isLi ? liType : 'p', x: T });
         } else if (mode === 'planos') {
           toks.forEach(function (k) {
-            if (k.target) planos.push(img(k.target));
+            if (k.target) planos.push(img(k.target, k.ew, k.eh));
           });
           if (T) planos.push({ t: isLi ? liType : (T === T.toUpperCase() && T.length <= 40 ? 'h' : 'p'), x: T, _at: toks.length });
         } else if (mode === 'imagenes') {
@@ -589,12 +608,15 @@ function parseInforme(buf, JSZipLib, DOMParserCls) {
         return cache[o.target].then(function (b) {
           o.bytes = b;
           var sz = b && imgSize(b);
-          if (sz) { o.w = sz.w; o.h = sz.h; }
+          if (sz && sz.w > 0 && sz.h > 0) { o.w = sz.w; o.h = sz.h; } else if (o.ew && o.eh) { o.w = o.ew; o.h = o.eh; }
         });
       })).then(function () {
         function ok(o) { return o && o.bytes && /^(png|jpe?g|gif|bmp|webp)$/.test(o.ext); }
+        var droppedPlanos = planos.filter(function (b) { return b.t === 'img' && !ok(b); }).map(function (b) { return b.ext || 'desconocido'; });
         planos = planos.filter(function (b) { return b.t !== 'img' || ok(b); });
-        var plans = planos.filter(function (b) { return b.t === 'img' && b.w >= 800; });
+        var maxArea = 0;
+        planos.forEach(function (b) { if (b.t === 'img') maxArea = Math.max(maxArea, b.w * b.h); });
+        var plans = planos.filter(function (b) { return b.t === 'img' && (maxArea === 0 || b.w * b.h >= maxArea * 0.35); });
         plans.forEach(function (b, i) { b.role = i === 0 ? 'grupo' : i === 1 ? 'individual' : 'fijo'; });
         planos.forEach(function (b) { if (b.t === 'img' && !b.role) b.role = 'fijo'; });
         if (!planos.some(function (b) { return b.role === 'individual'; })) {
@@ -651,7 +673,7 @@ function parseInforme(buf, JSZipLib, DOMParserCls) {
         tag(vars.valor, 'VALOR');
 
         planos.forEach(function (b) { delete b._at; });
-        return { cover: cv, vars: vars, intro: intro, planosTitulo: planosTitulo, planos: planos, espacios: espacios, presupuesto: presu, concl: concl, conclTitulo: conclTitulo, firma: firma, firmas: firmasAll };
+        return { droppedPlanos: droppedPlanos, cover: cv, vars: vars, intro: intro, planosTitulo: planosTitulo, planos: planos, espacios: espacios, presupuesto: presu, concl: concl, conclTitulo: conclTitulo, firma: firma, firmas: firmasAll };
       });
     });
   });
@@ -680,6 +702,16 @@ function buildReportRef(D, r) {
       .replace(/\{\{VALOR\}\}/g, v.valor || "")
       .replace(/\{\{APARTAMENTO\}\}/g, (r.cover && r.cover.apartamento) || "")
       .replace(/\{\{CONJUNTO\}\}/g, (r.cover && r.cover.conjunto) || "");
+  }
+  function valorRunsRef(raw) {
+    var v = (r.vars && r.vars.valor) || "";
+    var t = fill(String(raw || "").replace(/\{\{VALOR\}\}/g, "\u0001")).replace(/\s+/g, " ").trim();
+    var out = [];
+    t.split("\u0001").forEach(function (piece, i, arr) {
+      if (piece) out.push(run(piece));
+      if (i < arr.length - 1) out.push(new D.TextRun({ text: v || "{{VALOR}}", font: FONT, size: 22, bold: true, shading: { type: D.ShadingType.CLEAR, color: "auto", fill: "FFA500" } }));
+    });
+    return out;
   }
   function run(text, o) {
     o = o || {};
@@ -803,7 +835,7 @@ function buildReportRef(D, r) {
     if (b.t === "p" || b.t === "ol" || b.t === "li") {
       var tx = fill(b.x).replace(/\s+/g, " ").trim();
       if (!tx) return;
-      p = new D.Paragraph({ numbering: { reference: "numeros2", level: 0 }, spacing: { before: 240, after: 0 }, children: [run(tx)] });
+      p = new D.Paragraph({ numbering: { reference: "numeros2", level: 0 }, spacing: { before: 240, after: 0 }, children: valorRunsRef(b.x) });
     } else p = para(b);
     if (p) ch.push(p);
   });
@@ -858,7 +890,20 @@ function buildReport2(D, r) {
       .replace(/\{\{CONJUNTO\}\}/g, (r.cover && r.cover.conjunto) || "");
   }
 
-  function textPara(b, keepNext) {
+  function valorRuns(raw, hl, base) {
+    var v = (r.vars && r.vars.valor) || "";
+    var t = String(raw || "").replace(/\{\{VALOR\}\}/g, hl ? "\u0001" : v);
+    t = fill(t).replace(/\s+/g, " ").trim();
+    if (!hl || t.indexOf("\u0001") < 0) return [new D.TextRun(Object.assign({ text: t }, base))];
+    var out = [];
+    t.split("\u0001").forEach(function (piece, i, arr) {
+      if (piece) out.push(new D.TextRun(Object.assign({ text: piece }, base)));
+      if (i < arr.length - 1) out.push(new D.TextRun(Object.assign({ text: v || "{{VALOR}}", bold: true }, base, { shading: { type: D.ShadingType.CLEAR, color: "auto", fill: "FFA500" } })));
+    });
+    return out;
+  }
+
+  function textPara(b, keepNext, hl) {
     var t = fill(b.x).replace(/\s+/g, " ").trim();
     if (!t) return null;
     if (b.t === "h") {
@@ -874,7 +919,7 @@ function buildReport2(D, r) {
         alignment: D.AlignmentType.JUSTIFIED,
         keepNext: !!keepNext,
         spacing: { after: 160, line: 276, lineRule: D.LineRuleType.AUTO },
-        children: [new D.TextRun({ text: t, font: FONT, size: 22, color: INK })]
+        children: valorRuns(b.x, hl, { font: FONT, size: 22, color: INK })
       });
     }
     if (b.t === "li") {
@@ -882,14 +927,14 @@ function buildReport2(D, r) {
         numbering: { reference: "viñetas", level: 0 },
         keepNext: !!keepNext,
         spacing: { after: 100, line: 276, lineRule: D.LineRuleType.AUTO },
-        children: [new D.TextRun({ text: t, font: FONT, size: 22, color: INK })]
+        children: valorRuns(b.x, hl, { font: FONT, size: 22, color: INK })
       });
     }
     return new D.Paragraph({
       alignment: D.AlignmentType.JUSTIFIED,
       keepNext: !!keepNext,
       spacing: { after: 200, line: 276, lineRule: D.LineRuleType.AUTO },
-      children: [new D.TextRun({ text: t, font: FONT, size: 22, color: INK })]
+      children: valorRuns(b.x, hl, { font: FONT, size: 22, color: INK })
     });
   }
 
@@ -1064,7 +1109,7 @@ function buildReport2(D, r) {
   var cb = r.concl || [];
   cb.forEach(function (b, i) {
     var last = i === cb.length - 1;
-    var p = textPara(b, last && !!r.firma);
+    var p = textPara(b, last && !!r.firma, true);
     if (p) children.push(p);
   });
   if (r.firma) children.push(imagePara(r.firma, 520, 220, false));
@@ -1335,7 +1380,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     if (blocksKey(d.concl) !== blocksKey(f.concl)) out.push('concl');
     return out;
   }
-  function cardState(d) { return d.completado ? 'verde' : (d.importError || moduleGaps(d).length ? 'rojo' : 'amarillo'); }
+  function cardState(d) { return d.importError || moduleGaps(d).length ? 'rojo' : (d.completado ? 'verde' : 'amarillo'); }
   function gaps(d) {
     const g = [];
     if (!has(d.cover && d.cover.apartamento)) g.push('apartamento');
@@ -2008,21 +2053,21 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     if (db) { try { await db.doc('informes2/' + r.id).set(r.data); } catch (e) {} }
     renderProject();
   }
-  function exportPending(d) { return !!(d && d.completado && !d.importError && d.drive && d.drive.folderId && (!d.exportado || (d.updatedAt || 0) > (d.exportado.at || 0))); }
+  function exportPending(d) { return !!(d && d.completado && !d.importError && !moduleGaps(d).length && d.drive && d.drive.folderId && (!d.exportado || (d.updatedAt || 0) > (d.exportado.at || 0))); }
   function reportCard(r, p) {
     const d = r.data, c = d.cover || {};
     const nSp = Object.keys(d.espacios || {}).length;
     const nPh = Object.keys(d.espacios || {}).reduce((n, k) => n + d.espacios[k].length, 0);
     const state = cardState(d), mg = moduleGaps(d);
     const askDel = confirmDel === 'r:' + r.id;
-    const msg = state === 'verde' ? 'Completado' : d.importError ? d.importError : state === 'amarillo' ? 'Mismo formato. Revisa y márcalo como completado.' : 'No coincide el formato: ' + mg.join(', ');
+    const msg = d.importError ? d.importError : state === 'verde' ? 'Completado' : state === 'amarillo' ? 'Mismo formato. Revisa y márcalo como completado.' : (d.completado ? 'Marcado como completado, pero falta: ' : 'No coincide el formato: ') + mg.join(', ');
     return h('div', { class: 'rc ' + state }, [
       h('button', { class: 'rc-main', type: 'button', onclick: () => openReport(r.id) }, [
         h('span', { class: 'rc-t', text: c.apartamento || 'Sin apartamento' }),
         h('span', { class: 'rc-s', text: nSp + (nSp === 1 ? ' espacio' : ' espacios') + ' · ' + nPh + (nPh === 1 ? ' foto' : ' fotos') }),
         h('span', { class: 'rc-m', text: msg }),
         d.drive && d.drive.path ? h('span', { class: 'rc-p', title: d.drive.path + ' / ' + (d.drive.name || ''), text: 'Drive: ' + d.drive.path }) : null,
-        d.completado && d.drive ? h('span', { class: 'rc-x' + (exportPending(d) ? ' pend' : ''), text: exportPending(d) ? (d.exportado ? 'Cambios sin exportar' : 'Pendiente de exportar a Drive') : 'Exportado a Drive ' + ago(d.exportado.at) }) : null
+        d.completado && d.drive ? h('span', { class: 'rc-x' + (exportPending(d) || state === 'rojo' ? ' pend' : ''), text: state === 'rojo' ? 'No se exportará a Drive hasta resolver lo pendiente' : exportPending(d) ? (d.exportado ? 'Cambios sin exportar' : 'Pendiente de exportar a Drive') : 'Exportado a Drive ' + (d.exportado ? ago(d.exportado.at) : '') }) : null
       ]),
       h('div', { class: 'rc-foot' }, askDel ? [
         h('div', { class: 'rc-ask' }, [h('span', { text: '¿Eliminar este informe?' }),
@@ -2031,7 +2076,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
       ] : [
         h('span', { class: 'rc-when', text: cardMsg[r.id] || ago(d.updatedAt) }),
         state === 'amarillo' ? h('button', { class: 'btn sm', type: 'button', onclick: () => setCompleted(r, true) }, [icon('check'), 'Marcar completado']) : null,
-        state === 'verde' ? h('button', { class: 'btn ghost sm', type: 'button', onclick: () => setCompleted(r, false) }, ['Quitar completado']) : null,
+        d.completado && !d.importError ? h('button', { class: 'btn ghost sm', type: 'button', onclick: () => setCompleted(r, false) }, ['Quitar completado']) : null,
         autoNeeds(r) ? h('button', { class: 'btn ghost sm', type: 'button', title: 'Rellena las secciones vacías con el formato del proyecto', onclick: () => autoFormatoRun([r]) }, [icon('wand'), 'Autogenerar']) : null,
         d.importError || !(d.drive && d.drive.folderId) ? null : h('button', { class: 'btn ghost sm', type: 'button', title: 'Reemplaza el archivo original en Drive con este informe', disabled: (cardBusy || driveBusy) ? true : null, onclick: () => sendCardToDrive(r) }, [icon('up'), driveBusy === r.id ? 'Enviando…' : (d.exportado && !exportPending(d) ? 'En Drive' : 'Enviar a Drive')]),
         d.importError ? null : h('button', { class: 'btn ghost sm', type: 'button', disabled: cardBusy ? true : null, onclick: () => generateFromList(r) }, [icon('down'), cardBusy === r.id ? 'Generando…' : 'Word']),

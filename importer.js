@@ -91,6 +91,52 @@ async function importDocx(store, buf, o) {
     return r;
   }
 
+  async function inkScore(bytes) {
+    try {
+      const raw = await sharp(bytes).rotate().resize(900, 900, { fit: 'inside' }).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+      const d = raw.data;
+      let n = 0;
+      for (let k = 0; k + 2 < d.length; k += 3) {
+        const mx = Math.max(d[k], d[k + 1], d[k + 2]), mn = Math.min(d[k], d[k + 1], d[k + 2]);
+        if (mx - mn > 70) n++;
+      }
+      return n / (d.length / 3);
+    } catch (e) { return 0; }
+  }
+  {
+    const cand = res.planos.filter((b) => b.t === 'img' && b.bytes && (b.role === 'grupo' || b.role === 'individual'));
+    if (cand.length) {
+      const known = tg && tg.hash ? cand.filter((b) => sha(b.bytes) === tg.hash)[0] : null;
+      if (known) {
+        known.role = 'grupo';
+        cand.filter((b) => b !== known).forEach((b, k) => { b.role = k === 0 ? 'individual' : 'fijo'; });
+      } else if (cand.length === 1) {
+        cand[0].role = (await inkScore(cand[0].bytes)) > 0.002 ? 'individual' : 'grupo';
+      } else {
+        const s0 = await inkScore(cand[0].bytes);
+        const s1 = await inkScore(cand[1].bytes);
+        if (s0 > 0.002 && s1 <= 0.002) { cand[0].role = 'individual'; cand[1].role = 'grupo'; }
+      }
+    }
+    {
+      const gi = res.planos.findIndex((b) => b.t === 'img' && b.bytes && b.role === 'grupo');
+      const ii = res.planos.findIndex((b) => b.t === 'img' && b.bytes && b.role === 'individual');
+      if (gi > -1 && ii > -1 && ii < gi) { const tmp = res.planos[gi]; res.planos[gi] = res.planos[ii]; res.planos[ii] = tmp; }
+    }
+    res.planos = res.planos.filter((b) => !(b.t === 'img' && !b.bytes && (b.role === 'grupo' || b.role === 'individual')));
+    ['grupo', 'individual'].forEach((role) => {
+      if (res.planos.some((b) => b.t === 'img' && b.role === role)) return;
+      const ph = { t: 'img', role: role, bytes: null };
+      if (role === 'grupo') res.planos.unshift(ph);
+      else {
+        let at = -1;
+        res.planos.forEach((b, k) => { if (b.t === 'img' && (b.role === 'grupo' || b.bytes)) at = k; });
+        res.planos.splice(at + 1, 0, ph);
+      }
+    });
+    if (res.droppedPlanos && res.droppedPlanos.length) warns.push('una imagen de los planos no se pudo usar por su formato (' + res.droppedPlanos.join(', ') + ')');
+  }
+
   const tm = /TORRE\s+[A-Z0-9]+/i.exec((res.cover && res.cover.apartamento) || '');
   let grupoId = tg ? tg.id : '';
   const planos = [];

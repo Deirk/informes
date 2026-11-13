@@ -29,8 +29,8 @@ function moduleGaps(d, project) {
 }
 
 function cardState(d, project) {
-  if (d.completado) return 'verde';
-  return d.importError || moduleGaps(d, project).length ? 'rojo' : 'amarillo';
+  if (d.importError || moduleGaps(d, project).length) return 'rojo';
+  return d.completado ? 'verde' : 'amarillo';
 }
 
 function apartamentoFrom(meta, groupName) {
