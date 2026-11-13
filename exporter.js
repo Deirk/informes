@@ -70,6 +70,7 @@ async function sendOne(ctx, project, cfgDoc, r) {
     const fresh = await store.getDoc('informes2', r.id);
     if (!fresh) return;
     fresh.exportado = { fileId: file.id, name: name, at: Date.now() };
+    if (file.modifiedTime && fresh.drive) fresh.drive.modified = file.modifiedTime;
     await store.putDoc('informes2', r.id, fresh);
   });
   return { name: name, updated: !!(r.data.exportado && r.data.exportado.fileId) };

@@ -37,6 +37,13 @@ async function run(ctx, projectId, job) {
     }
   }
   const todo = scan.items.filter((it) => !known.has(it.id));
+  const byKnown = {};
+  reports.forEach((r) => { if (r.data.projectId === projectId && r.data.drive && r.data.drive.id) byKnown[r.data.drive.id] = r; });
+  const upd = scan.items.filter((it) => {
+    const r = byKnown[it.id];
+    const was = r && r.data.drive && r.data.drive.modified;
+    return r && !r.data.importError && was && it.modifiedTime && Date.parse(it.modifiedTime) > Date.parse(was);
+  });
   const omitted = scan.items.length - todo.length;
   const towers = {};
   todo.forEach((it) => { towers[it.towerId] = it.towerName; });
@@ -56,7 +63,7 @@ async function run(ctx, projectId, job) {
     await store.putDoc('proyectos', projectId, d);
   });
 
-  job.total = todo.length;
+  job.total = todo.length + upd.length;
   let amarillos = 0;
   let rojos = 0;
   for (let i = 0; i < todo.length; i++) {
@@ -81,10 +88,28 @@ async function run(ctx, projectId, job) {
     ctx.notify('proyectos');
     ctx.notify('config');
   }
+  let actualizados = 0;
+  for (let i = 0; i < upd.length; i++) {
+    const it = upd[i];
+    const old = byKnown[it.id];
+    job.done = todo.length + i;
+    job.msg = 'Actualizando · ' + it.name;
+    const meta = { id: it.id, modified: it.modifiedTime || '', name: it.name, folderId: it.parentId || it.towerId, path: it.path || it.towerName };
+    try {
+      const buf = await ctx.drive.doc(it.id);
+      const r = await importDocx(store, buf, { projectId: projectId, groupId: old.data.grupoId || '', name: it.name, drive: meta });
+      await store.delDoc('informes2', old.id);
+      actualizados++;
+      r.warns.forEach((w) => job.errs.push(it.name + ': ' + w));
+    } catch (e) {
+      job.errs.push(it.name + ': no se pudo actualizar, se conserva la versión de la app (' + friendly(e && e.message) + ')');
+    }
+    ctx.notify('informes2');
+  }
   job.done = todo.length;
   try { await backfillApartamentos(store); } catch (e) {}
   ctx.notify('informes2');
-  job.summary = 'Sincronizado. ' + scan.items.length + ' informes en Drive, ' + todo.length + ' nuevos (' + amarillos + ' con el mismo formato, ' + rojos + ' en rojo) y ' + omitted + ' que ya estaban.';
+  job.summary = 'Sincronizado. ' + scan.items.length + ' informes en Drive, ' + todo.length + ' nuevos (' + amarillos + ' con el mismo formato, ' + rojos + ' en rojo)' + (actualizados ? ', ' + actualizados + (actualizados === 1 ? ' actualizado porque cambió en Drive' : ' actualizados porque cambiaron en Drive') : '') + ' y ' + (omitted - actualizados) + ' que ya estaban sin cambios.';
 }
 
 function start(ctx, projectId) {
