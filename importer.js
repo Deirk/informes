@@ -169,6 +169,7 @@ async function importDocx(store, buf, o) {
     concl: res.concl, conclTitulo: res.conclTitulo || 'CONCLUSIONES', firma: firma,
     completado: false, drive: o.drive || null, importError: ''
   };
+  if (!has(doc.cover.fecha) && has(p0.defaults && p0.defaults.fecha)) doc.cover.fecha = p0.defaults.fecha;
   {
     const ng = (p0.grupos || []).concat(fx.newGroup ? [fx.newGroup] : []);
     fillApartamento(doc, { grupos: ng });

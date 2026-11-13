@@ -401,6 +401,7 @@ img.zoomable{cursor:zoom-in}
 .infos{margin:10px 0 0;padding:10px 14px;border-radius:12px;background:var(--accent-soft);color:var(--ink);font-size:13.5px}.infos p{margin:0}
 .chk{display:flex;align-items:center;gap:10px;font-weight:600;cursor:pointer}.chk input{width:18px;height:18px;accent-color:var(--accent)}
 .subh{display:flex;align-items:center;gap:8px;margin:18px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--ink)}.subh svg{width:16px;height:16px;flex:none}.subh .btn{margin-left:8px}.subh .btn svg{width:14px;height:14px}.subh .btn+*{}.subh span{margin-left:auto;font-size:12px;color:var(--muted)}
+.bigta{width:100%;min-height:180px;line-height:1.5;resize:vertical}
 </style>
 
 <div class="shell" id="shell">
@@ -1956,6 +1957,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
         dfield('Siniestro', 'siniestro', p),
         dfield('Título de la portada', 'subtitulo', p, { wide: true }),
         dfield('Elaborado por (uno por línea)', 'elaboradores', p, { area: true, wide: true }),
+        dfield('Fecha de la portada', 'fecha', p),
         presToggle(p),
         estiloToggle(p, 'estiloP')
       ]),
@@ -1970,7 +1972,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     d.cover = d.cover || {}; d.vars = d.vars || {};
     const mark = (l) => { if (ch.indexOf(l) < 0) ch.push(l); };
     const set = (o, k, v, l) => { if (!has(o[k]) && has(v)) { if (apply) o[k] = v; mark(l); } };
-    set(d.cover, 'conjunto', df.conjunto, 'portada'); set(d.cover, 'subtitulo', df.subtitulo, 'portada'); set(d.cover, 'elaboradores', df.elaboradores, 'portada');
+    set(d.cover, 'conjunto', df.conjunto, 'portada'); set(d.cover, 'subtitulo', df.subtitulo, 'portada'); set(d.cover, 'elaboradores', df.elaboradores, 'portada'); set(d.cover, 'fecha', df.fecha, 'portada');
     set(d.vars, 'seguro', df.seguro, 'introducción'); set(d.vars, 'poliza', df.poliza, 'introducción'); set(d.vars, 'siniestro', df.siniestro, 'introducción');
     if (f) {
       if (!(d.intro || []).length && (f.intro || []).length) { if (apply) d.intro = f.intro.map((b) => ({ t: b.t, x: b.x })); mark('introducción'); }
@@ -2053,7 +2055,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     if (!rs.length) { base.planos = [{ t: 'img', role: 'grupo', item: null }, { t: 'img', role: 'individual', item: null }]; }
     const st = emptyReport(PID);
     const d = p.defaults || {};
-    st.cover = { subtitulo: d.subtitulo || base.cover.subtitulo, apartamento: '', conjunto: d.conjunto || base.cover.conjunto, elaboradores: d.elaboradores || base.cover.elaboradores, fecha: base.cover.fecha };
+    st.cover = { subtitulo: d.subtitulo || base.cover.subtitulo, apartamento: '', conjunto: d.conjunto || base.cover.conjunto, elaboradores: d.elaboradores || base.cover.elaboradores, fecha: d.fecha || base.cover.fecha };
     st.vars = { seguro: d.seguro || base.vars.seguro, poliza: d.poliza || base.vars.poliza, siniestro: d.siniestro || base.vars.siniestro, valor: '' };
     st.intro = base.intro.map((b) => ({ t: b.t, x: b.x }));
     st.planosTitulo = base.planosTitulo; st.grupoId = gid || '';
@@ -2139,15 +2141,41 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     if (!blocks.length) box.appendChild(h('p', { class: 'help', text: 'Sin texto.' }));
     return box;
   }
-  function blocksEditor(blocks, onChange, label) {
-    const det = h('details', { class: 'ed' }, [h('summary', { text: label || 'Editar el texto' })]);
-    blocks.forEach((b, i) => {
-      const ta = h('textarea', { rows: String(Math.max(2, Math.ceil((b.x || '').length / 90))) }); ta.value = b.x || '';
-      ta.addEventListener('input', () => { b.x = ta.value; touch(); onChange(); });
-      const kind = b.t === 'h' ? 'Título' : b.t === 'li' ? 'Viñeta' : b.t === 'ol' ? 'Punto numerado' : 'Párrafo';
-      det.appendChild(h('div', { class: 'blk' }, [h('label', { text: kind + ' ' + (i + 1) }), ta]));
+  function blocksToText(blocks) {
+    let out = '', prev = '', n = 0;
+    blocks.forEach((b) => {
+      const x = String(b.x || '').replace(/\s*\n\s*/g, ' ');
+      n = b.t === 'ol' ? n + 1 : 0;
+      const line = b.t === 'h' ? '# ' + x : b.t === 'li' ? '- ' + x : b.t === 'ol' ? n + '. ' + x : x;
+      const list = b.t === 'li' || b.t === 'ol';
+      out += (out ? (list && prev === b.t ? '\n' : '\n\n') : '') + line;
+      prev = b.t;
     });
-    det.appendChild(h('p', { class: 'help', text: 'Las etiquetas {{SEGURO}}, {{POLIZA}}, {{SINIESTRO}} y {{VALOR}} se reemplazan por los datos del informe.' }));
+    return out;
+  }
+  function textToBlocks(text) {
+    const out = [];
+    let open = false;
+    String(text || '').split(/\r?\n/).forEach((raw) => {
+      const ln = raw.trim();
+      if (!ln) { open = false; return; }
+      let m;
+      if ((m = /^#+\s+(.*)$/.exec(ln))) { out.push({ t: 'h', x: m[1] }); open = false; }
+      else if ((m = /^[-*•]\s+(.*)$/.exec(ln))) { out.push({ t: 'li', x: m[1] }); open = false; }
+      else if ((m = /^\d+[.)]\s+(.*)$/.exec(ln))) { out.push({ t: 'ol', x: m[1] }); open = false; }
+      else if (open) out[out.length - 1].x += ' ' + ln;
+      else { out.push({ t: 'p', x: ln }); open = true; }
+    });
+    return out;
+  }
+  function blocksEditor(blocks, onChange, label, replace) {
+    const det = h('details', { class: 'ed' }, [h('summary', { text: label || 'Editar el texto' })]);
+    const val = blocksToText(blocks);
+    const ta = h('textarea', { class: 'bigta', rows: String(Math.min(30, Math.max(8, val.split('\n').length + 2))) });
+    ta.value = val;
+    ta.addEventListener('input', () => { replace(textToBlocks(ta.value)); touch(); onChange(); });
+    det.appendChild(ta);
+    det.appendChild(h('p', { class: 'help', text: 'Separa los párrafos con una línea en blanco. Empieza una línea con «- » para una viñeta, con «1. » para un punto numerado y con «# » para un título. Las etiquetas {{SEGURO}}, {{POLIZA}}, {{SINIESTRO}} y {{VALOR}} se reemplazan por los datos del informe.' }));
     return det;
   }
   function varsCard(keys, onInput) {
@@ -2245,7 +2273,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     card.appendChild(varsCard(['seguro', 'poliza', 'siniestro'], draw));
     card.appendChild(h('div', { style: 'margin-top:16px' }, [prev]));
     draw();
-    card.appendChild(blocksEditor(R.intro, draw));
+    card.appendChild(blocksEditor(R.intro, draw, null, (nb) => { R.intro.splice(0, R.intro.length, ...nb); }));
     st.appendChild(card);
     { const bn = formatoBanner('intro'); if (bn) st.insertBefore(bn, card); }
     st.appendChild(navFoot());
@@ -2304,7 +2332,12 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     R.planos.filter((b) => b.t === 'img' && b.role === 'fijo').forEach((b, i) => {
       card.appendChild(slot('Imagen fija del informe' + (i ? ' ' + (i + 1) : ''), () => b.item, (v) => { b.item = v; }, { help: 'Es igual en todos los informes (por ejemplo la tabla de variables).', removable: true }));
     });
-    card.appendChild(blocksEditor(R.planos.filter((b) => b.t !== 'img'), () => {}, 'Editar los textos de esta sección'));
+    card.appendChild(blocksEditor(R.planos.filter((b) => b.t !== 'img'), () => {}, 'Editar los textos de esta sección', (nb) => {
+      const out = []; let ti = 0, last = -1;
+      R.planos.forEach((b) => { if (b.t === 'img') out.push(b); else { last = out.length; if (ti < nb.length) out.push(nb[ti++]); } });
+      if (ti < nb.length) out.splice(last < 0 ? out.length : Math.min(out.length, last + 1), 0, ...nb.slice(ti));
+      R.planos.splice(0, R.planos.length, ...out);
+    }));
     st.appendChild(card);
     st.appendChild(navFoot());
   }
@@ -2386,7 +2419,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     card.appendChild(h('div', { style: 'margin-top:16px' }, [prev]));
     draw();
     { const bn = formatoBanner('concl'); if (bn) card.insertBefore(bn, card.firstChild); }
-    card.appendChild(blocksEditor(R.concl, draw));
+    card.appendChild(blocksEditor(R.concl, draw, null, (nb) => { R.concl.splice(0, R.concl.length, ...nb); }));
     card.appendChild(firmasSummary());
     st.appendChild(card);
     st.appendChild(navFoot());
