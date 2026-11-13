@@ -55,3 +55,8 @@ Límites conocidos
   (sube su .docx manualmente a la torre).
 - Si dos personas editan el mismo proyecto a la vez, gana el último guardado.
 - La contraseña es compartida: no hay usuarios individuales.
+
+CONTROL DE VERSIONES
+Cuando Sincronizar reemplaza un informe porque cambió en Drive, guarda antes una copia del anterior
+(colección "versiones", últimas 5 por archivo). En la tarjeta aparece "Versiones (n)" para restaurar una;
+al restaurar, la versión actual también se guarda. No requiere cambios en Supabase.

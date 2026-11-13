@@ -1,6 +1,16 @@
 const { importDocx, recordFailure, withLock, uid, backfillApartamentos } = require('./importer');
 const { cardState } = require('./state');
 
+const MAX_VERSIONES = 5;
+// Guarda una copia del informe antes de reemplazarlo. Se conservan las últimas MAX_VERSIONES por archivo de Drive.
+async function saveVersion(store, data, motivo) {
+  const driveId = data && data.drive && data.drive.id;
+  if (!driveId) return;
+  await store.putDoc('versiones', uid(), { driveId: driveId, projectId: data.projectId || '', savedAt: Date.now(), motivo: motivo, data: data });
+  const all = (await store.listCol('versiones')).filter((v) => v.data && v.data.driveId === driveId).sort((a, b) => (b.data.savedAt || 0) - (a.data.savedAt || 0));
+  for (const v of all.slice(MAX_VERSIONES)) await store.delDoc('versiones', v.id);
+}
+
 const jobs = {};
 
 function blank() { return { busy: false, msg: '', done: 0, total: 0, summary: '', errs: [] }; }
@@ -98,7 +108,9 @@ async function run(ctx, projectId, job) {
     try {
       const buf = await ctx.drive.doc(it.id);
       const r = await importDocx(store, buf, { projectId: projectId, groupId: old.data.grupoId || '', name: it.name, drive: meta });
+      try { await saveVersion(store, old.data, 'Sincronización: cambió en Drive'); } catch (e) { job.errs.push(it.name + ': no se pudo guardar la copia de la versión anterior'); }
       await store.delDoc('informes2', old.id);
+      ctx.notify('versiones');
       actualizados++;
       r.warns.forEach((w) => job.errs.push(it.name + ': ' + w));
     } catch (e) {

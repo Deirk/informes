@@ -1238,7 +1238,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
   const natCmp = (a, b) => String(a).localeCompare(String(b), 'es', { numeric: true, sensitivity: 'base' });
 
   let db = null, assets = null, dbState = 'loading';
-  let projects = [], reports = [], projReady = false, repReady = false;
+  let versions = [], projects = [], reports = [], projReady = false, repReady = false;
   let view = 'projects', PID = null, R = null, step = 'portada';
   let confirmDel = null, filterText = '', showSettings = false, selGroup = '', newGroupName = '';
   let imp = { busy: false, msg: '', done: 0, total: 0, warns: [], infos: [], note: '' };
@@ -1442,6 +1442,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     if (!assets || !aids || !aids.length) return;
     const used = new Set();
     reports.forEach((r) => { if (!(R && r.id === R.id)) collectAids(r.data, used); });
+    versions.forEach((v) => collectAids(v.data, used));
     projects.forEach((p) => collectAids(p.data, used));
     if (R) collectAids(serialize(R), used);
     if (globalCfg.firma && globalCfg.firma.aid) used.add(globalCfg.firma.aid);
@@ -2077,12 +2078,60 @@ if (typeof module !== "undefined") module.exports = buildReport2;
         h('span', { class: 'rc-when', text: cardMsg[r.id] || ago(d.updatedAt) }),
         state === 'amarillo' ? h('button', { class: 'btn sm', type: 'button', onclick: () => setCompleted(r, true) }, [icon('check'), 'Marcar completado']) : null,
         d.completado && !d.importError ? h('button', { class: 'btn ghost sm', type: 'button', onclick: () => setCompleted(r, false) }, ['Quitar completado']) : null,
+        versionsOf(r).length ? h('button', { class: 'btn ghost sm', type: 'button', title: 'Copias anteriores guardadas al sincronizar', onclick: () => openVersions(r) }, ['Versiones (' + versionsOf(r).length + ')']) : null,
         autoNeeds(r) ? h('button', { class: 'btn ghost sm', type: 'button', title: 'Rellena las secciones vacías con el formato del proyecto', onclick: () => autoFormatoRun([r]) }, [icon('wand'), 'Autogenerar']) : null,
         d.importError || !(d.drive && d.drive.folderId) ? null : h('button', { class: 'btn ghost sm', type: 'button', title: 'Reemplaza el archivo original en Drive con este informe', disabled: (cardBusy || driveBusy) ? true : null, onclick: () => sendCardToDrive(r) }, [icon('up'), driveBusy === r.id ? 'Enviando…' : (d.exportado && !exportPending(d) ? 'En Drive' : 'Enviar a Drive')]),
         d.importError ? null : h('button', { class: 'btn ghost sm', type: 'button', disabled: cardBusy ? true : null, onclick: () => generateFromList(r) }, [icon('down'), cardBusy === r.id ? 'Generando…' : 'Word']),
         h('button', { class: 'ib', type: 'button', 'aria-label': 'Eliminar informe', title: 'Eliminar informe', onclick: () => { confirmDel = 'r:' + r.id; renderProject(); } }, [icon('trash')])
       ])
     ]);
+  }
+  function versionsOf(r) {
+    const id = r.data.drive && r.data.drive.id;
+    if (!id) return [];
+    return versions.filter((v) => v.data.driveId === id).sort((a, b) => (b.data.savedAt || 0) - (a.data.savedAt || 0));
+  }
+  function fmtWhen(ms) { try { return new Date(ms).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' }); } catch (e) { return ''; } }
+  async function pruneVersions(driveId) {
+    const vs = versions.filter((v) => v.data.driveId === driveId).sort((a, b) => (b.data.savedAt || 0) - (a.data.savedAt || 0));
+    for (const v of vs.slice(5)) { versions = versions.filter((x) => x.id !== v.id); if (db) { try { await db.doc('versiones/' + v.id).delete(); } catch (e) {} } }
+  }
+  async function restoreVersion(r, v) {
+    const cur = r.data;
+    const vid = uid();
+    const copy = { driveId: cur.drive.id, projectId: cur.projectId || '', savedAt: Date.now(), motivo: 'Antes de restaurar una versión anterior', data: clone(cur) };
+    versions.push({ id: vid, data: copy });
+    if (db) { try { await db.doc('versiones/' + vid).set(copy); } catch (e) {} }
+    const nd = clone(v.data.data);
+    nd.drive = Object.assign({}, nd.drive || {}, cur.drive);
+    nd.projectId = cur.projectId; nd.grupoId = cur.grupoId;
+    nd.updatedAt = Date.now();
+    r.data = nd;
+    if (db) { try { await db.doc('informes2/' + r.id).set(nd); } catch (e) {} }
+    await pruneVersions(cur.drive.id);
+    renderProject();
+  }
+  function openVersions(r) {
+    const old = document.getElementById('verModal'); if (old) old.remove();
+    const close = () => { const m = document.getElementById('verModal'); if (m) m.remove(); };
+    const paint = () => {
+      const list = versionsOf(r);
+      if (!list.length) { close(); return; }
+      const body = list.map((v) => h('div', { class: 'fld wide', style: 'display:flex;gap:10px;align-items:center;justify-content:space-between' }, [
+        h('div', null, [h('strong', { text: fmtWhen(v.data.savedAt) }), h('div', { class: 'help', text: v.data.motivo || '' })]),
+        h('button', { class: 'btn sm', type: 'button', onclick: async () => { await restoreVersion(r, v); paint(); } }, ['Restaurar'])
+      ]));
+      const box = h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Versiones anteriores' }, [
+        h('div', { class: 'modal-h' }, [h('div', null, [h('h2', { text: 'Versiones anteriores' }), h('p', { text: 'Copias guardadas cuando Sincronizar reemplazó este informe. Se conservan las últimas 5. Al restaurar, la versión actual también se guarda aquí.' })]),
+          h('button', { class: 'ib', type: 'button', 'aria-label': 'Cerrar', onclick: close }, [icon('x')])]),
+        h('div', { class: 'fields' }, body),
+        h('div', { class: 'foot' }, [h('button', { class: 'btn ghost', type: 'button', onclick: close }, ['Cerrar'])])
+      ]);
+      const back = h('div', { id: 'verModal', class: 'modal-bg', onclick: (e) => { if (e.target === back) close(); } }, [box]);
+      const o = document.getElementById('verModal'); if (o) o.remove();
+      document.body.appendChild(back);
+    };
+    paint();
   }
   async function deleteReport(r) {
     confirmDel = null;
@@ -2768,6 +2817,9 @@ if (typeof module !== "undefined") module.exports = buildReport2;
       else if (view === 'project' && !imp.busy && !modalOpen() && !document.activeElement.closest('.mcard, .grow')) renderProject();
       tryRestore();
     }, () => { projReady = true; renderAll(); });
+    db.collection('versiones').onSnapshot((snap) => {
+      versions = snap.docs.map((d) => ({ id: d.id, data: clone(d.data()) }));
+    }, () => {});
     db.collection('informes2').orderBy('updatedAt', 'desc').limit(1000).onSnapshot((snap) => {
       reports = snap.docs.map((d) => ({ id: d.id, data: clone(d.data()) }));
       repReady = true;
