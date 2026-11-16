@@ -74,3 +74,7 @@ En el botón Formato cada variable se puede renombrar (solo cambia el nombre que
 y marcar como "global del proyecto": mismo valor en todos los informes, se rellena sola al crear, importar
 o sincronizar, y ya no se pide en cada informe. Al guardar, el valor global se aplica a los informes existentes.
 Sin Formato nuevo también puedes abrir el botón para editar las variables (Guardar variables).
+
+AJUSTES DEL PROYECTO > VARIABLES
+El botón Formato solo crea las variables desde el Word. Renombrarlas, hacerlas globales y poner su valor se hace
+en Ajustes del proyecto, sección Variables.
