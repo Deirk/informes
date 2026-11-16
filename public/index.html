@@ -2065,7 +2065,9 @@ if (typeof module !== "undefined") module.exports = buildReport2;
   const VAR_BUILTIN = { seguro: 'Aseguradora', poliza: 'Póliza', siniestro: 'Siniestro', valor: 'Valor total' };
   const VAR_RESERVED = ['apartamento', 'conjunto'];
   const projVars = (p) => (p && p.variables) || [];
-  const varLabel = (k, p) => VAR_BUILTIN[k] || (projVars(p).filter((v) => v.key === k)[0] || {}).label || k;
+  const varLabel = (k, p) => (p && p.varLabels && p.varLabels[k]) || VAR_BUILTIN[k] || (projVars(p).filter((v) => v.key === k)[0] || {}).label || k;
+  const isGlobal = (p, k) => !!(p && (p.globalVars || []).indexOf(k) > -1);
+  const globalKeys = (p) => ((p && p.globalVars) || []).filter((k) => has(defOf(p, k)));
   const defOf = (p, k) => VAR_BUILTIN[k] ? (((p && p.defaults) || {})[k] || '') : ((projVars(p).filter((v) => v.key === k)[0] || {}).def || '');
   function customKeysIn(blocks, p) {
     const out = [];
@@ -2116,9 +2118,32 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     });
     return out;
   }
-  let fm = { open: false, step: 'pick', busy: false, err: '', file: '', res: null, occ: [], apply: false };
-  function openFormato() { fm = { open: true, step: 'pick', busy: false, err: '', file: '', res: null, occ: [], apply: false }; renderFormato(); }
+  let fm = { open: false, step: 'pick', busy: false, err: '', file: '', res: null, occ: [], apply: false, vl: {}, vg: {}, vv: {} };
+  function allVarKeys(p) { return Object.keys(VAR_BUILTIN).concat(projVars(p).map((v) => v.key)); }
+  function initVarState(p) {
+    const st = { vl: {}, vg: {}, vv: {} };
+    allVarKeys(p).forEach((k) => { st.vl[k] = varLabel(k, p); st.vg[k] = isGlobal(p, k); st.vv[k] = defOf(p, k); });
+    return st;
+  }
+  function openFormato() { const st = initVarState(proj(PID)); fm = { open: true, step: 'pick', busy: false, err: '', file: '', res: null, occ: [], apply: false, vl: st.vl, vg: st.vg, vv: st.vv }; renderFormato(); }
   function closeFormato() { fm.open = false; const m = document.getElementById('fmModal'); if (m) m.remove(); }
+  function fmKeyOf(o) {
+    if (o.choice === '*new*') {
+      let k = slugKey(o.name);
+      if (!k) return '';
+      if (VAR_RESERVED.indexOf(k) > -1) k += 'dato';
+      return k;
+    }
+    return o.choice;
+  }
+  function fmEnsureVar(o) {
+    const k = fmKeyOf(o);
+    if (!k) return;
+    if (fm.vl[k] == null) fm.vl[k] = (o.name || k).trim();
+    if (fm.vg[k] == null) fm.vg[k] = false;
+    if (fm.vv[k] == null) fm.vv[k] = '';
+    if (!has(fm.vv[k]) && !o.ph && has(o.value) && o.choice !== '') fm.vv[k] = o.value.trim().replace(/[.,;]+$/, '');
+  }
   async function readFormatoFile(f) {
     fm.busy = true; fm.err = ''; renderFormato();
     try {
@@ -2126,28 +2151,55 @@ if (typeof module !== "undefined") module.exports = buildReport2;
       if (!(res.intro || []).length && !(res.concl || []).length) throw new Error('empty');
       fm.res = res; fm.file = f.name.replace(/\.docx$/i, '');
       fm.occ = detectVars(res.intro || [], 'intro').concat(detectVars(res.concl || [], 'concl'));
+      fm.occ.forEach(fmEnsureVar);
       fm.step = 'review';
     } catch (e) { fm.err = e && e.message === 'empty' ? 'No se encontró la introducción ni las conclusiones en ese Word.' : 'No se pudo leer ese Word. Debe ser un .docx.'; }
     fm.busy = false; renderFormato();
   }
-  function fmKey(o, nv) {
-    if (o.choice === '*new*') {
-      let k = slugKey(o.name);
-      if (!k) return '';
-      if (VAR_RESERVED.indexOf(k) > -1) k += 'dato';
-      if (VAR_BUILTIN[k]) return k;
-      nv[k] = nv[k] || { key: k, label: o.name.trim() };
-      return k;
+  function applyVarSettings(q, keys) {
+    q.variables = q.variables || []; q.defaults = q.defaults || {}; q.varLabels = q.varLabels || {};
+    const globals = [];
+    keys.forEach((k) => {
+      const label = (fm.vl[k] || '').trim() || VAR_BUILTIN[k] || k;
+      const val = (fm.vv[k] || '').trim();
+      if (VAR_BUILTIN[k]) {
+        if (label !== VAR_BUILTIN[k]) q.varLabels[k] = label; else delete q.varLabels[k];
+        if (val) q.defaults[k] = val; else if (fm.vg[k]) delete q.defaults[k];
+      } else {
+        let pv = q.variables.filter((v) => v.key === k)[0];
+        if (!pv) { pv = { key: k, label: label, def: '' }; q.variables.push(pv); }
+        pv.label = label; pv.def = val;
+      }
+      if (fm.vg[k]) globals.push(k);
+    });
+    q.globalVars = globals;
+  }
+  async function pushGlobals() {
+    const pq = proj(PID);
+    const gk = globalKeys(pq);
+    if (!gk.length) return;
+    for (const r of projReports(PID)) {
+      if (r.data.importError) continue;
+      r.data.vars = r.data.vars || {};
+      let ch = false;
+      gk.forEach((k) => { const v = defOf(pq, k); if (r.data.vars[k] !== v) { r.data.vars[k] = v; ch = true; } });
+      if (ch) { r.data.updatedAt = Date.now(); if (db) { try { await db.doc('informes2/' + r.id).set(r.data); } catch (e) {} } }
     }
-    return o.choice;
+  }
+  async function saveVarsOnly() {
+    fm.busy = true; fm.err = ''; renderFormato();
+    try {
+      await mutateProject((q) => { applyVarSettings(q, allVarKeys(q)); });
+      await pushGlobals();
+      closeFormato(); renderProject();
+    } catch (e) { fm.busy = false; fm.err = 'No se pudieron guardar las variables. Intenta de nuevo.'; renderFormato(); }
   }
   async function saveFormato() {
     const res = fm.res;
     if (fm.occ.some((o) => o.choice === '*new*' && !slugKey(o.name))) { fm.err = 'Escribe un nombre para cada variable nueva.'; renderFormato(); return; }
     fm.busy = true; fm.err = ''; renderFormato();
     try {
-      const nv = {};
-      const chosen = fm.occ.map((o) => ({ o: o, k: fmKey(o, nv) })).filter((c) => c.k);
+      const chosen = fm.occ.map((o) => ({ o: o, k: fmKeyOf(o) })).filter((c) => c.k);
       const mk = (sec) => (res[sec] || []).map((b, bi) => {
         const mine = chosen.filter((c) => c.o.sec === sec && c.o.bi === bi).sort((a, b2) => b2.o.s - a.o.s);
         if (!mine.length) return { t: b.t, x: b.x };
@@ -2165,31 +2217,43 @@ if (typeof module !== "undefined") module.exports = buildReport2;
           } else if (b.role === 'grupo' || b.role === 'individual') planos.push({ t: 'img', role: b.role, ref: null });
         } else planos.push({ t: b.t, x: b.x });
       }
-      const defs = {};
-      chosen.forEach((c) => { if (!c.o.ph && has(c.o.value)) { const v = c.o.value.trim().replace(/[.,;]+$/, ''); if (!defs[c.k]) defs[c.k] = v; } });
+      const keys = allVarKeys(proj(PID));
+      chosen.forEach((c) => { if (keys.indexOf(c.k) < 0) keys.push(c.k); });
       await mutateProject((q) => {
         q.formato = { intro: intro, concl: concl, planosTitulo: res.planosTitulo || 'PLANO CON EL REGISTRO DE LAS AFECTACIONES', planos: planos, presupuestoNota: (res.presupuesto && res.presupuesto.nota) || '', from: fm.file, at: Date.now() };
-        q.variables = q.variables || [];
-        Object.keys(nv).forEach((k) => { if (!q.variables.some((v) => v.key === k)) q.variables.push({ key: k, label: nv[k].label, def: '' }); });
-        q.defaults = q.defaults || {};
-        Object.keys(defs).forEach((k) => {
-          if (VAR_BUILTIN[k]) { if (!has(q.defaults[k])) q.defaults[k] = defs[k]; }
-          else { const pv = q.variables.filter((v) => v.key === k)[0]; if (pv && !has(pv.def)) pv.def = defs[k]; }
-        });
+        applyVarSettings(q, keys);
       });
-      if (fm.apply) {
-        for (const r of projReports(PID)) {
-          if (r.data.importError) continue;
-          r.data.intro = intro.map((b) => ({ t: b.t, x: b.x })); r.data.concl = concl.map((b) => ({ t: b.t, x: b.x }));
-          r.data.vars = r.data.vars || {};
-          const pq = proj(PID);
-          projVars(pq).forEach((pv) => { if (r.data.vars[pv.key] == null) r.data.vars[pv.key] = pv.def || ''; });
-          r.data.updatedAt = Date.now();
-          if (db) { try { await db.doc('informes2/' + r.id).set(r.data); } catch (e) {} }
-        }
+      const pq = proj(PID);
+      for (const r of projReports(PID)) {
+        if (!fm.apply || r.data.importError) continue;
+        r.data.intro = intro.map((b) => ({ t: b.t, x: b.x })); r.data.concl = concl.map((b) => ({ t: b.t, x: b.x }));
+        r.data.vars = r.data.vars || {};
+        projVars(pq).forEach((pv) => { if (r.data.vars[pv.key] == null) r.data.vars[pv.key] = pv.def || ''; });
+        r.data.updatedAt = Date.now();
+        if (db) { try { await db.doc('informes2/' + r.id).set(r.data); } catch (e) {} }
       }
+      await pushGlobals();
       closeFormato(); renderProject();
     } catch (e) { fm.busy = false; fm.err = 'No se pudo guardar el formato. Intenta de nuevo.'; renderFormato(); }
+  }
+  function varRows(keys) {
+    return keys.map((k) => {
+      const li = h('input', { type: 'text', maxlength: '40', 'aria-label': 'Nombre de la variable ' + k });
+      li.value = fm.vl[k] != null ? fm.vl[k] : k;
+      li.addEventListener('input', () => { fm.vl[k] = li.value; });
+      const vi = h('input', { type: 'text', placeholder: 'Valor para todo el proyecto', 'aria-label': 'Valor de ' + k });
+      vi.value = fm.vv[k] || '';
+      vi.addEventListener('input', () => { fm.vv[k] = vi.value; });
+      const gc = h('input', { type: 'checkbox', id: 'fmg_' + k }); gc.checked = !!fm.vg[k];
+      const note = h('span', { class: 'help', text: gc.checked ? 'Igual en todos los informes. Se rellena sola y no se pide en cada informe.' : 'Cada informe tiene su propio valor. El de arriba es solo el sugerido al crear un informe.' });
+      gc.addEventListener('change', () => { fm.vg[k] = gc.checked; note.textContent = gc.checked ? 'Igual en todos los informes. Se rellena sola y no se pide en cada informe.' : 'Cada informe tiene su propio valor. El de arriba es solo el sugerido al crear un informe.'; });
+      return h('div', { class: 'fld wide', style: 'border-top:1px solid var(--line);padding-top:10px' }, [
+        h('div', { class: 'help', text: 'Etiqueta en el texto: {{' + k.toUpperCase() + '}}' }),
+        li, vi,
+        h('label', { class: 'chk', for: 'fmg_' + k }, [gc, h('span', { text: 'Variable global del proyecto' })]),
+        note
+      ]);
+    });
   }
   function renderFormato() {
     const old = document.getElementById('fmModal'); if (old) old.remove();
@@ -2198,19 +2262,17 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     let body, foot;
     if (fm.step === 'pick') {
       const fi = h('input', { type: 'file', accept: '.docx', hidden: true, onchange: (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) readFormatoFile(f); } });
-      const existing = projVars(p);
       body = [
         h('div', { class: 'fields' }, [h('div', { class: 'fld wide' }, [
           h('p', { class: 'help', text: 'Sube un Word de ejemplo con las partes que cambian resaltadas (por ejemplo en amarillo). Cada parte resaltada se convierte en una variable: su texto queda fijo en la introducción y las conclusiones, y solo cambia el dato de cada informe.' }),
-          existing.length ? h('p', { class: 'help', text: 'Variables propias de este proyecto: ' + existing.map((v) => v.label).join(', ') + '.' }) : null,
           p && p.formato ? h('p', { class: 'help', text: 'Formato actual: ' + (p.formato.from || 'sin nombre') + '. Al guardar uno nuevo se reemplaza.' }) : null,
           fm.busy ? h('p', { class: 'help', text: 'Leyendo el Word…' }) : null,
           fi, h('button', { class: 'btn', type: 'button', disabled: fm.busy ? true : null, onclick: () => fi.click() }, [icon('doc'), 'Elegir el Word de formato'])
-        ])])
+        ])].concat([h('div', { class: 'fld wide', style: 'border-top:1px solid var(--line);padding-top:10px' }, [h('b', { text: 'Variables del proyecto' }), h('span', { class: 'help', text: 'Renómbralas o márcalas como globales: una variable global tiene el mismo valor en todos los informes.' })])]).concat(varRows(allVarKeys(p))))
       ];
-      foot = [h('button', { class: 'btn ghost', type: 'button', onclick: closeFormato }, ['Cancelar'])];
+      foot = [h('button', { class: 'btn ghost', type: 'button', onclick: closeFormato }, ['Cancelar']), h('button', { class: 'btn', type: 'button', disabled: fm.busy ? true : null, onclick: saveVarsOnly }, ['Guardar variables'])];
     } else {
-      const optsFor = () => [['', 'No es variable']].concat(Object.keys(VAR_BUILTIN).map((k) => [k, VAR_BUILTIN[k]])).concat(projVars(p).map((v) => [v.key, v.label])).concat([['*new*', 'Nueva variable…']]);
+      const optsFor = () => [['', 'No es variable']].concat(allVarKeys(p).map((k) => [k, fm.vl[k] || varLabel(k, p)])).concat(Object.keys(fm.vl).filter((k) => allVarKeys(p).indexOf(k) < 0).map((k) => [k, fm.vl[k]])).concat([['*new*', 'Nueva variable…']]);
       const rows = fm.occ.map((o) => {
         const sel = h('select', { 'aria-label': 'Variable para ' + o.value });
         optsFor().forEach((op) => { const el = h('option', { value: op[0], text: op[1] }); if (op[0] === o.choice) el.selected = true; sel.appendChild(el); });
@@ -2218,7 +2280,8 @@ if (typeof module !== "undefined") module.exports = buildReport2;
         ni.value = o.name || '';
         ni.style.display = o.choice === '*new*' ? '' : 'none';
         ni.addEventListener('input', () => { o.name = ni.value; });
-        sel.addEventListener('change', () => { o.choice = sel.value; ni.style.display = o.choice === '*new*' ? '' : 'none'; if (o.choice === '*new*') ni.focus(); });
+        ni.addEventListener('change', () => { fmEnsureVar(o); renderFormato(); });
+        sel.addEventListener('change', () => { o.choice = sel.value; if (o.choice === '*new*') { ni.style.display = ''; ni.focus(); } else { fmEnsureVar(o); renderFormato(); } });
         return h('div', { class: 'fld wide', style: 'border-top:1px solid var(--line);padding-top:10px' }, [
           h('div', { class: 'help' }, [(o.sec === 'intro' ? 'Introducción: ' : 'Conclusiones: ') + (o.before.length >= 48 ? '…' : '') + o.before, h('mark', { text: o.value }), o.after + (o.after.length >= 36 ? '…' : '')]),
           sel, ni
@@ -2227,10 +2290,12 @@ if (typeof module !== "undefined") module.exports = buildReport2;
       const none = !fm.occ.length;
       const cb = h('input', { type: 'checkbox', id: 'fmApply' }); cb.checked = fm.apply;
       cb.addEventListener('change', () => { fm.apply = cb.checked; });
+      const keys = allVarKeys(p);
+      fm.occ.forEach((o) => { const k = fmKeyOf(o); if (k && keys.indexOf(k) < 0) keys.push(k); });
       body = [
         h('div', { class: 'fields' }, [h('div', { class: 'fld wide' }, [
           h('p', { class: 'help', text: none ? 'No encontré partes resaltadas en la introducción ni en las conclusiones. Puedes guardar el texto como formato igualmente, o volver y elegir otro Word.' : 'Encontré ' + fm.occ.length + (fm.occ.length === 1 ? ' parte resaltada.' : ' partes resaltadas.') + ' Elige qué variable es cada una. Las que no marques quedan como texto fijo.' })
-        ])].concat(rows).concat([h('div', { class: 'fld wide', style: 'border-top:1px solid var(--line);padding-top:10px' }, [
+        ])].concat(rows).concat([h('div', { class: 'fld wide', style: 'border-top:1px solid var(--line);padding-top:14px' }, [h('b', { text: 'Variables' }), h('span', { class: 'help', text: 'Cambia el nombre de cada una y decide si es global del proyecto (mismo valor en todos los informes) o propia de cada informe.' })])]).concat(varRows(keys)).concat([h('div', { class: 'fld wide', style: 'border-top:1px solid var(--line);padding-top:10px' }, [
           h('label', { class: 'chk', for: 'fmApply' }, [cb, h('span', { text: 'Aplicar este texto también a los informes que ya están en el proyecto' })]),
           h('span', { class: 'help', text: 'Reemplaza la introducción y las conclusiones de cada informe (sus datos se conservan). Los informes que usan variables nuevas quedan en rojo hasta que las llenes.' })
         ])]))
@@ -2253,6 +2318,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     set(d.cover, 'conjunto', df.conjunto, 'portada'); set(d.cover, 'subtitulo', df.subtitulo, 'portada'); set(d.cover, 'elaboradores', df.elaboradores, 'portada'); set(d.cover, 'fecha', df.fecha, 'portada');
     set(d.vars, 'seguro', df.seguro, 'introducción'); set(d.vars, 'poliza', df.poliza, 'introducción'); set(d.vars, 'siniestro', df.siniestro, 'introducción');
     projVars(p).forEach((pv) => set(d.vars, pv.key, pv.def, 'introducción'));
+    globalKeys(p).forEach((k) => { const gv = defOf(p, k); if (d.vars[k] !== gv) { if (apply) d.vars[k] = gv; mark('introducción'); } });
     if (f) {
       if (!(d.intro || []).length && (f.intro || []).length) { if (apply) d.intro = f.intro.map((b) => ({ t: b.t, x: b.x })); mark('introducción'); }
       if (!(d.concl || []).length && (f.concl || []).length) { if (apply) d.concl = f.concl.map((b) => ({ t: b.t, x: b.x })); mark('conclusiones'); }
@@ -2385,6 +2451,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     st.cover = { subtitulo: d.subtitulo || base.cover.subtitulo, apartamento: '', conjunto: d.conjunto || base.cover.conjunto, elaboradores: d.elaboradores || base.cover.elaboradores, fecha: d.fecha || base.cover.fecha };
     st.vars = { seguro: d.seguro || base.vars.seguro, poliza: d.poliza || base.vars.poliza, siniestro: d.siniestro || base.vars.siniestro, valor: '' };
     projVars(p).forEach((pv) => { st.vars[pv.key] = pv.def || ''; });
+    globalKeys(p).forEach((k) => { st.vars[k] = defOf(p, k); });
     st.intro = base.intro.map((b) => ({ t: b.t, x: b.x }));
     st.planosTitulo = base.planosTitulo; st.grupoId = gid || '';
     st.planos = base.planos.map((b) => b.t === 'img' ? { t: 'img', role: b.role, item: b.role === 'fijo' ? b.item : null } : { t: b.t, x: b.x });
@@ -2599,7 +2666,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     const card = h('div', { class: 'mcard' });
     const prev = h('div', { class: 'rtext' });
     const draw = () => { prev.innerHTML = ''; prev.appendChild(blocksView(R.intro, R.vars)); };
-    card.appendChild(varsCard(['seguro', 'poliza', 'siniestro'].concat(customKeysIn(R.intro, proj(PID))), draw));
+    { const kk = ['seguro', 'poliza', 'siniestro'].concat(customKeysIn(R.intro, proj(PID))).filter((k) => !isGlobal(proj(PID), k)); if (kk.length) card.appendChild(varsCard(kk, draw)); }
     card.appendChild(h('div', { style: 'margin-top:16px' }, [prev]));
     draw();
     card.appendChild(blocksEditor(R.intro, draw, null, (nb) => { R.intro.splice(0, R.intro.length, ...nb); }));
@@ -2744,7 +2811,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     const card = h('div', { class: 'mcard' });
     const prev = h('div', { class: 'rtext' });
     const draw = () => { prev.innerHTML = ''; prev.appendChild(blocksView(R.concl, R.vars)); };
-    card.appendChild(varsCard(['valor', 'seguro', 'poliza', 'siniestro'].concat(customKeysIn(R.intro.concat(R.concl), proj(PID))), draw));
+    { const kk = ['valor', 'seguro', 'poliza', 'siniestro'].concat(customKeysIn(R.intro.concat(R.concl), proj(PID))).filter((k) => !isGlobal(proj(PID), k)); if (kk.length) card.appendChild(varsCard(kk, draw)); }
     card.appendChild(h('div', { style: 'margin-top:16px' }, [prev]));
     draw();
     { const bn = formatoBanner('concl'); if (bn) card.insertBefore(bn, card.firstChild); }

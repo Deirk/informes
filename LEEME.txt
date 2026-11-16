@@ -68,3 +68,9 @@ Siniestro o Valor total, crear una variable nueva (por ejemplo Corredor de segur
 Al guardar, la introducción y las conclusiones del Word pasan a ser el formato del proyecto. Las variables
 nuevas aparecen como campos en cada informe, se validan (en rojo si faltan) y se rellenan solas al
 importar o sincronizar informes que sigan ese texto. Sin cambios en Supabase.
+
+VARIABLES: RENOMBRAR Y GLOBALES
+En el botón Formato cada variable se puede renombrar (solo cambia el nombre que ves, no la etiqueta del texto)
+y marcar como "global del proyecto": mismo valor en todos los informes, se rellena sola al crear, importar
+o sincronizar, y ya no se pide en cada informe. Al guardar, el valor global se aplica a los informes existentes.
+Sin Formato nuevo también puedes abrir el botón para editar las variables (Guardar variables).

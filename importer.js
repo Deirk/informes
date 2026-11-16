@@ -172,6 +172,10 @@ async function importDocx(store, buf, o) {
 
   const fm = p0.formato || null;
   applyFormatoVars(res, fm);
+  ((p0 && p0.globalVars) || []).forEach((k) => {
+    const gv = ['seguro', 'poliza', 'siniestro', 'valor'].indexOf(k) > -1 ? ((p0.defaults || {})[k] || '') : (((p0.variables || []).filter((v) => v.key === k)[0] || {}).def || '');
+    if (has(gv)) { res.vars = res.vars || {}; res.vars[k] = gv; }
+  });
   ['intro', 'concl'].forEach((sec) => (res[sec] || []).forEach((b) => { delete b.raw; delete b.hl; }));
   if (fm && fm.planos) {
     const hasExtras = planos.some((b) => b.t !== 'img' || (b.role === 'fijo' && b.ref));
