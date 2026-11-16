@@ -9,6 +9,18 @@ function buildReportRef(D, r) {
     var k = Math.min(maxW / w, maxH / h, 1);
     return { width: Math.max(1, Math.round(w * k)), height: Math.max(1, Math.round(h * k)) };
   }
+  function fitUp(w, h, maxW, maxH) {
+    var k = Math.min(maxW / w, maxH / h, 3);
+    return { width: Math.max(1, Math.round(w * k)), height: Math.max(1, Math.round(h * k)) };
+  }
+  function isFotoHead(t) { return /^INFORME FOTOGR[ÁA]FICO$/i.test(String(t || "").replace(/\s+/g, " ").trim()); }
+  function planLike(b) {
+    if (!(b.t === "img" && b.img)) return false;
+    if (b.role !== "fijo") return true;
+    var a = b.img.w / b.img.h;
+    return b.img.w >= 350 && b.img.h >= 350 && a > 0.6 && a < 1.7;
+  }
+  var PLAN_NAMES = { grupo: "PLANO", individual: "PLANO CON LEVANTAMIENTO DE DAÑOS" };
   function fill(text) {
     var v = r.vars || {};
     return String(text || "")
@@ -107,19 +119,19 @@ function buildReportRef(D, r) {
   var pl = r.planos || [];
   pl.forEach(function (b) {
     if (b.t === "img") {
-      if (b.role === "fijo" && b.img) ch.push(img(b.img, 402, 260, CENTER));
+      if (b.role === "fijo" && b.img && !planLike(b)) ch.push(img(b.img, 520, 300, CENTER));
     } else {
+      if (isFotoHead(b.x)) return;
       var p = para(b);
       if (p) ch.push(p);
     }
   });
-  var plans = pl.filter(function (b) { return b.t === "img" && b.role !== "fijo" && b.img; });
-  plans.forEach(function (b, k) {
-    var d = fit(b.img.w, b.img.h, MAXW, plans.length > 1 ? 410 : 700);
+  pl.filter(planLike).forEach(function (b) {
+    ch.push(h1(PLAN_NAMES[b.role] || "PLANO COMPLEMENTARIO"));
+    var d = fitUp(b.img.w, b.img.h, MAXW, 680);
     ch.push(new D.Paragraph({
       alignment: CENTER,
-      pageBreakBefore: k === 0,
-      spacing: { before: k === 0 ? 0 : 240 },
+      spacing: { before: 120 },
       children: [new D.ImageRun({ data: b.img.data, type: b.img.type || "jpg", transformation: d })]
     }));
   });
@@ -195,6 +207,18 @@ function buildReport2(D, r) {
     var k = Math.min(maxW / w, maxH / h, 1);
     return { width: Math.max(1, Math.round(w * k)), height: Math.max(1, Math.round(h * k)) };
   }
+  function fitUp(w, h, maxW, maxH) {
+    var k = Math.min(maxW / w, maxH / h, 3);
+    return { width: Math.max(1, Math.round(w * k)), height: Math.max(1, Math.round(h * k)) };
+  }
+  function isFotoHead(t) { return /^INFORME FOTOGR[ÁA]FICO$/i.test(String(t || "").replace(/\s+/g, " ").trim()); }
+  function planLike(b) {
+    if (!(b.t === "img" && b.img)) return false;
+    if (b.role !== "fijo") return true;
+    var a = b.img.w / b.img.h;
+    return b.img.w >= 350 && b.img.h >= 350 && a > 0.6 && a < 1.7;
+  }
+  var PLAN_NAMES = { grupo: "PLANO", individual: "PLANO CON LEVANTAMIENTO DE DAÑOS" };
 
   function fill(text) {
     var v = r.vars || {};
@@ -369,19 +393,19 @@ function buildReport2(D, r) {
   var pb = r.planos || [];
   pb.forEach(function (b) {
     if (b.t === "img") {
-      if (b.role === "fijo" && b.img) children.push(imagePara(b.img, 420, 260, false));
+      if (b.role === "fijo" && b.img && !planLike(b)) children.push(imagePara(b.img, 520, 300, false));
     } else {
+      if (isFotoHead(b.x)) return;
       var p = textPara(b, false);
       if (p) children.push(p);
     }
   });
-  var plans2 = pb.filter(function (b) { return b.t === "img" && b.role !== "fijo" && b.img; });
-  plans2.forEach(function (b, k) {
-    var d = fit(b.img.w, b.img.h, 600, plans2.length > 1 ? 380 : 700);
+  pb.filter(planLike).forEach(function (b) {
+    children.push(sectionTitle(PLAN_NAMES[b.role] || "PLANO COMPLEMENTARIO"));
+    var d = fitUp(b.img.w, b.img.h, 600, 640);
     children.push(new D.Paragraph({
       alignment: CENTER,
-      pageBreakBefore: k === 0,
-      spacing: { before: k === 0 ? 0 : 200, after: 200 },
+      spacing: { before: 60, after: 200 },
       children: [new D.ImageRun({ data: b.img.data, type: b.img.type || "jpg", transformation: d })]
     }));
   });
