@@ -17,7 +17,8 @@ function buildReportRef(D, r) {
       .replace(/\{\{SINIESTRO\}\}/g, v.siniestro || "")
       .replace(/\{\{VALOR\}\}/g, v.valor || "")
       .replace(/\{\{APARTAMENTO\}\}/g, (r.cover && r.cover.apartamento) || "")
-      .replace(/\{\{CONJUNTO\}\}/g, (r.cover && r.cover.conjunto) || "");
+      .replace(/\{\{CONJUNTO\}\}/g, (r.cover && r.cover.conjunto) || "")
+      .replace(/\{\{([A-Z]+)\}\}/g, function (m, k) { var x = v[k.toLowerCase()]; return x == null ? m : x; });
   }
   function valorRunsRef(raw) {
     var v = (r.vars && r.vars.valor) || "";
@@ -203,7 +204,8 @@ function buildReport2(D, r) {
       .replace(/\{\{SINIESTRO\}\}/g, v.siniestro || "")
       .replace(/\{\{VALOR\}\}/g, v.valor || "")
       .replace(/\{\{APARTAMENTO\}\}/g, (r.cover && r.cover.apartamento) || "")
-      .replace(/\{\{CONJUNTO\}\}/g, (r.cover && r.cover.conjunto) || "");
+      .replace(/\{\{CONJUNTO\}\}/g, (r.cover && r.cover.conjunto) || "")
+      .replace(/\{\{([A-Z]+)\}\}/g, function (m, k) { var x = v[k.toLowerCase()]; return x == null ? m : x; });
   }
 
   function valorRuns(raw, hl, base) {

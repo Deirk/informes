@@ -63,7 +63,7 @@ async function seedFirma(store, res) {
 
 async function importDocx(store, buf, o) {
   const warns = [];
-  const res = await parseInforme(buf, JSZip, DOMParserCls);
+  const res = await parseInforme(buf, JSZip, DOMParserCls, { hl: true });
   const p0 = await store.getDoc('proyectos', o.projectId);
   if (!p0) throw new Error('Proyecto no encontrado');
   const groups = p0.grupos || [];
@@ -171,6 +171,8 @@ async function importDocx(store, buf, o) {
   }
 
   const fm = p0.formato || null;
+  applyFormatoVars(res, fm);
+  ['intro', 'concl'].forEach((sec) => (res[sec] || []).forEach((b) => { delete b.raw; delete b.hl; }));
   if (fm && fm.planos) {
     const hasExtras = planos.some((b) => b.t !== 'img' || (b.role === 'fijo' && b.ref));
     if (!hasExtras) {
@@ -240,6 +242,41 @@ async function recordFailure(store, o, message) {
   };
   await store.putDoc('informes2', id, doc);
   return { id: id, doc: doc };
+}
+
+function escRe(x) { return x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+function applyFormatoVars(res, fm) {
+  if (!fm) return;
+  res.vars = res.vars || {};
+  const got = {};
+  ['intro', 'concl'].forEach((sec) => {
+    const blocks = res[sec] || [];
+    (fm[sec] || []).forEach((tb) => {
+      const src = String(tb.x || '').replace(/\s+/g, ' ').trim();
+      if (!/\{\{[A-Z]+\}\}/.test(src)) return;
+      const keys = [];
+      let re = '^';
+      src.split(/(\{\{[A-Z]+\}\})/).forEach((pt) => {
+        const m = /^\{\{([A-Z]+)\}\}$/.exec(pt);
+        if (m) { keys.push(m[1].toLowerCase()); re += '(\\{\\{[A-Z]+\\}\\}|.+?)'; } else re += escRe(pt);
+      });
+      re += '$';
+      let rx;
+      try { rx = new RegExp(re); } catch (e) { return; }
+      for (const b of blocks) {
+        if ((b.t || 'p') !== (tb.t || 'p')) continue;
+        const m = rx.exec(String(b.raw != null ? b.raw : b.x || '').replace(/\s+/g, ' ').trim());
+        if (!m) continue;
+        keys.forEach((k, i) => {
+          const val = String(m[i + 1] || '').trim();
+          if (val && !/^\{\{[A-Z]+\}\}$/.test(val) && !got[k]) { res.vars[k] = val; got[k] = 1; }
+        });
+        b.x = tb.x;
+        break;
+      }
+    });
+  });
 }
 
 async function extractFirma(store, buf) {

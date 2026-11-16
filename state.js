@@ -11,19 +11,28 @@ function formatoDiffs(d, p) {
   return out;
 }
 
+function customKeysIn(blocks, project) {
+  const out = [];
+  const keys = ((project && project.variables) || []).map((v) => v.key);
+  (blocks || []).forEach((b) => {
+    String((b && b.x) || '').replace(/\{\{([A-Z]+)\}\}/g, (m, k) => { const l = k.toLowerCase(); if (keys.indexOf(l) > -1 && out.indexOf(l) < 0) out.push(l); return m; });
+  });
+  return out;
+}
+
 function moduleGaps(d, project) {
   const g = [];
   const c = d.cover || {};
   const v = d.vars || {};
   if (!has(c.apartamento) || !has(c.conjunto)) g.push('portada');
-  if (!(d.intro || []).length || !has(v.seguro) || !has(v.poliza) || !has(v.siniestro)) g.push('introducción');
+  if (!(d.intro || []).length || !has(v.seguro) || !has(v.poliza) || !has(v.siniestro) || customKeysIn(d.intro, project).some((k) => !has(v[k]))) g.push('introducción');
   else if (formatoDiffs(d, project).indexOf('intro') > -1) g.push('introducción distinta al formato');
   const grp = project && (project.grupos || []).filter((x) => x.id === d.grupoId)[0];
   const ind = (d.planos || []).filter((b) => b.t === 'img' && b.role === 'individual')[0];
   if (!(grp && grp.aid) || !(ind && ind.ref)) g.push('planos');
   if (!Object.keys(d.espacios || {}).length) g.push('imágenes');
   if (!(project && project.presupuestoObligatorio === false) && !has(d.presupuesto && d.presupuesto.nota)) g.push('presupuesto');
-  if (!(d.concl || []).length || !has(v.valor)) g.push('conclusiones');
+  if (!(d.concl || []).length || !has(v.valor) || customKeysIn(d.concl, project).some((k) => !has(v[k]))) g.push('conclusiones');
   else if (formatoDiffs(d, project).indexOf('concl') > -1) g.push('conclusiones distintas al formato');
   return g;
 }

@@ -60,3 +60,11 @@ CONTROL DE VERSIONES
 Cuando Sincronizar reemplaza un informe porque cambió en Drive, guarda antes una copia del anterior
 (colección "versiones", últimas 5 por archivo). En la tarjeta aparece "Versiones (n)" para restaurar una;
 al restaurar, la versión actual también se guarda. No requiere cambios en Supabase.
+
+BOTÓN FORMATO (dentro del proyecto)
+Sube un Word de ejemplo con las partes que cambian resaltadas (por ejemplo en amarillo). La app detecta cada
+parte (XXXX, $XXXX, un nombre de aseguradora) y propone una variable. Puedes elegir Aseguradora, Póliza,
+Siniestro o Valor total, crear una variable nueva (por ejemplo Corredor de seguros) o dejarla como texto fijo.
+Al guardar, la introducción y las conclusiones del Word pasan a ser el formato del proyecto. Las variables
+nuevas aparecen como campos en cada informe, se validan (en rojo si faltan) y se rellenan solas al
+importar o sincronizar informes que sigan ese texto. Sin cambios en Supabase.

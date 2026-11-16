@@ -1,6 +1,6 @@
 var SPACES = ['PASILLO', 'SALA COMEDOR', 'COCINA', 'HALL', 'ALCOBA SERVICIO', 'ZONA DE OFICIO', 'ESTAR TV', 'BAÑO 1', 'BAÑO 2', 'BAÑO 3', 'ALCOBA 1', 'ALCOBA 2', 'ALCOBA 3'];
 
-function parseInforme(buf, JSZipLib, DOMParserCls) {
+function parseInforme(buf, JSZipLib, DOMParserCls, opts) {
   function norm(s) {
     return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
   }
@@ -55,6 +55,48 @@ function parseInforme(buf, JSZipLib, DOMParserCls) {
     }
   }
 
+  function isHl(n) {
+    for (var a = n.parentNode; a; a = a.parentNode) {
+      if (a.nodeName === 'w:r') {
+        var rp = kids(a, 'w:rPr')[0];
+        if (rp) {
+          var hh = kids(rp, 'w:highlight')[0];
+          if (hh && hh.getAttribute('w:val') !== 'none') return true;
+          var sh = kids(rp, 'w:shd')[0];
+          if (sh) { var fl = String(sh.getAttribute('w:fill') || '').toLowerCase(); if (fl && fl !== 'auto' && fl !== 'ffffff') return true; }
+        }
+        return false;
+      }
+      if (a.nodeName === 'w:p') break;
+    }
+    return false;
+  }
+  function hlRanges(toks) {
+    var t = '', f = '';
+    toks.forEach(function (k) { if (k.text != null) { t += k.text; f += k.f; } });
+    var ot = '', of = '', i;
+    for (i = 0; i < t.length; i++) {
+      if (/\s/.test(t.charAt(i))) {
+        if (!ot.length) continue;
+        if (ot.charAt(ot.length - 1) !== ' ') { ot += ' '; of += f.charAt(i); }
+      } else { ot += t.charAt(i); of += f.charAt(i); }
+    }
+    if (ot.charAt(ot.length - 1) === ' ') { ot = ot.slice(0, -1); of = of.slice(0, -1); }
+    var out = [], s = -1;
+    for (i = 0; i <= of.length; i++) {
+      var on = i < of.length && of.charAt(i) === '1';
+      if (on && s < 0) s = i;
+      if (!on && s >= 0) {
+        var e = i;
+        while (s < e && ot.charAt(s) === ' ') s++;
+        while (e > s && ot.charAt(e - 1) === ' ') e--;
+        if (e > s) out.push([s, e]);
+        s = -1;
+      }
+    }
+    return out;
+  }
+
   return JSZipLib.loadAsync(buf).then(function (zip) {
     var docF = zip.file('word/document.xml');
     if (!docF) throw new Error('nodocx');
@@ -100,9 +142,10 @@ function parseInforme(buf, JSZipLib, DOMParserCls) {
         descend(p, function (n) {
           if (n.nodeName === 'w:t') {
             var s = n.textContent;
-            if (toks.length && toks[toks.length - 1].text != null) toks[toks.length - 1].text += s; else toks.push({ text: s });
+            var fs = new Array(s.length + 1).join(isHl(n) ? '1' : '0');
+            if (toks.length && toks[toks.length - 1].text != null) { toks[toks.length - 1].text += s; toks[toks.length - 1].f += fs; } else toks.push({ text: s, f: fs });
           } else if (n.nodeName === 'w:tab' || n.nodeName === 'w:br') {
-            if (toks.length && toks[toks.length - 1].text != null) toks[toks.length - 1].text += ' ';
+            if (toks.length && toks[toks.length - 1].text != null) { toks[toks.length - 1].text += ' '; toks[toks.length - 1].f += '0'; }
           } else if (n.nodeName === 'a:blip' || n.nodeName === 'v:imagedata') {
             var id = n.getAttribute('r:embed') || n.getAttribute('r:id') || n.getAttribute('r:pict');
             var inFallback = false;
@@ -143,7 +186,7 @@ function parseInforme(buf, JSZipLib, DOMParserCls) {
         else if (mode === 'imagenes' && started && photos > 0 && hasImg && !spaceHere) { mode = 'presupuesto'; }
 
         if (mode === 'intro') {
-          if (T && !isHeadStyle) intro.push({ t: isLi ? liType : 'p', x: T });
+          if (T && !isHeadStyle) { var bi = { t: isLi ? liType : 'p', x: T }; if (opts && opts.hl) bi.hl = hlRanges(toks); intro.push(bi); }
         } else if (mode === 'planos') {
           toks.forEach(function (k) {
             if (k.target) planos.push(img(k.target, k.ew, k.eh));
@@ -158,7 +201,7 @@ function parseInforme(buf, JSZipLib, DOMParserCls) {
           if (T) presu.nota = presu.nota ? presu.nota + ' ' + T : T;
         } else if (mode === 'conclusiones') {
           toks.forEach(function (k) { if (k.target) { var fi = img(k.target); if (!firma) firma = fi; firmasAll.push(fi); } });
-          if (T && !isHeadStyle) concl.push({ t: isLi ? liType : 'p', x: T });
+          if (T && !isHeadStyle) { var bc = { t: isLi ? liType : 'p', x: T }; if (opts && opts.hl) bc.hl = hlRanges(toks); concl.push(bc); }
         }
       });
 
@@ -238,6 +281,7 @@ function parseInforme(buf, JSZipLib, DOMParserCls) {
           if (!v) return;
           blocks.forEach(function (b) { b.x = b.x.split(v).join('{{' + name + '}}'); });
         }
+        if (opts && opts.hl) blocks.forEach(function (b) { b.raw = b.x; });
         tag(vars.seguro, 'SEGURO');
         tag(vars.siniestro, 'SINIESTRO');
         tag(vars.poliza, 'POLIZA');
