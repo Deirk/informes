@@ -402,6 +402,29 @@ img.zoomable{cursor:zoom-in}
 .chk{display:flex;align-items:center;gap:10px;font-weight:600;cursor:pointer}.chk input{width:18px;height:18px;accent-color:var(--accent)}
 .subh{display:flex;align-items:center;gap:8px;margin:18px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--ink)}.subh svg{width:16px;height:16px;flex:none}.subh .btn{margin-left:8px}.subh .btn svg{width:14px;height:14px}.subh .btn+*{}.subh span{margin-left:auto;font-size:12px;color:var(--muted)}
 .bigta{width:100%;min-height:180px;line-height:1.5;resize:vertical}
+
+.vx-modal{max-width:760px}
+.vx-sec{margin:18px 0 10px}.vx-sec h3{margin:0 0 2px;font-size:16px}.vx-sec .help{margin:0;font-size:13px;color:var(--muted)}
+.vx{display:flex;flex-direction:column;gap:12px}
+.vx-card{border:1px solid var(--line);border-radius:14px;padding:14px 16px;background:var(--paper);display:flex;flex-direction:column;gap:12px;min-width:0}
+.vx-head{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.vx-name{flex:1 1 200px;min-width:0;font-weight:700;font-size:16px}
+.vx-count{font:500 12px var(--f-mono);color:var(--ink);background:var(--accent-soft);border-radius:999px;padding:3px 10px;white-space:nowrap}
+.seg{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line-2);border-radius:10px;overflow:hidden}
+.seg button{border:0;background:transparent;padding:10px 8px;font:600 13px var(--f-body);color:var(--muted);cursor:pointer;min-width:0}
+.seg button+button{border-left:1px solid var(--line-2)}
+.seg button[aria-checked=true]{background:var(--accent);color:var(--accent-ink)}
+.seg button:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
+.vx-occs{display:flex;flex-direction:column;gap:8px;border-top:1px dashed var(--line-2);padding-top:10px}
+.vx-snip{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;font-size:12.5px;color:var(--muted)}
+.vx-ctx{flex:1 1 260px;min-width:0;overflow-wrap:anywhere}
+.vx-move{flex:0 1 190px;min-width:0;font-size:12.5px}
+.vx-drop{border:1.5px dashed var(--line-2);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.vx-drop p{margin:0}
+.vx-more{margin-top:14px}.vx-more summary{cursor:pointer;font-weight:600;color:var(--muted);margin-bottom:10px}
+.vx-apply{margin-top:16px;border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:4px}
+.vx-apply .help{font-size:12.5px;color:var(--muted)}
+@media(max-width:520px){.seg{grid-template-columns:1fr}.seg button+button{border-left:0;border-top:1px solid var(--line-2)}}
 </style>
 
 <div class="shell" id="shell">
@@ -2127,22 +2150,19 @@ if (typeof module !== "undefined") module.exports = buildReport2;
   }
   function openFormato() { const st = initVarState(proj(PID)); fm = { open: true, step: 'pick', busy: false, err: '', file: '', res: null, occ: [], apply: false, vl: st.vl, vg: st.vg, vv: st.vv }; renderFormato(); }
   function closeFormato() { fm.open = false; const m = document.getElementById('fmModal'); if (m) m.remove(); }
-  function fmKeyOf(o) {
-    if (o.choice === '*new*') {
-      let k = slugKey(o.name);
-      if (!k) return '';
-      if (VAR_RESERVED.indexOf(k) > -1) k += 'dato';
-      return k;
-    }
-    return o.choice;
+  function fmNewVar(label) {
+    let k = slugKey(label);
+    if (!k) k = 'variable';
+    if (VAR_RESERVED.indexOf(k) > -1) k += 'dato';
+    if (fm.vl[k] == null) { fm.vl[k] = (label || '').trim() || 'Variable'; fm.vg[k] = false; fm.vv[k] = ''; return k; }
+    if (VAR_BUILTIN[k] || (label || '').trim() === fm.vl[k]) return k;
+    let n = 2; while (fm.vl[k + String.fromCharCode(96 + n)] != null) n++;
+    const k2 = k + String.fromCharCode(96 + n);
+    fm.vl[k2] = (label || '').trim(); fm.vg[k2] = false; fm.vv[k2] = ''; return k2;
   }
-  function fmEnsureVar(o) {
-    const k = fmKeyOf(o);
-    if (!k) return;
-    if (fm.vl[k] == null) fm.vl[k] = (o.name || k).trim();
-    if (fm.vg[k] == null) fm.vg[k] = false;
-    if (fm.vv[k] == null) fm.vv[k] = '';
-    if (!has(fm.vv[k]) && !o.ph && has(o.value) && o.choice !== '') fm.vv[k] = o.value.trim().replace(/[.,;]+$/, '');
+  function fmFillValue(o) {
+    const k = o.choice;
+    if (k && !o.ph && has(o.value) && !has(fm.vv[k])) fm.vv[k] = o.value.trim().replace(/[.,;]+$/, '');
   }
   async function readFormatoFile(f) {
     fm.busy = true; fm.err = ''; renderFormato();
@@ -2151,7 +2171,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
       if (!(res.intro || []).length && !(res.concl || []).length) throw new Error('empty');
       fm.res = res; fm.file = f.name.replace(/\.docx$/i, '');
       fm.occ = detectVars(res.intro || [], 'intro').concat(detectVars(res.concl || [], 'concl'));
-      fm.occ.forEach(fmEnsureVar);
+      fm.occ.forEach((o) => { if (o.choice === '*new*') o.choice = fmNewVar(o.name); fmFillValue(o); });
       fm.step = 'review';
     } catch (e) { fm.err = e && e.message === 'empty' ? 'No se encontró la introducción ni las conclusiones en ese Word.' : 'No se pudo leer ese Word. Debe ser un .docx.'; }
     fm.busy = false; renderFormato();
@@ -2196,10 +2216,9 @@ if (typeof module !== "undefined") module.exports = buildReport2;
   }
   async function saveFormato() {
     const res = fm.res;
-    if (fm.occ.some((o) => o.choice === '*new*' && !slugKey(o.name))) { fm.err = 'Escribe un nombre para cada variable nueva.'; renderFormato(); return; }
     fm.busy = true; fm.err = ''; renderFormato();
     try {
-      const chosen = fm.occ.map((o) => ({ o: o, k: fmKeyOf(o) })).filter((c) => c.k);
+      const chosen = fm.occ.filter((o) => o.choice).map((o) => ({ o: o, k: o.choice }));
       const mk = (sec) => (res[sec] || []).map((b, bi) => {
         const mine = chosen.filter((c) => c.o.sec === sec && c.o.bi === bi).sort((a, b2) => b2.o.s - a.o.s);
         if (!mine.length) return { t: b.t, x: b.x };
@@ -2236,79 +2255,93 @@ if (typeof module !== "undefined") module.exports = buildReport2;
       closeFormato(); renderProject();
     } catch (e) { fm.busy = false; fm.err = 'No se pudo guardar el formato. Intenta de nuevo.'; renderFormato(); }
   }
-  function varRows(keys) {
-    return keys.map((k) => {
-      const li = h('input', { type: 'text', maxlength: '40', 'aria-label': 'Nombre de la variable ' + k });
-      li.value = fm.vl[k] != null ? fm.vl[k] : k;
-      li.addEventListener('input', () => { fm.vl[k] = li.value; });
-      const vi = h('input', { type: 'text', placeholder: 'Valor para todo el proyecto', 'aria-label': 'Valor de ' + k });
-      vi.value = fm.vv[k] || '';
-      vi.addEventListener('input', () => { fm.vv[k] = vi.value; });
-      const gc = h('input', { type: 'checkbox', id: 'fmg_' + k }); gc.checked = !!fm.vg[k];
-      const note = h('span', { class: 'help', text: gc.checked ? 'Igual en todos los informes. Se rellena sola y no se pide en cada informe.' : 'Cada informe tiene su propio valor. El de arriba es solo el sugerido al crear un informe.' });
-      gc.addEventListener('change', () => { fm.vg[k] = gc.checked; note.textContent = gc.checked ? 'Igual en todos los informes. Se rellena sola y no se pide en cada informe.' : 'Cada informe tiene su propio valor. El de arriba es solo el sugerido al crear un informe.'; });
-      return h('div', { class: 'fld wide', style: 'border-top:1px solid var(--line);padding-top:10px' }, [
-        h('div', { class: 'help', text: 'Etiqueta en el texto: {{' + k.toUpperCase() + '}}' }),
-        li, vi,
-        h('label', { class: 'chk', for: 'fmg_' + k }, [gc, h('span', { text: 'Variable global del proyecto' })]),
-        note
-      ]);
+  function moveSelect(o, p) {
+    const sel = h('select', { class: 'vx-move', 'aria-label': 'Asignar «' + o.value + '» a otra variable' });
+    const opts = [['', 'No es variable']].concat(Object.keys(fm.vl).map((k) => [k, fm.vl[k] || varLabel(k, p)])).concat([['*new*', '+ Variable nueva']]);
+    opts.forEach((op) => { const el = h('option', { value: op[0], text: op[1] }); if (op[0] === o.choice) el.selected = true; sel.appendChild(el); });
+    sel.addEventListener('change', () => {
+      if (sel.value === '*new*') { o.choice = fmNewVar('Variable nueva'); } else { o.choice = sel.value; fmFillValue(o); }
+      renderFormato();
     });
+    return sel;
+  }
+  function snippet(o) {
+    return h('span', { class: 'vx-ctx' }, [(o.sec === 'intro' ? 'Introducción' : 'Conclusiones') + ': ' + (o.before.length >= 48 ? '…' : '') + o.before, h('mark', { text: o.value }), o.after + (o.after.length >= 36 ? '…' : '')]);
+  }
+  function varCard(k, occs, p) {
+    const global = !!fm.vg[k];
+    const ni = h('input', { type: 'text', maxlength: '40', class: 'vx-name', 'aria-label': 'Nombre de la variable' });
+    ni.value = fm.vl[k] != null ? fm.vl[k] : k;
+    ni.addEventListener('input', () => { fm.vl[k] = ni.value; });
+    const seg = h('div', { class: 'seg', role: 'radiogroup', 'aria-label': 'Cómo cambia ' + (fm.vl[k] || k) }, [
+      h('button', { type: 'button', role: 'radio', 'aria-checked': global ? 'false' : 'true', onclick: () => { fm.vg[k] = false; renderFormato(); } }, ['Cambia en cada informe']),
+      h('button', { type: 'button', role: 'radio', 'aria-checked': global ? 'true' : 'false', onclick: () => { fm.vg[k] = true; renderFormato(); } }, ['Igual en todo el proyecto'])
+    ]);
+    const vi = h('input', { type: 'text', placeholder: global ? 'Ej.: el valor que irá en todos los informes' : 'Opcional', 'aria-label': global ? 'Valor para todos los informes' : 'Valor sugerido' });
+    vi.value = fm.vv[k] || '';
+    vi.addEventListener('input', () => { fm.vv[k] = vi.value; });
+    return h('div', { class: 'vx-card' }, [
+      h('div', { class: 'vx-head' }, [ni, occs ? h('span', { class: 'vx-count', text: occs.length === 1 ? '1 vez en el texto' : occs.length + ' veces en el texto' }) : null]),
+      seg,
+      h('div', { class: 'fld' }, [
+        h('label', { text: global ? 'Valor para todos los informes' : 'Valor sugerido (opcional)' }),
+        vi,
+        h('span', { class: 'help', text: global ? 'Se escribe una sola vez. Ya no se pide en cada informe y siempre usa este valor.' : 'Cada informe tiene su propio valor. Este solo se propone al crear un informe nuevo.' })
+      ]),
+      occs && occs.length ? h('div', { class: 'vx-occs' }, occs.map((o) => h('div', { class: 'vx-snip' }, [snippet(o), moveSelect(o, p)]))) : null
+    ]);
   }
   function renderFormato() {
-    const old = document.getElementById('fmModal'); if (old) old.remove();
+    const old = document.getElementById('fmModal'); const sy = old ? old.scrollTop : 0;
+    if (old) old.remove();
     if (!fm.open) return;
     const p = proj(PID);
     let body, foot;
     if (fm.step === 'pick') {
       const fi = h('input', { type: 'file', accept: '.docx', hidden: true, onchange: (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) readFormatoFile(f); } });
       body = [
-        h('div', { class: 'fields' }, [h('div', { class: 'fld wide' }, [
-          h('p', { class: 'help', text: 'Sube un Word de ejemplo con las partes que cambian resaltadas (por ejemplo en amarillo). Cada parte resaltada se convierte en una variable: su texto queda fijo en la introducción y las conclusiones, y solo cambia el dato de cada informe.' }),
-          p && p.formato ? h('p', { class: 'help', text: 'Formato actual: ' + (p.formato.from || 'sin nombre') + '. Al guardar uno nuevo se reemplaza.' }) : null,
+        h('div', { class: 'vx-drop' }, [
+          h('b', { text: 'Crear o actualizar el formato desde un Word' }),
+          h('p', { class: 'help', text: 'Resalta en el Word las partes que cambian (por ejemplo en amarillo). La app las detecta y las convierte en variables.' }),
+          p && p.formato ? h('p', { class: 'help', text: 'Formato actual: ' + (p.formato.from || 'sin nombre') + '. Al subir uno nuevo se reemplaza.' }) : null,
           fm.busy ? h('p', { class: 'help', text: 'Leyendo el Word…' }) : null,
-          fi, h('button', { class: 'btn', type: 'button', disabled: fm.busy ? true : null, onclick: () => fi.click() }, [icon('doc'), 'Elegir el Word de formato'])
-        ])].concat([h('div', { class: 'fld wide', style: 'border-top:1px solid var(--line);padding-top:10px' }, [h('b', { text: 'Variables del proyecto' }), h('span', { class: 'help', text: 'Renómbralas o márcalas como globales: una variable global tiene el mismo valor en todos los informes.' })])]).concat(varRows(allVarKeys(p))))
+          fi, h('button', { class: 'btn', type: 'button', disabled: fm.busy ? true : null, onclick: () => fi.click() }, [icon('doc'), 'Elegir el Word'])
+        ]),
+        h('div', { class: 'vx-sec' }, [h('h3', { text: 'Variables del proyecto' }), h('p', { class: 'help', text: 'Renombra cada variable y decide si cambia en cada informe o es igual en todo el proyecto.' })]),
+        h('div', { class: 'vx' }, allVarKeys(p).map((k) => varCard(k, null, p)))
       ];
       foot = [h('button', { class: 'btn ghost', type: 'button', onclick: closeFormato }, ['Cancelar']), h('button', { class: 'btn', type: 'button', disabled: fm.busy ? true : null, onclick: saveVarsOnly }, ['Guardar variables'])];
     } else {
-      const optsFor = () => [['', 'No es variable']].concat(allVarKeys(p).map((k) => [k, fm.vl[k] || varLabel(k, p)])).concat(Object.keys(fm.vl).filter((k) => allVarKeys(p).indexOf(k) < 0).map((k) => [k, fm.vl[k]])).concat([['*new*', 'Nueva variable…']]);
-      const rows = fm.occ.map((o) => {
-        const sel = h('select', { 'aria-label': 'Variable para ' + o.value });
-        optsFor().forEach((op) => { const el = h('option', { value: op[0], text: op[1] }); if (op[0] === o.choice) el.selected = true; sel.appendChild(el); });
-        const ni = h('input', { type: 'text', placeholder: 'Nombre de la variable', maxlength: '40' });
-        ni.value = o.name || '';
-        ni.style.display = o.choice === '*new*' ? '' : 'none';
-        ni.addEventListener('input', () => { o.name = ni.value; });
-        ni.addEventListener('change', () => { fmEnsureVar(o); renderFormato(); });
-        sel.addEventListener('change', () => { o.choice = sel.value; if (o.choice === '*new*') { ni.style.display = ''; ni.focus(); } else { fmEnsureVar(o); renderFormato(); } });
-        return h('div', { class: 'fld wide', style: 'border-top:1px solid var(--line);padding-top:10px' }, [
-          h('div', { class: 'help' }, [(o.sec === 'intro' ? 'Introducción: ' : 'Conclusiones: ') + (o.before.length >= 48 ? '…' : '') + o.before, h('mark', { text: o.value }), o.after + (o.after.length >= 36 ? '…' : '')]),
-          sel, ni
-        ]);
-      });
-      const none = !fm.occ.length;
+      const inUse = [];
+      fm.occ.forEach((o) => { if (o.choice && inUse.indexOf(o.choice) < 0) inUse.push(o.choice); });
+      const rest = Object.keys(fm.vl).filter((k) => inUse.indexOf(k) < 0);
+      const ignored = fm.occ.filter((o) => !o.choice);
       const cb = h('input', { type: 'checkbox', id: 'fmApply' }); cb.checked = fm.apply;
       cb.addEventListener('change', () => { fm.apply = cb.checked; });
-      const keys = allVarKeys(p);
-      fm.occ.forEach((o) => { const k = fmKeyOf(o); if (k && keys.indexOf(k) < 0) keys.push(k); });
-      body = [
-        h('div', { class: 'fields' }, [h('div', { class: 'fld wide' }, [
-          h('p', { class: 'help', text: none ? 'No encontré partes resaltadas en la introducción ni en las conclusiones. Puedes guardar el texto como formato igualmente, o volver y elegir otro Word.' : 'Encontré ' + fm.occ.length + (fm.occ.length === 1 ? ' parte resaltada.' : ' partes resaltadas.') + ' Elige qué variable es cada una. Las que no marques quedan como texto fijo.' })
-        ])].concat(rows).concat([h('div', { class: 'fld wide', style: 'border-top:1px solid var(--line);padding-top:14px' }, [h('b', { text: 'Variables' }), h('span', { class: 'help', text: 'Cambia el nombre de cada una y decide si es global del proyecto (mismo valor en todos los informes) o propia de cada informe.' })])]).concat(varRows(keys)).concat([h('div', { class: 'fld wide', style: 'border-top:1px solid var(--line);padding-top:10px' }, [
-          h('label', { class: 'chk', for: 'fmApply' }, [cb, h('span', { text: 'Aplicar este texto también a los informes que ya están en el proyecto' })]),
-          h('span', { class: 'help', text: 'Reemplaza la introducción y las conclusiones de cada informe (sus datos se conservan). Los informes que usan variables nuevas quedan en rojo hasta que las llenes.' })
-        ])]))
+      const parts = [
+        h('div', { class: 'vx-sec' }, [
+          h('h3', { text: inUse.length ? inUse.length + (inUse.length === 1 ? ' variable encontrada' : ' variables encontradas') : 'No encontré variables' }),
+          h('p', { class: 'help', text: inUse.length ? 'Encontré ' + fm.occ.length + ' partes resaltadas. Revisa el nombre de cada variable y decide si cambia en cada informe o es igual en todo el proyecto.' : 'No hay partes resaltadas en la introducción ni en las conclusiones. Puedes guardar el texto como formato igualmente, o volver y elegir otro Word.' })
+        ]),
+        h('div', { class: 'vx' }, inUse.map((k) => varCard(k, fm.occ.filter((o) => o.choice === k), p)))
       ];
+      if (ignored.length) parts.push(h('div', { class: 'vx-sec' }, [h('h3', { text: 'Resaltados que quedan como texto fijo (' + ignored.length + ')' }), h('p', { class: 'help', text: 'Si alguno sí es una variable, asígnalo aquí.' })]), h('div', { class: 'vx-card' }, [h('div', { class: 'vx-occs' }, ignored.map((o) => h('div', { class: 'vx-snip' }, [snippet(o), moveSelect(o, p)])))]));
+      if (rest.length) parts.push(h('details', { class: 'vx-more' }, [h('summary', { text: 'Otras variables del proyecto que no aparecen en este Word (' + rest.length + ')' }), h('div', { class: 'vx' }, rest.map((k) => varCard(k, null, p)))]));
+      parts.push(h('div', { class: 'vx-apply' }, [
+        h('label', { class: 'chk', for: 'fmApply' }, [cb, h('span', { text: 'Aplicar este texto también a los informes que ya están en el proyecto' })]),
+        h('span', { class: 'help', text: 'Reemplaza la introducción y las conclusiones de cada informe y conserva sus datos. Los que usen variables nuevas quedan en rojo hasta que las llenes.' })
+      ]));
+      body = parts;
       foot = [h('button', { class: 'btn ghost', type: 'button', onclick: () => { fm.step = 'pick'; fm.err = ''; renderFormato(); } }, ['Atrás']), h('button', { class: 'btn', type: 'button', disabled: fm.busy ? true : null, onclick: saveFormato }, [fm.busy ? 'Guardando…' : 'Guardar formato'])];
     }
-    const box = h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Formato del proyecto' }, [
-      h('div', { class: 'modal-h' }, [h('div', null, [h('h2', { text: 'Formato del proyecto' }), h('p', { text: fm.step === 'pick' ? 'Convierte las partes resaltadas de un Word en variables.' : 'Revisa las variables detectadas en «' + fm.file + '».' })]),
+    const box = h('div', { class: 'modal vx-modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Formato del proyecto' }, [
+      h('div', { class: 'modal-h' }, [h('div', null, [h('h2', { text: 'Formato del proyecto' }), h('p', { text: fm.step === 'pick' ? 'Variables y formato de los informes.' : 'Revisa lo que encontré en «' + fm.file + '».' })]),
         h('button', { class: 'ib', type: 'button', 'aria-label': 'Cerrar', onclick: closeFormato }, [icon('x')])])
     ].concat(body).concat([fm.err ? h('div', { class: 'err', role: 'alert', text: fm.err }) : null, h('div', { class: 'foot' }, foot)]));
     const back = h('div', { id: 'fmModal', class: 'modal-bg', onclick: (e) => { if (e.target === back) closeFormato(); } }, [box]);
     back.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeFormato(); });
     document.body.appendChild(back);
+    back.scrollTop = sy;
   }
   function autoFormatoDoc(d, p, apply) {
     const f = p && p.formato, df = (p && p.defaults) || {}, ch = [];
