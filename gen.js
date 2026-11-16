@@ -127,7 +127,7 @@ function buildReportRef(D, r) {
     }
   });
   pl.filter(planLike).forEach(function (b) {
-    ch.push(h1(PLAN_NAMES[b.role] || "PLANO COMPLEMENTARIO"));
+    ch.push(h2(PLAN_NAMES[b.role] || "PLANO COMPLEMENTARIO", true));
     var d = fitUp(b.img.w, b.img.h, MAXW, 680);
     ch.push(new D.Paragraph({
       alignment: CENTER,
@@ -401,7 +401,15 @@ function buildReport2(D, r) {
     }
   });
   pb.filter(planLike).forEach(function (b) {
-    children.push(sectionTitle(PLAN_NAMES[b.role] || "PLANO COMPLEMENTARIO"));
+    children.push(new D.Paragraph({
+      heading: D.HeadingLevel.HEADING_2,
+      pageBreakBefore: true,
+      keepNext: true,
+      spacing: { before: 0, after: 120 },
+      shading: { type: D.ShadingType.CLEAR, color: "auto", fill: BAND },
+      border: { left: { style: D.BorderStyle.SINGLE, size: 36, color: ACCENT, space: 6 } },
+      children: [new D.TextRun({ text: PLAN_NAMES[b.role] || "PLANO COMPLEMENTARIO", bold: true, size: 24, color: NAVY, font: FONT })]
+    }));
     var d = fitUp(b.img.w, b.img.h, 600, 640);
     children.push(new D.Paragraph({
       alignment: CENTER,
