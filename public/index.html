@@ -3078,14 +3078,6 @@ if (typeof module !== "undefined") module.exports = buildReport2;
         h('div', null, [h('dt', { text: 'Valor total' }), h('dd', { text: R.vars.valor || '—' })]),
         h('div', null, [h('dt', { text: 'Archivo' }), h('dd', { class: 'fname', text: fileNameOf(R) })])
       ]),
-      h('div', { class: 'firmasum' }, [
-        h('div', { style: 'flex:1;min-width:200px' }, [h('b', { text: 'Formato del proyecto' }), h('small', { text: (proj(PID) && proj(PID).formato) ? 'Introducción y conclusiones se comparan con ' + (proj(PID).formato.from || 'el informe elegido') + '. Planos y presupuesto se autorrellenan en los informes nuevos.' : 'Aún no hay formato. Usa este informe como modelo: compara los textos de los demás y autorrellena planos y presupuesto.' })]),
-        h('button', { class: 'btn ghost sm', type: 'button', onclick: async () => {
-          const src = formatoFromReport(R);
-          await mutateProject((q) => { q.formato = src; });
-          renderStage();
-        } }, [icon('check'), (proj(PID) && proj(PID).formato) ? 'Usar este informe como formato' : 'Usar como formato'])
-      ]),
       R.presupuesto.item ? null : h('div', { class: 'infos' }, [h('p', { text: presRequired(proj(PID)) ? 'Sin imagen de presupuesto. Es opcional: solo el texto de la sección es obligatorio.' : 'El presupuesto es opcional en este proyecto' + (has(R.presupuesto.nota) ? '.' : ': el Word lleva solo la nota «' + NOTA_PRESUPUESTO + '».') })]),
       h('div', { class: 'fields' }, [estiloToggle(proj(PID) || {}, 'estiloG')]),
       g.length ? h('div', { class: 'warns' }, [h('p', { text: 'Revisar: ' + g.join(', ') + '. Puedes generar igual y completarlo después.' })]) : h('div', { class: 'pill ok', text: 'Todo listo' }),
