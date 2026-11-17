@@ -78,3 +78,9 @@ Sin Formato nuevo también puedes abrir el botón para editar las variables (Gua
 AJUSTES DEL PROYECTO > VARIABLES
 El botón Formato solo crea las variables desde el Word. Renombrarlas, hacerlas globales y poner su valor se hace
 en Ajustes del proyecto, sección Variables.
+
+FOTOS POR ESPACIO (Ajustes del proyecto)
+- Activado (por defecto): las fotos se suben por espacio y el Word lleva un subtítulo por foto.
+- Desactivado: un solo bloque "Fotos del informe" donde se suben todas las fotos. El Word las lleva una por página, sin subtítulo, bajo INFORME FOTOGRÁFICO.
+- Al desactivarlo, las fotos que ya estaban en espacios se juntan en ese bloque. Si lo vuelves a activar, no se recupera a qué espacio pertenecía cada una.
+- Las importaciones de Word respetan el ajuste y juntan las fotos en un solo bloque.

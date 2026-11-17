@@ -169,6 +169,12 @@ async function importDocx(store, buf, o) {
     const refs = (await pool(res.espacios[name], 3, (img) => up(img, 1600))).filter(Boolean);
     if (refs.length) espacios[name] = refs;
   }
+  if (p0.fotosPorEspacio === false) {
+    const all = [];
+    Object.keys(espacios).forEach((k) => espacios[k].forEach((r) => all.push(r)));
+    Object.keys(espacios).forEach((k) => { delete espacios[k]; });
+    if (all.length) espacios.FOTOS = all;
+  }
 
   const fm = p0.formato || null;
   applyFormatoVars(res, fm);

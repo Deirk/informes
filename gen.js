@@ -85,9 +85,10 @@ function buildReportRef(D, r) {
     }
     return new D.Paragraph({ spacing: { before: 240, after: 240 }, children: [run(tx)] });
   }
-  function img(im, maxW, maxH, align) {
+  function img(im, maxW, maxH, align, pb) {
     var d = fit(im.w, im.h, maxW, maxH);
     return new D.Paragraph({
+      pageBreakBefore: !!pb,
       alignment: align || D.AlignmentType.LEFT,
       children: [new D.ImageRun({ data: im.data, type: im.type || "jpg", transformation: d })]
     });
@@ -142,6 +143,12 @@ function buildReportRef(D, r) {
     var firstPage = true;
     spaces.forEach(function (sp) {
       sp.photos.forEach(function (ph, k) {
+        if (sp.general) {
+          ch.push(img(ph, MAXW, MAXH, CENTER, !firstPage));
+          firstPage = false;
+          if (ph.caption) ch.push(new D.Paragraph({ alignment: CENTER, children: [run(ph.caption, { size: 20 })] }));
+          return;
+        }
         var name = sp.name.toUpperCase() + (k > 0 ? " (" + (k + 1) + ")" : "");
         var pb = !firstPage;
         firstPage = false;
@@ -291,9 +298,10 @@ function buildReport2(D, r) {
     });
   }
 
-  function imagePara(im, maxW, maxH, keepNext) {
+  function imagePara(im, maxW, maxH, keepNext, pb) {
     var d = fit(im.w, im.h, maxW, maxH);
     return new D.Paragraph({
+      pageBreakBefore: !!pb,
       alignment: CENTER,
       keepNext: !!keepNext,
       spacing: { before: 60, after: 200 },
@@ -424,6 +432,12 @@ function buildReport2(D, r) {
     var firstPhoto = true;
     spaces.forEach(function (sp) {
       sp.photos.forEach(function (ph, k) {
+        if (sp.general) {
+          children.push(imagePara(ph, 600, 740, !!ph.caption, !firstPhoto));
+          firstPhoto = false;
+          if (ph.caption) children.push(new D.Paragraph({ alignment: CENTER, spacing: { after: 120 }, children: [new D.TextRun({ text: ph.caption, italics: true, size: 18, color: GRAY, font: FONT })] }));
+          return;
+        }
         var name = sp.name.toUpperCase() + (k > 0 ? " (" + (k + 1) + ")" : "");
         children.push(new D.Paragraph({
           heading: D.HeadingLevel.HEADING_2,

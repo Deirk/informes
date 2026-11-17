@@ -837,9 +837,10 @@ function buildReportRef(D, r) {
     }
     return new D.Paragraph({ spacing: { before: 240, after: 240 }, children: [run(tx)] });
   }
-  function img(im, maxW, maxH, align) {
+  function img(im, maxW, maxH, align, pb) {
     var d = fit(im.w, im.h, maxW, maxH);
     return new D.Paragraph({
+      pageBreakBefore: !!pb,
       alignment: align || D.AlignmentType.LEFT,
       children: [new D.ImageRun({ data: im.data, type: im.type || "jpg", transformation: d })]
     });
@@ -894,6 +895,12 @@ function buildReportRef(D, r) {
     var firstPage = true;
     spaces.forEach(function (sp) {
       sp.photos.forEach(function (ph, k) {
+        if (sp.general) {
+          ch.push(img(ph, MAXW, MAXH, CENTER, !firstPage));
+          firstPage = false;
+          if (ph.caption) ch.push(new D.Paragraph({ alignment: CENTER, children: [run(ph.caption, { size: 20 })] }));
+          return;
+        }
         var name = sp.name.toUpperCase() + (k > 0 ? " (" + (k + 1) + ")" : "");
         var pb = !firstPage;
         firstPage = false;
@@ -1043,9 +1050,10 @@ function buildReport2(D, r) {
     });
   }
 
-  function imagePara(im, maxW, maxH, keepNext) {
+  function imagePara(im, maxW, maxH, keepNext, pb) {
     var d = fit(im.w, im.h, maxW, maxH);
     return new D.Paragraph({
+      pageBreakBefore: !!pb,
       alignment: CENTER,
       keepNext: !!keepNext,
       spacing: { before: 60, after: 200 },
@@ -1176,6 +1184,12 @@ function buildReport2(D, r) {
     var firstPhoto = true;
     spaces.forEach(function (sp) {
       sp.photos.forEach(function (ph, k) {
+        if (sp.general) {
+          children.push(imagePara(ph, 600, 740, !!ph.caption, !firstPhoto));
+          firstPhoto = false;
+          if (ph.caption) children.push(new D.Paragraph({ alignment: CENTER, spacing: { after: 120 }, children: [new D.TextRun({ text: ph.caption, italics: true, size: 18, color: GRAY, font: FONT })] }));
+          return;
+        }
         var name = sp.name.toUpperCase() + (k > 0 ? " (" + (k + 1) + ")" : "");
         children.push(new D.Paragraph({
           heading: D.HeadingLevel.HEADING_2,
@@ -1474,6 +1488,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
   }
   const NOTA_PRESUPUESTO = 'Nota: Los items cuya cantidad se encuentra en cero, corresponde a que no se requiere.';
   const presRequired = (p) => !(p && p.presupuestoObligatorio === false);
+  const porEspacio = (p) => !(p && p.fotosPorEspacio === false);
   function normText(x) { return String(x || '').toLowerCase().replace(/\{\{[a-z]+\}\}/g, '{}').replace(/\[[^\]]*\]/g, '[]').replace(/[\u2018\u2019\u201c\u201d]/g, '"').replace(/\s+/g, ' ').trim(); }
   function blocksKey(bl) { return (bl || []).map((b) => (b.t || 'p') + '|' + normText(b.x)).filter((s) => s.length > 2).join('\n'); }
   function formatoDiffs(d, p) {
@@ -1672,6 +1687,12 @@ if (typeof module !== "undefined") module.exports = buildReport2;
       const ph = [];
       for (const it of st.espacios[n]) ph.push(await toGen(it, it.cap));
       espacios.push({ name: n, photos: ph });
+    }
+    if (!porEspacio(p)) {
+      const all = [];
+      espacios.forEach((x) => x.photos.forEach((q) => all.push(q)));
+      espacios.length = 0;
+      if (all.length) espacios.push({ name: 'FOTOS', general: true, photos: all });
     }
     const rep = {
       cover: st.cover, vars: st.vars, intro: st.intro, planosTitulo: st.planosTitulo, planos: planos, espacios: espacios,
@@ -2082,6 +2103,15 @@ if (typeof module !== "undefined") module.exports = buildReport2;
       h('span', { class: 'help', text: 'Si lo desactivas, un informe sin presupuesto no se marca como falta y el Word lleva solo la nota «' + NOTA_PRESUPUESTO + '» en esa sección, sin imagen.' })
     ]);
   }
+  function fotosToggle(p) {
+    const cb = h('input', { type: 'checkbox', id: 'fotosEsp' });
+    cb.checked = porEspacio(p);
+    cb.addEventListener('change', () => { mutateProject((q) => { q.fotosPorEspacio = cb.checked; }).then(renderProject); });
+    return h('div', { class: 'fld wide' }, [
+      h('label', { class: 'chk', for: 'fotosEsp' }, [cb, h('span', { text: 'Fotos por espacio' })]),
+      h('span', { class: 'help', text: 'Activado: las fotos se suben y se muestran por espacio, cada una con su subtítulo. Desactivado: se suben todas las fotos juntas en un solo lugar y el Word las lleva una por página, sin subtítulo, bajo INFORME FOTOGRÁFICO.' })
+    ]);
+  }
   function setVarProp(k, what, val) {
     const q = proj(PID); if (!q) return;
     if (what === 'label') {
@@ -2144,6 +2174,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
         dfield('Elaborado por (uno por línea)', 'elaboradores', p, { area: true, wide: true }),
         dfield('Fecha de la portada', 'fecha', p),
         presToggle(p),
+        fotosToggle(p),
         estiloToggle(p, 'estiloP')
       ]),
       h('div', { class: 'vx-sec' }, [h('h3', { text: 'Variables' }), h('p', { class: 'help', text: 'Son los datos que cambian dentro del texto de los informes. Renómbralas y decide si son globales (mismo valor en todos los informes) o propias de cada informe. Las nuevas se crean desde el botón Formato.' })]),
@@ -2458,7 +2489,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     return h('div', { class: 'rc ' + state }, [
       h('button', { class: 'rc-main', type: 'button', onclick: () => openReport(r.id) }, [
         h('span', { class: 'rc-t', text: c.apartamento || 'Sin apartamento' }),
-        h('span', { class: 'rc-s', text: nSp + (nSp === 1 ? ' espacio' : ' espacios') + ' · ' + nPh + (nPh === 1 ? ' foto' : ' fotos') }),
+        h('span', { class: 'rc-s', text: (porEspacio(proj(d.projectId)) ? nSp + (nSp === 1 ? ' espacio' : ' espacios') + ' · ' : '') + nPh + (nPh === 1 ? ' foto' : ' fotos') }),
         h('span', { class: 'rc-m', text: msg }),
         d.drive && d.drive.path ? h('span', { class: 'rc-p', title: d.drive.path + ' / ' + (d.drive.name || ''), text: 'Drive: ' + d.drive.path }) : null,
         d.completado && d.drive ? h('span', { class: 'rc-x' + (exportPending(d) || state === 'rojo' ? ' pend' : ''), text: state === 'rojo' ? 'No se exportará a Drive hasta resolver lo pendiente' : exportPending(d) ? (d.exportado ? 'Cambios sin exportar' : 'Pendiente de exportar a Drive') : 'Exportado a Drive ' + (d.exportado ? ago(d.exportado.at) : '') }) : null
@@ -2832,8 +2863,14 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     st.appendChild(navFoot());
   }
   function stepImagenes(st) {
-    st.appendChild(stageHead('Agrega fotos solo a los espacios donde hay daños. Los espacios sin fotos no aparecen en el informe.'));
-    const SP = window.SPACES || [];
+    st.appendChild(stageHead(porEspacio(proj(PID)) ? 'Agrega fotos solo a los espacios donde hay daños. Los espacios sin fotos no aparecen en el informe.' : 'Sube todas las fotos que necesites. Van una por página, en el orden en que aparecen aquí.'));
+    const general = !porEspacio(proj(PID));
+    if (general) {
+      const all = [];
+      Object.keys(R.espacios).forEach((k) => { if (k !== 'FOTOS') { R.espacios[k].forEach((x) => all.push(x)); delete R.espacios[k]; } });
+      if (all.length) { R.espacios.FOTOS = (R.espacios.FOTOS || []).concat(all); touch(); }
+    }
+    const SP = general ? ['FOTOS'] : (window.SPACES || []);
     const grid = h('div', { class: 'sgrid' });
     SP.forEach((name) => {
       const list = R.espacios[name] || [];
@@ -2842,7 +2879,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
         ondragover: (e) => { e.preventDefault(); e.stopPropagation(); tile.classList.add('over'); },
         ondragleave: (e) => { if (!tile.contains(e.relatedTarget)) tile.classList.remove('over'); },
         ondrop: (e) => { e.preventDefault(); e.stopPropagation(); tile.classList.remove('over'); addPhotos(name, Array.prototype.slice.call((e.dataTransfer && e.dataTransfer.files) || [])); }
-      }, [h('h4', null, [h('span', { text: name }), h('span', { class: 'cnt', text: list.length ? list.length + (list.length === 1 ? ' foto' : ' fotos') : 'sin fotos' })])]);
+      }, [h('h4', null, [h('span', { text: general ? 'Fotos del informe' : name }), h('span', { class: 'cnt', text: list.length ? list.length + (list.length === 1 ? ' foto' : ' fotos') : 'sin fotos' })])]);
       if (list.length) {
         const th = h('div', { class: 'thumbs' });
         list.forEach((it, i) => {
@@ -2862,8 +2899,9 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     });
     st.appendChild(grid);
     const n = Object.keys(R.espacios).length;
-    st.appendChild(navFoot(n ? n + (n === 1 ? ' espacio con fotos' : ' espacios con fotos') : 'Aún no hay fotos'));
-    const extra = Object.keys(R.espacios).filter((k) => SP.indexOf(k) < 0);
+    const nf = Object.keys(R.espacios).reduce((a, k) => a + R.espacios[k].length, 0);
+    st.appendChild(navFoot(general ? (nf ? nf + (nf === 1 ? ' foto' : ' fotos') : 'Aún no hay fotos') : (n ? n + (n === 1 ? ' espacio con fotos' : ' espacios con fotos') : 'Aún no hay fotos')));
+    const extra = general ? [] : Object.keys(R.espacios).filter((k) => SP.indexOf(k) < 0);
     if (extra.length) st.appendChild(h('div', { class: 'err', text: 'Hay espacios fuera de la lista que se conservan: ' + extra.join(', ') }));
   }
   async function addPhotos(name, files) {
@@ -2924,7 +2962,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
       h('dl', null, [
         h('div', null, [h('dt', { text: 'Apartamento' }), h('dd', { text: R.cover.apartamento || '—' })]),
         h('div', null, [h('dt', { text: 'Conjunto' }), h('dd', { text: R.cover.conjunto || '—' })]),
-        h('div', null, [h('dt', { text: 'Espacios con fotos' }), h('dd', { text: String(nSp) + ' (' + nPh + ' fotos)' })]),
+        porEspacio(proj(R.projectId || PID)) ? h('div', null, [h('dt', { text: 'Espacios con fotos' }), h('dd', { text: String(nSp) + ' (' + nPh + ' fotos)' })]) : h('div', null, [h('dt', { text: 'Fotos' }), h('dd', { text: String(nPh) })]),
         h('div', null, [h('dt', { text: 'Valor total' }), h('dd', { text: R.vars.valor || '—' })]),
         h('div', null, [h('dt', { text: 'Archivo' }), h('dd', { class: 'fname', text: fileNameOf(R) })])
       ]),

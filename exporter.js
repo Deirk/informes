@@ -46,6 +46,12 @@ async function buildRep(store, doc, project, cfg) {
     for (const r of esp[n]) { const im = await asImg(store, r, r.cap); if (im) photos.push(im); }
     espacios.push({ name: n, photos: photos });
   }
+  if (project && project.fotosPorEspacio === false) {
+    const all = [];
+    espacios.forEach((x) => x.photos.forEach((ph) => all.push(ph)));
+    espacios.length = 0;
+    if (all.length) espacios.push({ name: 'FOTOS', general: true, photos: all });
+  }
   const presImg = await asImg(store, doc.presupuesto && doc.presupuesto.ref);
   const firmaRef = cfg && cfg.firma && cfg.firma.aid ? cfg.firma : doc.firma;
   return {
