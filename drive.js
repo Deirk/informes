@@ -199,7 +199,7 @@ module.exports = function createDrive(cfg, root, deps) {
     if (o.existingId) await guard(o.existingId);
     const boundary = 'hya' + Math.random().toString(16).slice(2);
     const meta = o.existingId ? { name: o.name } : { name: o.name, parents: [o.parentId] };
-    const head = Buffer.from('--' + boundary + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify(meta) + '\r\n--' + boundary + '\r\nContent-Type: ' + DOCX + '\r\n\r\n');
+    const head = Buffer.from('--' + boundary + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify(meta) + '\r\n--' + boundary + '\r\nContent-Type: ' + (o.mime || DOCX) + '\r\n\r\n');
     const tail = Buffer.from('\r\n--' + boundary + '--');
     const body = Buffer.concat([head, o.buf, tail]);
     const base = 'https://www.googleapis.com/upload/drive/v3/files';

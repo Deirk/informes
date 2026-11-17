@@ -67,18 +67,74 @@ async function buildDocx(store, doc, project, cfg) {
 
 function copyName(name) { return String(name || 'Informe').replace(/\.docx$/i, '').trim() + ' (Corregido).docx'; }
 
+function slug(s) {
+  return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+}
+
+function photoPrefix(doc, project) {
+  const segs = String((doc.drive && doc.drive.path) || '').split('/').map((x) => x.trim()).filter(Boolean);
+  const proj = slug((project && project.name) || segs[0] || '');
+  const grp = ((project && project.grupos) || []).filter((x) => x.id === doc.grupoId)[0];
+  const torre = slug(segs.filter((x) => /torre/i.test(x))[0] || (grp && grp.name) || '');
+  const rango = segs.map((x) => /apartamentos?\s*0*(\d+)/i.exec(x)).filter(Boolean)[0];
+  const apSrc = String((doc.cover && doc.cover.apartamento) || (doc.drive && doc.drive.name) || '');
+  const ap = (/(\d{3,4})/.exec(apSrc) || [])[1] || '';
+  const torreNum = (/(\d+)\s*$/.exec(torre.replace(/_/g, ' ')) || [])[1];
+  const parts = [proj, 'inspeccion', 'zonas_privadas', /^torre/.test(torre) || !torre ? torre : 'torre_' + (torreNum || torre), rango ? 'aptos_' + String(rango[1]).padStart(2, '0') : '', ap];
+  return parts.filter(Boolean).join('_');
+}
+
+function stamp(t) {
+  const f = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(t));
+  const g = (k) => f.filter((x) => x.type === k)[0].value;
+  return g('year') + '-' + g('month') + '-' + g('day') + '_' + g('hour') + '-' + g('minute') + '-' + g('second');
+}
+
+async function sendPhotos(ctx, doc, project) {
+  const sent = Object.assign({}, doc.fotosDrive || {});
+  const esp = doc.espacios || {};
+  const ord = (doc.orden || []).filter((n) => (esp[n] || []).length);
+  const names = ord.concat(Object.keys(esp).filter((n) => (esp[n] || []).length && ord.indexOf(n) < 0));
+  const refs = [];
+  names.forEach((n) => esp[n].forEach((r) => { if (r && r.aid) refs.push(r); }));
+  let next = Object.keys(sent).reduce((m, k) => Math.max(m, sent[k].n || 0), 0);
+  const prefix = photoPrefix(doc, project);
+  const at = stamp(Date.now());
+  let err = '';
+  for (const r of refs) {
+    if (sent[r.aid]) continue;
+    try {
+      const a = await ctx.store.getAsset(r.aid);
+      if (!a) continue;
+      const png = /png/i.test(a.type);
+      const n = next + 1;
+      const fname = prefix + '_' + at + '_' + n + (png ? '.png' : '.jpg');
+      const up = await ctx.drive.upload({ parentId: doc.drive.folderId, name: fname, buf: a.buf, mime: png ? 'image/png' : 'image/jpeg' });
+      next = n;
+      sent[r.aid] = { id: up.id, name: fname, n: n };
+    } catch (e) {
+      err = (e && e.message) || 'no se pudo subir una foto';
+      break;
+    }
+  }
+  return { sent: sent, err: err };
+}
+
 async function sendOne(ctx, project, cfgDoc, r) {
   const store = ctx.store;
   const buf = await buildDocx(store, r.data, project, cfgDoc);
   const file = await ctx.drive.replace({ fileId: r.data.drive.id, buf: buf });
   const name = file.name || r.data.drive.name;
+  const ph = await sendPhotos(ctx, r.data, project);
   await withLock('r:' + r.id, async () => {
     const fresh = await store.getDoc('informes2', r.id);
     if (!fresh) return;
     fresh.exportado = { fileId: file.id, name: name, at: Date.now() };
+    fresh.fotosDrive = ph.sent;
     if (file.modifiedTime && fresh.drive) fresh.drive.modified = file.modifiedTime;
     await store.putDoc('informes2', r.id, fresh);
   });
+  if (ph.err) throw new Error('El Word se envió, pero una foto no se pudo subir: ' + ph.err);
   return { name: name, updated: !!(r.data.exportado && r.data.exportado.fileId) };
 }
 

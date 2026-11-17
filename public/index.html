@@ -2613,7 +2613,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     const i = stepIdx();
     return h('div', { class: 'stage-head' }, [
       h('p', { class: 'kick', text: 'PASO ' + (i + 1) + ' DE ' + STEPS.length + ' · ' + (R.cover.apartamento || 'SIN APARTAMENTO').toUpperCase() }),
-      h('h2', { text: STEPS[i].title }),
+      h('h2', { text: STEPS[i].id === 'imagenes' && !porEspacio(proj(PID)) ? 'Fotos del informe' : STEPS[i].title }),
       h('p', { text: sub })
     ]);
   }

@@ -84,3 +84,12 @@ FOTOS POR ESPACIO (Ajustes del proyecto)
 - Desactivado: un solo bloque "Fotos del informe" donde se suben todas las fotos. El Word las lleva una por página, sin subtítulo, bajo INFORME FOTOGRÁFICO.
 - Al desactivarlo, las fotos que ya estaban en espacios se juntan en ese bloque. Si lo vuelves a activar, no se recupera a qué espacio pertenecía cada una.
 - Las importaciones de Word respetan el ajuste y juntan las fotos en un solo bloque.
+
+FOTOS EN DRIVE
+- Al exportar un informe (Exportar completados), además del Word se suben las fotos del informe a la misma carpeta de Drive donde está el original.
+- Nombre: proyecto_inspeccion_zonas_privadas_torre_N_aptos_RR_AAA_AAAA-MM-DD_HH-MM-SS_n.jpg
+  Ejemplo: albatross_inspeccion_zonas_privadas_torre_1_aptos_01_201_2026-10-28_12-43-14_1.jpg
+  El proyecto sale del nombre del proyecto, la torre y el rango (RR) de la ruta de Drive del informe, el apartamento (AAA) de la portada.
+  Fecha y hora son las del momento de la exportación (hora de Colombia) y n es el consecutivo de la foto.
+- Una foto ya subida no se vuelve a subir al reexportar; las fotos nuevas continúan el consecutivo. Si quitas una foto del informe, la que ya está en Drive no se borra.
+- Si el Word se envía pero una foto falla, el informe muestra el error y al reexportar solo se reintentan las pendientes.
