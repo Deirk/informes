@@ -911,6 +911,12 @@ function buildReportRef(D, r) {
     });
   }
 
+  var memoria = (r.memoria || []).filter(Boolean);
+  if (memoria.length) {
+    ch.push(h1("MEMORIA DE CANTIDADES"));
+    memoria.forEach(function (im) { ch.push(img(im, MAXW, 700, CENTER)); });
+  }
+
   if (r.presupuesto && (r.presupuesto.img || r.presupuesto.nota)) {
     ch.push(h1("PRESUPUESTO"));
     if (r.presupuesto.img) ch.push(img(r.presupuesto.img, MAXW, 700, CENTER));
@@ -1207,6 +1213,12 @@ function buildReport2(D, r) {
     });
   }
 
+  var memoria = (r.memoria || []).filter(Boolean);
+  if (memoria.length) {
+    children.push(sectionTitle("MEMORIA DE CANTIDADES"));
+    memoria.forEach(function (im) { children.push(imagePara(im, 620, 700, false)); });
+  }
+
   if (r.presupuesto && (r.presupuesto.img || r.presupuesto.nota)) {
     children.push(sectionTitle("PRESUPUESTO"));
     if (r.presupuesto.img) children.push(imagePara(r.presupuesto.img, 620, 700, !!r.presupuesto.nota));
@@ -1292,6 +1304,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     { id: 'intro', label: 'Introducción', title: 'Introducción' },
     { id: 'planos', label: 'Planos', title: 'Planos' },
     { id: 'imagenes', label: 'Imágenes', title: 'Imágenes por espacio' },
+    { id: 'memoria', label: 'Memoria', title: 'Memoria de cantidades' },
     { id: 'presupuesto', label: 'Presupuesto', title: 'Presupuesto' },
     { id: 'conclusiones', label: 'Conclusiones', title: 'Conclusiones' },
     { id: 'generar', label: 'Generar', title: 'Generar informe' }
@@ -1420,7 +1433,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
       cover: { subtitulo: '', apartamento: '', conjunto: '', elaboradores: '', fecha: '' },
       vars: { seguro: '', poliza: '', siniestro: '', valor: '' },
       intro: [], planosTitulo: 'PLANO CON EL REGISTRO DE LAS AFECTACIONES', planos: [], grupoId: '',
-      espacios: {}, presupuesto: { item: null, nota: '' }, concl: [], conclTitulo: 'CONCLUSIONES', firma: null, completado: false, drive: null, importError: '', exportado: null
+      espacios: {}, memoria: [], presupuesto: { item: null, nota: '' }, concl: [], conclTitulo: 'CONCLUSIONES', firma: null, completado: false, drive: null, importError: '', exportado: null
     };
   }
   function serialize(st) {
@@ -1433,7 +1446,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
       v: 2, projectId: st.projectId, createdAt: st.createdAt, updatedAt: Date.now(), step: st.step, source: st.source,
       cover: st.cover, vars: st.vars, intro: st.intro, planosTitulo: st.planosTitulo, grupoId: st.grupoId,
       planos: st.planos.map((b) => b.t === 'img' ? { t: 'img', role: b.role, ref: refOf(b.item) } : b),
-      espacios: esp, orden: (st.orden || []).filter((k) => esp[k]), presupuesto: { ref: refOf(st.presupuesto.item), nota: st.presupuesto.nota },
+      espacios: esp, memoria: (st.memoria || []).filter((i) => i.aid).map(refOf), orden: (st.orden || []).filter((k) => esp[k]), presupuesto: { ref: refOf(st.presupuesto.item), nota: st.presupuesto.nota },
       concl: st.concl, conclTitulo: st.conclTitulo, firma: refOf(st.firma),
       completado: !!st.completado, drive: st.drive || null, importError: st.importError || '', exportado: st.exportado || null
     };
@@ -1449,6 +1462,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     st.planos = (d.planos || []).map((b) => b.t === 'img' ? { t: 'img', role: b.role, item: hydrate(b.ref) } : { t: b.t, x: b.x });
     st.espacios = {}; st.orden = Array.isArray(d.orden) ? d.orden.slice() : [];
     Object.keys(d.espacios || {}).forEach((k) => { st.espacios[k] = d.espacios[k].map(hydrate).filter(Boolean); });
+    st.memoria = (d.memoria || []).map(hydrate).filter(Boolean);
     st.presupuesto = { item: hydrate(d.presupuesto && d.presupuesto.ref), nota: (d.presupuesto && d.presupuesto.nota) || '' };
     st.concl = (d.concl || []).map((b) => ({ t: b.t, x: b.x }));
     st.conclTitulo = d.conclTitulo || st.conclTitulo;
@@ -1467,6 +1481,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     const out = [];
     st.planos.forEach((b) => { if (b.t === 'img' && b.item) out.push(b.item); });
     Object.keys(st.espacios).forEach((k) => st.espacios[k].forEach((i) => out.push(i)));
+    (st.memoria || []).forEach((i) => out.push(i));
     if (st.presupuesto.item) out.push(st.presupuesto.item);
     if (st.firma) out.push(st.firma);
     return out;
@@ -1694,8 +1709,10 @@ if (typeof module !== "undefined") module.exports = buildReport2;
       espacios.length = 0;
       if (all.length) espacios.push({ name: 'FOTOS', general: true, photos: all });
     }
+    const memoria = [];
+    for (const it of st.memoria || []) memoria.push(await toGen(it));
     const rep = {
-      cover: st.cover, vars: st.vars, intro: st.intro, planosTitulo: st.planosTitulo, planos: planos, espacios: espacios,
+      cover: st.cover, vars: st.vars, intro: st.intro, planosTitulo: st.planosTitulo, planos: planos, espacios: espacios, memoria: memoria,
       presupuesto: await presupuestoForDoc(st, p), estiloPropio: !!p.estiloPropio,
       concl: st.concl, conclTitulo: st.conclTitulo, firma: await toGen(globalCfg.firma && globalCfg.firma.aid ? hydrate(globalCfg.firma) : st.firma)
     };
@@ -2766,7 +2783,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     return box;
   }
   document.addEventListener('paste', (e) => {
-    if (view !== 'editor' || step !== 'presupuesto' || !window.HYA_PASTE) return;
+    if (view !== 'editor' || (step !== 'presupuesto' && step !== 'memoria') || !window.HYA_PASTE) return;
     const t = e.target;
     if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
     const files = Array.prototype.slice.call((e.clipboardData && e.clipboardData.files) || []).filter((x) => /^image\//.test(x.type));
@@ -2780,7 +2797,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     if (view !== 'editor' || !R) return;
     renderHead();
     const st = $('#stage'); st.innerHTML = '';
-    const fn = { portada: stepPortada, intro: stepIntro, planos: stepPlanos, imagenes: stepImagenes, presupuesto: stepPresupuesto, conclusiones: stepConclusiones, generar: stepGenerar }[step];
+    const fn = { portada: stepPortada, intro: stepIntro, planos: stepPlanos, imagenes: stepImagenes, memoria: stepMemoria, presupuesto: stepPresupuesto, conclusiones: stepConclusiones, generar: stepGenerar }[step];
     fn(st);
     if (undoStack.length) st.insertBefore(undoBar(), st.firstChild);
   }
@@ -2942,6 +2959,54 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     for (const f of imgs) { try { list.push(await fileToItem(f, 1600)); } catch (e) {} }
     if (!list.length) delete R.espacios[name];
     touch(); renderStage();
+  }
+  function stepMemoria(st) {
+    st.appendChild(stageHead('Pega o sube las imágenes de la memoria de cantidades. Puedes agregar varias, van en el orden en que aparecen aquí. Es opcional.'));
+    R.memoria = R.memoria || [];
+    const list = R.memoria;
+    const card = h('div', { class: 'mcard' });
+    async function addAll(files) {
+      const imgs = files.filter((f) => /^image\//.test(f.type));
+      if (!imgs.length) return;
+      for (const f of imgs) { try { list.push(await fileToItem(f, 2200)); } catch (e) {} }
+      touch(); renderStage();
+    }
+    window.HYA_PASTE = (f) => addAll([f]);
+    const fi = h('input', { type: 'file', accept: 'image/*', multiple: true, hidden: true, onchange: (e) => { const f = Array.prototype.slice.call(e.target.files); e.target.value = ''; addAll(f); } });
+    async function pasteBtn() {
+      try {
+        const items = await navigator.clipboard.read();
+        for (const ci of items) {
+          const t = ci.types.filter((x) => /^image\//.test(x))[0];
+          if (t) { const bl = await ci.getType(t); addAll([new File([bl], 'pegado.png', { type: bl.type })]); return; }
+        }
+        alert_('El portapapeles no tiene una imagen. Copia las celdas en Excel y vuelve a intentar.');
+      } catch (e) { alert_('No se pudo leer el portapapeles. Haz clic en la página y pulsa Ctrl+V.'); }
+    }
+    const tile = h('div', { class: 'stile' + (list.length ? ' has' : ''),
+      ondragover: (e) => { e.preventDefault(); e.stopPropagation(); tile.classList.add('over'); },
+      ondragleave: (e) => { if (!tile.contains(e.relatedTarget)) tile.classList.remove('over'); },
+      ondrop: (e) => { e.preventDefault(); e.stopPropagation(); tile.classList.remove('over'); addAll(Array.prototype.slice.call((e.dataTransfer && e.dataTransfer.files) || [])); }
+    }, [h('h4', null, [h('span', { text: 'Memoria de cantidades' }), h('span', { class: 'cnt', text: list.length ? list.length + (list.length === 1 ? ' imagen' : ' imágenes') : 'sin imágenes' })])]);
+    if (list.length) {
+      const th = h('div', { class: 'thumbs' });
+      list.forEach((it, i) => {
+        th.appendChild(h('div', { class: 'thumb' }, [
+          h('img', { src: it.url, alt: 'Memoria de cantidades ' + (i + 1), class: 'zoomable', tabindex: '0', role: 'button', title: 'Ampliar', onclick: () => openLightbox(list, i, 'Memoria de cantidades') }),
+          h('button', { class: 'rm', type: 'button', 'aria-label': 'Quitar imagen', onclick: () => { list.splice(i, 1); pushUndo('Se quitó una imagen de la memoria de cantidades.', it, () => { R.memoria.splice(Math.min(i, R.memoria.length), 0, it); }); touch(); renderStage(); } }, [icon('x')])
+        ]));
+      });
+      tile.appendChild(th);
+    }
+    tile.appendChild(h('div', { class: 'mini', style: 'margin-top:12px' }, [
+      h('button', { class: 'btn ghost sm', type: 'button', onclick: () => fi.click() }, [icon('img'), 'Subir imágenes']),
+      h('button', { class: 'btn ghost sm', type: 'button', onclick: pasteBtn }, [icon('img'), 'Pegar imagen'])
+    ]));
+    tile.appendChild(h('small', { text: 'También puedes arrastrar imágenes o copiar las celdas en Excel y pegar aquí con Ctrl+V.' }));
+    tile.appendChild(fi);
+    card.appendChild(tile);
+    st.appendChild(card);
+    st.appendChild(navFoot());
   }
   function stepPresupuesto(st) {
     const req = presRequired(proj(PID));

@@ -98,3 +98,8 @@ FOTOS EN DRIVE
 
 PEGAR IMAGEN DEL PRESUPUESTO
 - En el paso Presupuesto, copia las celdas en Excel y pulsa Ctrl+V en la página (con el cursor fuera de los campos de texto), o usa el botón "Pegar imagen". También sigue funcionando subir o arrastrar un archivo.
+
+MEMORIA DE CANTIDADES
+- Paso nuevo antes de Presupuesto: solo imágenes, se pueden agregar varias (Ctrl+V desde Excel, botón "Pegar imagen", subir o arrastrar). Es opcional.
+- En el Word va como sección "MEMORIA DE CANTIDADES" antes del Presupuesto, con las imágenes en el orden del paso. Si no hay imágenes, la sección no aparece.
+- No se suben a Drive como archivos sueltos; solo van dentro del Word.

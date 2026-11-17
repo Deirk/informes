@@ -53,9 +53,11 @@ async function buildRep(store, doc, project, cfg) {
     if (all.length) espacios.push({ name: 'FOTOS', general: true, photos: all });
   }
   const presImg = await asImg(store, doc.presupuesto && doc.presupuesto.ref);
+  const memoria = [];
+  for (const r of doc.memoria || []) { const im = await asImg(store, r); if (im) memoria.push(im); }
   const firmaRef = cfg && cfg.firma && cfg.firma.aid ? cfg.firma : doc.firma;
   return {
-    cover: doc.cover, vars: doc.vars, intro: doc.intro, planosTitulo: doc.planosTitulo, planos: planos, espacios: espacios,
+    cover: doc.cover, vars: doc.vars, intro: doc.intro, planosTitulo: doc.planosTitulo, planos: planos, espacios: espacios, memoria: memoria,
     presupuesto: presupuestoFor(project, doc, presImg), estiloPropio: !!(project && project.estiloPropio),
     concl: doc.concl, conclTitulo: doc.conclTitulo, firma: await asImg(store, firmaRef)
   };

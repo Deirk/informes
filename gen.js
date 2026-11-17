@@ -159,6 +159,12 @@ function buildReportRef(D, r) {
     });
   }
 
+  var memoria = (r.memoria || []).filter(Boolean);
+  if (memoria.length) {
+    ch.push(h1("MEMORIA DE CANTIDADES"));
+    memoria.forEach(function (im) { ch.push(img(im, MAXW, 700, CENTER)); });
+  }
+
   if (r.presupuesto && (r.presupuesto.img || r.presupuesto.nota)) {
     ch.push(h1("PRESUPUESTO"));
     if (r.presupuesto.img) ch.push(img(r.presupuesto.img, MAXW, 700, CENTER));
@@ -453,6 +459,12 @@ function buildReport2(D, r) {
         if (ph.caption) children.push(new D.Paragraph({ alignment: CENTER, spacing: { after: 120 }, children: [new D.TextRun({ text: ph.caption, italics: true, size: 18, color: GRAY, font: FONT })] }));
       });
     });
+  }
+
+  var memoria = (r.memoria || []).filter(Boolean);
+  if (memoria.length) {
+    children.push(sectionTitle("MEMORIA DE CANTIDADES"));
+    memoria.forEach(function (im) { children.push(imagePara(im, 620, 700, false)); });
   }
 
   if (r.presupuesto && (r.presupuesto.img || r.presupuesto.nota)) {
