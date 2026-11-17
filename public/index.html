@@ -2733,6 +2733,17 @@ if (typeof module !== "undefined") module.exports = buildReport2;
         dropItem(getItem()); setItem(ni); touch(); renderStage();
       } catch (e) { alert_('No se pudo leer esa imagen.'); }
     }
+    if (o.paste) window.HYA_PASTE = take;
+    async function pasteBtn() {
+      try {
+        const items = await navigator.clipboard.read();
+        for (const ci of items) {
+          const t = ci.types.filter((x) => /^image\//.test(x))[0];
+          if (t) { const b = await ci.getType(t); take(new File([b], 'pegado.png', { type: b.type })); return; }
+        }
+        alert_('El portapapeles no tiene una imagen. Copia las celdas en Excel y vuelve a intentar.');
+      } catch (e) { alert_('No se pudo leer el portapapeles. Haz clic en el cuadro y pulsa Ctrl+V.'); }
+    }
     const pv = it ? h('div', { class: 'pv' }, [h('img', { src: it.url, alt: label, class: 'zoomable', tabindex: '0', role: 'button', title: 'Ampliar', onclick: () => openLightbox([it], 0, label), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openLightbox([it], 0, label); } } })]) : h('div', { class: 'pv empty', text: o.emptyText || 'Sin imagen' });
     const box = h('div', { class: 'slot',
       ondragover: (e) => { e.preventDefault(); e.stopPropagation(); box.classList.add('over'); },
@@ -2745,14 +2756,24 @@ if (typeof module !== "undefined") module.exports = buildReport2;
         o.help ? h('small', { text: o.help }) : null,
         h('div', { class: 'mini' }, [
           h('button', { class: 'btn ghost sm', type: 'button', onclick: () => fi.click() }, [icon('img'), it ? 'Cambiar imagen' : 'Subir imagen']),
+          o.paste ? h('button', { class: 'btn ghost sm', type: 'button', onclick: pasteBtn }, [icon('img'), 'Pegar imagen']) : null,
           it && o.removable ? h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { const cur = getItem(); setItem(null); pushUndo('Se quitó la imagen de ' + label.toLowerCase() + '.', cur, () => setItem(cur)); touch(); renderStage(); } }, [icon('trash'), 'Quitar']) : null
         ]),
-        h('small', { text: 'También puedes arrastrar una imagen sobre este cuadro.' }),
+        h('small', { text: o.paste ? 'También puedes arrastrar una imagen o copiar las celdas en Excel y pegar aquí con Ctrl+V.' : 'También puedes arrastrar una imagen sobre este cuadro.' }),
         fi
       ])
     ]);
     return box;
   }
+  document.addEventListener('paste', (e) => {
+    if (view !== 'editor' || step !== 'presupuesto' || !window.HYA_PASTE) return;
+    const t = e.target;
+    if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    const files = Array.prototype.slice.call((e.clipboardData && e.clipboardData.files) || []).filter((x) => /^image\//.test(x.type));
+    if (!files.length) return;
+    e.preventDefault();
+    window.HYA_PASTE(files[0]);
+  });
   function alert_(msg) { genState = { busy: false, kind: 'bad', msg: msg }; const s = $('#stage'); if (s) { const e = h('div', { class: 'err', role: 'alert', text: msg }); s.insertBefore(e, s.firstChild); setTimeout(() => e.remove(), 4000); } }
 
   function renderStage() {
@@ -2932,7 +2953,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
         h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { R.presupuesto.nota = f.presupuestoNota; touch(); renderStage(); } }, [icon('wand'), 'Rellenar con el formato'])
       ])); }
     card.appendChild(h('div', { class: 'fields' }, [field(req ? 'Texto de la sección (obligatorio)' : 'Texto de la sección (opcional)', () => R.presupuesto.nota, (v) => { R.presupuesto.nota = v; }, { wide: true, area: true, rows: 5, placeholder: req ? '' : NOTA_PRESUPUESTO })]));
-    card.appendChild(h('div', { style: 'margin-top:16px' }, [slot('Imagen del presupuesto (opcional)', () => R.presupuesto.item, (v) => { R.presupuesto.item = v; }, { emptyText: 'Sin imagen', help: 'Imagen del Excel de presupuesto, si la hay.', removable: true })]));
+    card.appendChild(h('div', { style: 'margin-top:16px' }, [slot('Imagen del presupuesto (opcional)', () => R.presupuesto.item, (v) => { R.presupuesto.item = v; }, { paste: true, emptyText: 'Sin imagen', help: 'Imagen del Excel de presupuesto, si la hay.', removable: true })]));
     st.appendChild(card);
     st.appendChild(navFoot());
   }

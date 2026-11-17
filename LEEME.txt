@@ -95,3 +95,6 @@ FOTOS EN DRIVE
 - Si el Word se envía pero una foto falla, el informe muestra el error y al reexportar solo se reintentan las pendientes.
 - Ajustes del proyecto > "Subir fotos a Drive al exportar": si lo desactivas, la exportación solo envía el Word. Las fotos ya subidas antes no se tocan.
 - Exportar a Drive ya no exige que el informe esté completo ni marcado como completado: se puede enviar en cualquier momento (solo se bloquean los informes con error de importación). "Exportar a Drive" de la lista y del grupo envía todos los informes con ruta de Drive que estén sin exportar o con cambios.
+
+PEGAR IMAGEN DEL PRESUPUESTO
+- En el paso Presupuesto, copia las celdas en Excel y pulsa Ctrl+V en la página (con el cursor fuera de los campos de texto), o usa el botón "Pegar imagen". También sigue funcionando subir o arrastrar un archivo.
