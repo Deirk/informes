@@ -93,3 +93,4 @@ FOTOS EN DRIVE
   Fecha y hora son las del momento de la exportación (hora de Colombia) y n es el consecutivo de la foto.
 - Una foto ya subida no se vuelve a subir al reexportar; las fotos nuevas continúan el consecutivo. Si quitas una foto del informe, la que ya está en Drive no se borra.
 - Si el Word se envía pero una foto falla, el informe muestra el error y al reexportar solo se reintentan las pendientes.
+- Ajustes del proyecto > "Subir fotos a Drive al exportar": si lo desactivas, la exportación solo envía el Word. Las fotos ya subidas antes no se tocan.

@@ -125,7 +125,7 @@ async function sendOne(ctx, project, cfgDoc, r) {
   const buf = await buildDocx(store, r.data, project, cfgDoc);
   const file = await ctx.drive.replace({ fileId: r.data.drive.id, buf: buf });
   const name = file.name || r.data.drive.name;
-  const ph = await sendPhotos(ctx, r.data, project);
+  const ph = project && project.fotosADrive === false ? { sent: r.data.fotosDrive || {}, err: '' } : await sendPhotos(ctx, r.data, project);
   await withLock('r:' + r.id, async () => {
     const fresh = await store.getDoc('informes2', r.id);
     if (!fresh) return;

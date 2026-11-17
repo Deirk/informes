@@ -2112,6 +2112,15 @@ if (typeof module !== "undefined") module.exports = buildReport2;
       h('span', { class: 'help', text: 'Activado: las fotos se suben y se muestran por espacio, cada una con su subtítulo. Desactivado: se suben todas las fotos juntas en un solo lugar y el Word las lleva una por página, sin subtítulo, bajo INFORME FOTOGRÁFICO.' })
     ]);
   }
+  function fotosDriveToggle(p) {
+    const cb = h('input', { type: 'checkbox', id: 'fotosDrv' });
+    cb.checked = !(p && p.fotosADrive === false);
+    cb.addEventListener('change', () => { mutateProject((q) => { q.fotosADrive = cb.checked; }).then(renderProject); });
+    return h('div', { class: 'fld wide' }, [
+      h('label', { class: 'chk', for: 'fotosDrv' }, [cb, h('span', { text: 'Subir fotos a Drive al exportar' })]),
+      h('span', { class: 'help', text: 'Activado: al exportar un informe, sus fotos se suben a la misma carpeta de Drive del Word. Desactivado: solo se envía el Word.' })
+    ]);
+  }
   function setVarProp(k, what, val) {
     const q = proj(PID); if (!q) return;
     if (what === 'label') {
@@ -2175,6 +2184,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
         dfield('Fecha de la portada', 'fecha', p),
         presToggle(p),
         fotosToggle(p),
+        fotosDriveToggle(p),
         estiloToggle(p, 'estiloP')
       ]),
       h('div', { class: 'vx-sec' }, [h('h3', { text: 'Variables' }), h('p', { class: 'help', text: 'Son los datos que cambian dentro del texto de los informes. Renómbralas y decide si son globales (mismo valor en todos los informes) o propias de cada informe. Las nuevas se crean desde el botón Formato.' })]),
