@@ -1974,7 +1974,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
       h('div', { class: 'mini' }, [
         h('button', { class: 'btn ghost sm', type: 'button', disabled: imp.busy ? true : null, onclick: () => fiw.click() }, [icon('doc'), 'Subir Word']),
         rs.some(autoNeeds) ? h('button', { class: 'btn ghost sm', type: 'button', title: 'Rellena las secciones vacías de todos los informes del grupo con el formato y los datos del proyecto', onclick: () => autoFormatoRun(rs) }, [icon('wand'), 'Autogenerar formato (' + rs.filter(autoNeeds).length + ')']) : null,
-        gDriveN > 0 || rs.some((r) => r.data.drive && r.data.drive.folderId) ? h('button', { class: 'btn ghost sm', type: 'button', title: 'Reemplaza en Drive el archivo original de cada informe completado de este grupo', disabled: (driveExp.busy || !gDriveN) ? true : null, onclick: () => exportDrive(gid) }, [icon('up'), driveExp.busy && driveExp.gid === gid ? 'Exportando…' : 'Exportar a Drive' + (gDriveN ? ' (' + gDriveN + ')' : '')]) : null,
+        gDriveN > 0 || rs.some((r) => r.data.drive && r.data.drive.folderId) ? h('button', { class: 'btn ghost sm', type: 'button', title: 'Reemplaza en Drive el archivo original de cada informe de este grupo', disabled: (driveExp.busy || !gDriveN) ? true : null, onclick: () => exportDrive(gid) }, [icon('up'), driveExp.busy && driveExp.gid === gid ? 'Exportando…' : 'Exportar a Drive' + (gDriveN ? ' (' + gDriveN + ')' : '')]) : null,
         h('button', { class: 'btn sm', type: 'button', onclick: () => newBlank(gid) }, [icon('plus'), 'Nuevo informe']), fiw])]));
     if (driveExp.gid === gid && (driveExp.busy || driveExp.summary || driveExp.errs.length)) {
       const de = driveExp;
@@ -2488,7 +2488,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     if (db) { try { await db.doc('informes2/' + r.id).set(r.data); } catch (e) {} }
     renderProject();
   }
-  function exportPending(d) { return !!(d && d.completado && !d.importError && !moduleGaps(d).length && d.drive && d.drive.folderId && (!d.exportado || (d.updatedAt || 0) > (d.exportado.at || 0))); }
+  function exportPending(d) { return !!(d && !d.importError && d.drive && d.drive.folderId && (!d.exportado || (d.updatedAt || 0) > (d.exportado.at || 0))); }
   function reportCard(r, p) {
     const d = r.data, c = d.cover || {};
     const nSp = Object.keys(d.espacios || {}).length;
@@ -2502,7 +2502,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
         h('span', { class: 'rc-s', text: (porEspacio(proj(d.projectId)) ? nSp + (nSp === 1 ? ' espacio' : ' espacios') + ' · ' : '') + nPh + (nPh === 1 ? ' foto' : ' fotos') }),
         h('span', { class: 'rc-m', text: msg }),
         d.drive && d.drive.path ? h('span', { class: 'rc-p', title: d.drive.path + ' / ' + (d.drive.name || ''), text: 'Drive: ' + d.drive.path }) : null,
-        d.completado && d.drive ? h('span', { class: 'rc-x' + (exportPending(d) || state === 'rojo' ? ' pend' : ''), text: state === 'rojo' ? 'No se exportará a Drive hasta resolver lo pendiente' : exportPending(d) ? (d.exportado ? 'Cambios sin exportar' : 'Pendiente de exportar a Drive') : 'Exportado a Drive ' + (d.exportado ? ago(d.exportado.at) : '') }) : null
+        d.drive ? h('span', { class: 'rc-x' + (exportPending(d) ? ' pend' : ''), text: exportPending(d) ? (d.exportado ? 'Cambios sin exportar' : 'Pendiente de exportar a Drive') : 'Exportado a Drive ' + (d.exportado ? ago(d.exportado.at) : '') }) : null
       ]),
       h('div', { class: 'rc-foot' }, askDel ? [
         h('div', { class: 'rc-ask' }, [h('span', { text: '¿Eliminar este informe?' }),
@@ -3076,7 +3076,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
       h('div', { class: 'dtxt' }, [h('b', { text: d ? d.name : 'Sin carpeta de Drive' }), h('small', { text: d ? 'Carpeta vinculada. Cada subcarpeta es una torre y cada documento Google que empiece con «inf» es un informe.' : 'Vincula la carpeta del proyecto para traer los informes de cada torre.' })]),
       h('div', { class: 'mini' }, [
         d ? h('button', { class: 'btn sm', type: 'button', disabled: ds.busy ? true : null, onclick: syncDrive }, [icon('down'), ds.busy ? 'Sincronizando…' : 'Sincronizar con Drive']) : null,
-        d ? h('button', { class: 'btn ghost sm', type: 'button', disabled: (driveExp.busy || !npend) ? true : null, onclick: () => exportDrive('') }, [icon('up'), driveExp.busy ? 'Exportando…' : 'Exportar completados' + (npend ? ' (' + npend + ')' : '')]) : null,
+        d ? h('button', { class: 'btn ghost sm', type: 'button', disabled: (driveExp.busy || !npend) ? true : null, onclick: () => exportDrive('') }, [icon('up'), driveExp.busy ? 'Exportando…' : 'Exportar a Drive' + (npend ? ' (' + npend + ')' : '')]) : null,
         h('button', { class: 'ib', type: 'button', title: 'Editar carpeta de Drive', 'aria-label': 'Editar carpeta de Drive', disabled: ds.busy ? true : null, onclick: () => { driveEdit = { open: true, draft: d ? { id: d.id, name: d.name } : null }; renderProject(); } }, [icon('pencil')])
       ])
     ]));

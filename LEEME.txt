@@ -94,3 +94,4 @@ FOTOS EN DRIVE
 - Una foto ya subida no se vuelve a subir al reexportar; las fotos nuevas continúan el consecutivo. Si quitas una foto del informe, la que ya está en Drive no se borra.
 - Si el Word se envía pero una foto falla, el informe muestra el error y al reexportar solo se reintentan las pendientes.
 - Ajustes del proyecto > "Subir fotos a Drive al exportar": si lo desactivas, la exportación solo envía el Word. Las fotos ya subidas antes no se tocan.
+- Exportar a Drive ya no exige que el informe esté completo ni marcado como completado: se puede enviar en cualquier momento (solo se bloquean los informes con error de importación). "Exportar a Drive" de la lista y del grupo envía todos los informes con ruta de Drive que estén sin exportar o con cambios.
