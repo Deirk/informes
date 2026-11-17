@@ -160,9 +160,14 @@ function buildReportRef(D, r) {
   }
 
   var memoria = (r.memoria || []).filter(Boolean);
+  var pre = null, mem = [];
   if (memoria.length) {
-    ch.push(h1("MEMORIA DE CANTIDADES"));
-    memoria.forEach(function (im) { ch.push(img(im, MAXW, 700, CENTER)); });
+    pre = ch; ch = [];
+    mem.push(h1("MEMORIA DE CANTIDADES"));
+    memoria.forEach(function (im) {
+      var d = fitUp(im.w, im.h, 1026, 600);
+      mem.push(new D.Paragraph({ alignment: CENTER, spacing: { after: 120 }, children: [new D.ImageRun({ data: im.data, type: im.type || "jpg", transformation: d })] }));
+    });
   }
 
   if (r.presupuesto && (r.presupuesto.img || r.presupuesto.nota)) {
@@ -202,10 +207,12 @@ function buildReportRef(D, r) {
       { reference: "numeros", levels: [dec] },
       { reference: "numeros2", levels: [dec] }
     ] },
-    sections: [{
-      properties: { page: { size: { width: 11909, height: 16834 }, margin: { top: 1440, right: 1440, bottom: 1440, left: 1440, header: 720, footer: 720 } } },
-      children: ch
-    }]
+    sections: (function () {
+      var portrait = { page: { size: { width: 11909, height: 16834 }, margin: { top: 1440, right: 1440, bottom: 1440, left: 1440, header: 720, footer: 720 } } };
+      if (!pre) return [{ properties: portrait, children: ch }];
+      var land = { page: { size: { width: 11909, height: 16834, orientation: D.PageOrientation.LANDSCAPE }, margin: { top: 720, right: 720, bottom: 720, left: 720, header: 360, footer: 360 } } };
+      return [{ properties: portrait, children: pre }, { properties: land, children: mem }, { properties: portrait, children: ch }];
+    })()
   });
 }
 
@@ -462,9 +469,14 @@ function buildReport2(D, r) {
   }
 
   var memoria = (r.memoria || []).filter(Boolean);
+  var pre = null, mem = [];
   if (memoria.length) {
-    children.push(sectionTitle("MEMORIA DE CANTIDADES"));
-    memoria.forEach(function (im) { children.push(imagePara(im, 620, 700, false)); });
+    pre = children; children = [];
+    mem.push(sectionTitle("MEMORIA DE CANTIDADES"));
+    memoria.forEach(function (im) {
+      var d = fitUp(im.w, im.h, 960, 560);
+      mem.push(new D.Paragraph({ alignment: CENTER, spacing: { before: 60, after: 160 }, children: [new D.ImageRun({ data: im.data, type: im.type || "jpg", transformation: d })] }));
+    });
   }
 
   if (r.presupuesto && (r.presupuesto.img || r.presupuesto.nota)) {
@@ -529,14 +541,18 @@ function buildReport2(D, r) {
           style: { paragraph: { indent: { left: 540, hanging: 270 } } } }]
       }]
     },
-    sections: [{
-      properties: {
-        titlePage: true,
-        page: { size: { width: 12240, height: 15840 }, margin: { top: 1440, right: 1440, bottom: 1300, left: 1440, header: 500, footer: 500 } }
-      },
-      footers: { default: footer, first: new D.Footer({ children: [new D.Paragraph("")] }) },
-      children: children
-    }]
+    sections: (function () {
+      var portrait = { titlePage: true, page: { size: { width: 12240, height: 15840 }, margin: { top: 1440, right: 1440, bottom: 1300, left: 1440, header: 500, footer: 500 } } };
+      var footers = { default: footer, first: new D.Footer({ children: [new D.Paragraph("")] }) };
+      if (!pre) return [{ properties: portrait, footers: footers, children: children }];
+      var land = { page: { size: { width: 12240, height: 15840, orientation: D.PageOrientation.LANDSCAPE }, margin: { top: 900, right: 720, bottom: 900, left: 720, header: 400, footer: 400 } } };
+      var port2 = { page: { size: { width: 12240, height: 15840 }, margin: { top: 1440, right: 1440, bottom: 1300, left: 1440, header: 500, footer: 500 } } };
+      return [
+        { properties: portrait, footers: footers, children: pre },
+        { properties: land, footers: { default: footer }, children: mem },
+        { properties: port2, footers: { default: footer }, children: children }
+      ];
+    })()
   });
 }
 if (typeof module !== "undefined") module.exports = buildReport2;
