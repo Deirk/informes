@@ -1545,6 +1545,8 @@ if (typeof module !== "undefined") module.exports = buildReport2;
   const NOTA_PRESUPUESTO = 'Nota: Los items cuya cantidad se encuentra en cero, corresponde a que no se requiere.';
   const presRequired = (p) => !(p && p.presupuestoObligatorio === false);
   const subKeyOf = (d) => { const pth = d && d.drive && d.drive.path; if (!pth) return ''; const sg = String(pth).split(' / ').slice(2); const own = /^(apto?|apartamento)\.?\s*\d+\s*[a-z]?$/i; if (sg.length && (sg.length > 1 || own.test(sg[sg.length - 1].trim()))) sg.pop(); return sg.join(' / '); };
+  const fmtGroup = (p, gid) => { const g = ((p && p.grupos) || []).filter((x) => x.id === gid)[0]; return (g && g.formato) || (p && p.formato) || null; };
+  const fmtOf = (p, d) => fmtGroup(p, d && d.grupoId);
   const groupOf = (p, d) => ((p && p.grupos) || []).filter((x) => x.id === (d && d.grupoId))[0] || null;
   const planoGrupoOf = (p, d) => { const g = groupOf(p, d); const m = g && g.subplanos && g.subplanos[subKeyOf(d)]; return m && m.aid ? m : null; };
   const fijaOf = (p, d) => { const g = groupOf(p, d); return g && g.fija && g.fija.aid ? g.fija : null; };
@@ -1552,7 +1554,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
   function normText(x) { return String(x || '').toLowerCase().replace(/\{\{[a-z]+\}\}/g, '{}').replace(/\[[^\]]*\]/g, '[]').replace(/[\u2018\u2019\u201c\u201d]/g, '"').replace(/\s+/g, ' ').trim(); }
   function blocksKey(bl) { return (bl || []).map((b) => (b.t || 'p') + '|' + normText(b.x)).filter((s) => s.length > 2).join('\n'); }
   function formatoDiffs(d, p) {
-    const f = p && p.formato, out = [];
+    const f = fmtOf(p, d), out = [];
     if (!f) return out;
     if (blocksKey(d.intro) !== blocksKey(f.intro)) out.push('intro');
     if (blocksKey(d.concl) !== blocksKey(f.concl)) out.push('concl');
@@ -2156,6 +2158,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     if (view !== 'project') return;
     const st = $('#stage'); st.innerHTML = '';
     const p = proj(PID);
+    ensureGroupFormatos();
     if (!p) { st.appendChild(h('div', { class: 'callout', text: projReady ? 'No se encontró el proyecto.' : 'Cargando…' })); return; }
     st.appendChild(h('div', { class: 'top' }, [h('div', { class: 'crumbs' }, [
       h('button', { type: 'button', onclick: showProjects }, [icon('back'), ' Proyectos']), h('span', { text: '/' }), h('span', { class: 'cur', text: p.name })]),
@@ -2314,7 +2317,6 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     const v = noAcc(value).toLowerCase();
     if (/poliza\s*(no\.?|n[o°º]\.?|numero)?\s*$/.test(before)) return { key: 'poliza' };
     if (/siniestro\s*(no\.?|n[o°º]\.?|numero)?\s*$/.test(before)) return { key: 'siniestro' };
-    if (/corredor(a)?(\s+de\s+seguros)?\s*$/.test(before)) return { name: 'Corredor de seguros' };
     if (/aseguradora|seguros|compania|asegurador/.test(v) || /\bante\s*\(?\s*$/.test(before)) return { key: 'seguro' };
     if (/^\$/.test(value) || /(asciende a|valor(\s+total)?(\s+de)?)\s*$/.test(before)) return { key: 'valor' };
     const words = before.replace(/[^a-z0-9 ]+/g, ' ').trim().split(/\s+/).filter((w) => w && STOPW.indexOf(w) < 0).slice(-2);
@@ -2357,7 +2359,172 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     allVarKeys(p).forEach((k) => { st.vl[k] = varLabel(k, p); st.vg[k] = isGlobal(p, k); st.vv[k] = defOf(p, k); });
     return st;
   }
-  function openFormato() { const st = initVarState(proj(PID)); fm = { open: true, step: 'pick', busy: false, err: '', file: '', res: null, occ: [], apply: false, vl: st.vl, vg: st.vg, vv: st.vv }; renderFormato(); }
+  function openFormato() { const pp = proj(PID), st = initVarState(pp); fm = { open: true, step: 'pick', busy: false, err: '', file: '', res: null, occ: [], apply: false, vl: st.vl, vg: st.vg, vv: st.vv, gid: ((pp && pp.grupos) || [])[0] ? pp.grupos[0].id : '', removed: [], ed: null }; renderFormato(); }
+  const stripTags = (x, keys) => (keys || []).reduce((s, k) => s.replace(new RegExp('\\s*\\{\\{' + k.toUpperCase() + '\\}\\}', 'g'), ''), String(x == null ? '' : x)).replace(/ {2,}/g, ' ');
+  const fmCopy = (o) => JSON.parse(JSON.stringify(o));
+  const fmEmpty = () => ({ intro: [], concl: [], planos: [], planosTitulo: '', presupuestoNota: '' });
+  const fmScope = (r) => fm.gid ? r.data.grupoId === fm.gid : !groupOf(proj(PID), r.data);
+  function setFormatoOf(q, gid, f) {
+    const g = gid ? (q.grupos || []).filter((x) => x.id === gid)[0] : null;
+    if (g) g.formato = f; else q.formato = f;
+  }
+  function ensureGroupFormatos() {
+    const p = proj(PID);
+    if (!p || !p.formato || !(p.grupos || []).some((g) => !g.formato)) return;
+    p.grupos.forEach((g) => { if (!g.formato) g.formato = fmCopy(p.formato); });
+    saveProject(PID);
+  }
+  function fmEdBlocks(bl) { return (bl || []).map((b, i) => b.t === 'img' ? { t: 'img', role: b.role, ref: b.ref || null, src: i } : { t: b.t || 'p', x: b.x, src: i }); }
+  function openEditor() {
+    const f = fmtGroup(proj(PID), fm.gid) || fmEmpty();
+    fm.removed = [];
+    fm.ed = { intro: fmEdBlocks(f.intro), concl: fmEdBlocks(f.concl), planos: fmEdBlocks(f.planos), planosTitulo: f.planosTitulo || '', presupuestoNota: f.presupuestoNota || '' };
+    fm.step = 'edit'; fm.err = ''; renderFormato();
+  }
+  function mergeTexts(rep, oldBl, edBl) {
+    const olds = (oldBl || []).map((b, i) => ({ k: (b.t || 'p') + '|' + normText(b.x), i: i })).filter((o) => oldBl[o.i].t !== 'img');
+    const used = {}, out = [];
+    (rep || []).forEach((b) => {
+      if (b.t === 'img') { out.push(b); return; }
+      const k = (b.t || 'p') + '|' + normText(b.x);
+      const m = olds.filter((o) => o.k === k && !used[o.i])[0];
+      if (!m) { out.push(b); return; }
+      used[m.i] = true;
+      const nb = edBl.filter((n) => n.t !== 'img' && n.src === m.i)[0];
+      if (!nb) return;
+      out.push(nb.x === oldBl[m.i].x ? b : { t: nb.t, x: nb.x });
+    });
+    return out;
+  }
+  function propagateEditor(r, c) {
+    const d = r.data, rm = c.rm;
+    let ch = false;
+    const S = (bl) => (bl || []).map((b) => b.t === 'img' ? b : { t: b.t, x: stripTags(b.x, rm) });
+    const set = (k, v) => { if (JSON.stringify(v) !== JSON.stringify(d[k])) { d[k] = v; ch = true; } };
+    if (d.vars) rm.forEach((k) => { if (k in d.vars) { delete d.vars[k]; ch = true; } });
+    ['intro', 'concl'].forEach((sec) => {
+      const cur = S(d[sec]);
+      let next = cur;
+      if (c.scoped && c.chg[sec]) next = blocksKey(cur) === blocksKey(c.oldS[sec]) ? c.nf[sec].map((b) => ({ t: b.t, x: b.x })) : mergeTexts(cur, c.oldS[sec], c.e[sec]);
+      set(sec, next);
+    });
+    {
+      const cur = S(d.planos);
+      let next = cur;
+      if (c.scoped && c.chg.planos) {
+        const tx = (bl) => (bl || []).filter((b) => b.t !== 'img');
+        if (c.oldS.planos.length && blocksKey(tx(cur)) === blocksKey(tx(c.oldS.planos))) {
+          const keep = {};
+          cur.forEach((b) => { if (b.t === 'img' && (b.role === 'grupo' || b.role === 'individual')) keep[b.role] = b; });
+          next = c.nf.planos.map((b) => b.t === 'img' ? (b.role === 'fijo' ? { t: 'img', role: 'fijo', ref: b.ref } : (keep[b.role] || { t: 'img', role: b.role, ref: null })) : { t: b.t, x: b.x });
+          if (!next.some((b) => b.t === 'img' && b.role === 'grupo')) next.unshift(keep.grupo || { t: 'img', role: 'grupo', ref: null });
+          if (!next.some((b) => b.t === 'img' && b.role === 'individual')) next.push(keep.individual || { t: 'img', role: 'individual', ref: null });
+        } else next = mergeTexts(cur, c.oldS.planos, c.e.planos);
+      }
+      set('planos', next);
+    }
+    if (d.planosTitulo != null) {
+      let t = stripTags(d.planosTitulo, rm);
+      if (c.scoped && c.chg.titulo && normText(t) === normText(stripTags(c.old.planosTitulo, rm))) t = c.nf.planosTitulo;
+      set('planosTitulo', t);
+    }
+    if (d.presupuesto) {
+      let t = stripTags(d.presupuesto.nota, rm);
+      if (c.scoped && c.chg.nota && normText(t) === normText(stripTags(c.old.presupuestoNota, rm))) t = c.nf.presupuestoNota;
+      if (t !== d.presupuesto.nota) { d.presupuesto.nota = t; ch = true; }
+    }
+    return ch;
+  }
+  async function saveEditor() {
+    fm.busy = true; fm.err = ''; renderFormato();
+    try {
+      const rm = (fm.removed || []).slice(), gid = fm.gid;
+      const old = fmCopy(fmtGroup(proj(PID), gid) || fmEmpty());
+      const ed = fm.ed;
+      const clean = (bl) => bl.filter((b) => b.t === 'img' || has(stripTags(b.x, rm))).map((b) => b.t === 'img' ? b : { t: b.t, x: stripTags(b.x, rm).trim(), src: b.src });
+      const e = { intro: clean(ed.intro), concl: clean(ed.concl), planos: clean(ed.planos) };
+      const plain = (bl) => bl.map((b) => b.t === 'img' ? { t: 'img', role: b.role, ref: b.ref || null } : { t: b.t, x: b.x });
+      const nf = { intro: plain(e.intro), concl: plain(e.concl), planos: plain(e.planos), planosTitulo: stripTags(ed.planosTitulo, rm).trim() || 'PLANO CON EL REGISTRO DE LAS AFECTACIONES', presupuestoNota: stripTags(ed.presupuestoNota, rm).trim(), from: old.from || 'Editor de formato', at: Date.now() };
+      const sOld = (bl) => (bl || []).map((b) => b.t === 'img' ? { t: 'img', role: b.role, ref: b.ref || null } : { t: b.t || 'p', x: stripTags(b.x, rm) });
+      const oldS = { intro: sOld(old.intro), concl: sOld(old.concl), planos: sOld(old.planos) };
+      const chg = {
+        intro: JSON.stringify(oldS.intro) !== JSON.stringify(nf.intro), concl: JSON.stringify(oldS.concl) !== JSON.stringify(nf.concl), planos: JSON.stringify(oldS.planos) !== JSON.stringify(nf.planos),
+        titulo: stripTags(old.planosTitulo, rm) !== nf.planosTitulo, nota: stripTags(old.presupuestoNota, rm) !== nf.presupuestoNota
+      };
+      await mutateProject((q) => {
+        if (rm.length) {
+          q.variables = projVars(q).filter((v) => rm.indexOf(v.key) < 0);
+          q.globalVars = (q.globalVars || []).filter((k) => rm.indexOf(k) < 0);
+          if (q.varLabels) rm.forEach((k) => { delete q.varLabels[k]; });
+          const sf = (f) => {
+            if (!f) return;
+            ['intro', 'concl', 'planos'].forEach((s) => { (f[s] || []).forEach((b) => { if (b.t !== 'img') b.x = stripTags(b.x, rm); }); });
+            f.planosTitulo = stripTags(f.planosTitulo, rm); f.presupuestoNota = stripTags(f.presupuestoNota, rm);
+          };
+          (q.grupos || []).forEach((g) => sf(g.formato)); sf(q.formato);
+        }
+        setFormatoOf(q, gid, nf);
+      });
+      const ctx = { rm: rm, old: old, oldS: oldS, e: e, nf: nf, chg: chg };
+      for (const r of projReports(PID)) {
+        if (r.data.importError) continue;
+        ctx.scoped = fmScope(r);
+        if (propagateEditor(r, ctx)) { r.data.updatedAt = Date.now(); if (db) { try { await db.doc('informes2/' + r.id).set(r.data); } catch (er) {} } }
+      }
+      closeFormato(); renderProject();
+    } catch (er) { fm.busy = false; fm.err = 'No se pudo guardar el formato. Intenta de nuevo.'; renderFormato(); }
+  }
+  function edKeys(p) { return allVarKeys(p).filter((k) => (fm.removed || []).indexOf(k) < 0); }
+  function edRow(list, i, p) {
+    const b = list[i];
+    if (b.t === 'img') return h('div', { class: 'vx-snip' }, [h('span', { class: 'help', text: '[' + (b.role === 'fijo' ? 'Imagen fija del informe' : b.role === 'grupo' ? 'Plano del subgrupo' : 'Plano individual con afectaciones') + ']' })]);
+    const ta = h('textarea', { rows: '3', class: 'vx-name', style: 'width:100%;height:84px;resize:vertical', 'aria-label': 'Texto del párrafo' });
+    ta.value = b.x || '';
+    ta.addEventListener('input', () => { b.x = ta.value; });
+    const ins = h('select', { class: 'vx-move', 'aria-label': 'Insertar variable' }, [h('option', { value: '', text: 'Insertar variable…' })].concat(edKeys(p).map((k) => h('option', { value: k, text: fm.vl[k] || varLabel(k, p) }))));
+    ins.addEventListener('change', () => {
+      if (!ins.value) return;
+      const t = '{{' + ins.value.toUpperCase() + '}}';
+      const s = ta.selectionStart == null ? ta.value.length : ta.selectionStart, e2 = ta.selectionEnd == null ? s : ta.selectionEnd;
+      ta.value = ta.value.slice(0, s) + t + ta.value.slice(e2); b.x = ta.value; ins.value = '';
+      ta.focus(); ta.selectionStart = ta.selectionEnd = s + t.length;
+    });
+    return h('div', { class: 'vx-card' }, [ta, h('div', { class: 'mini', style: 'display:flex;gap:8px;flex-wrap:wrap;margin-top:8px' }, [ins, h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { list.splice(i, 1); renderFormato(); } }, [icon('x'), 'Quitar párrafo'])])]);
+  }
+  function edSection(title, key, p) {
+    const list = fm.ed[key];
+    return h('div', null, [
+      h('div', { class: 'vx-sec' }, [h('h3', { text: title })]),
+      h('div', { class: 'vx' }, list.map((b, i) => edRow(list, i, p)).concat([h('div', null, [h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { list.push({ t: 'p', x: '', src: -1 }); renderFormato(); } }, ['+ Añadir párrafo'])])]))
+    ]);
+  }
+  function renderEditBody(p) {
+    const rm = fm.removed || [];
+    const cust = projVars(p).filter((v) => rm.indexOf(v.key) < 0);
+    const tit = h('input', { type: 'text', class: 'vx-name', 'aria-label': 'Título de los planos', style: 'width:100%' });
+    tit.value = fm.ed.planosTitulo; tit.addEventListener('input', () => { fm.ed.planosTitulo = tit.value; });
+    const nota = h('textarea', { rows: '4', class: 'vx-name', style: 'width:100%;height:84px;resize:vertical', 'aria-label': 'Texto de presupuesto' });
+    nota.value = fm.ed.presupuestoNota; nota.addEventListener('input', () => { fm.ed.presupuestoNota = nota.value; });
+    const g = ((p.grupos || []).filter((x) => x.id === fm.gid)[0] || {}).name;
+    return [
+      h('div', { class: 'vx-sec' }, [h('h3', { text: 'Textos del formato' + (g ? ' de ' + g : '') }), h('p', { class: 'help', text: 'Los informes de este grupo que siguen igual al formato se actualizan completos. Los que tienen cambios propios los conservan: solo se tocan los párrafos que siguen idénticos al formato anterior. Una variable que quites se borra de todos los informes del proyecto.' })]),
+      h('div', { class: 'vx-sec' }, [h('h3', { text: 'Variables personalizadas' }), h('p', { class: 'help', text: cust.length ? 'Al quitar una variable se borra su marca de los textos de abajo. Revisa que no quede texto suelto que la mencione.' : 'Este proyecto no tiene variables personalizadas.' })]),
+      h('div', { class: 'vx' }, cust.map((v) => h('div', { class: 'vx-card' }, [h('div', { class: 'vx-head' }, [h('b', { text: fm.vl[v.key] || v.label || v.key }), h('span', { class: 'vx-count', text: '{{' + v.key.toUpperCase() + '}}' })]),
+        h('button', { class: 'btn ghost sm', type: 'button', onclick: () => {
+          fm.removed = (fm.removed || []).concat([v.key]);
+          ['intro', 'concl', 'planos'].forEach((s) => fm.ed[s].forEach((b) => { if (b.t !== 'img') b.x = stripTags(b.x, [v.key]); }));
+          fm.ed.planosTitulo = stripTags(fm.ed.planosTitulo, [v.key]); fm.ed.presupuestoNota = stripTags(fm.ed.presupuestoNota, [v.key]);
+          renderFormato();
+        } }, [icon('x'), 'Quitar variable'])]))),
+      rm.length ? h('p', { class: 'help', text: 'Se quitarán al guardar: ' + rm.map((k) => fm.vl[k] || k).join(', ') + '.' }) : null,
+      edSection('Introducción', 'intro', p),
+      h('div', { class: 'vx-sec' }, [h('h3', { text: 'Título de los planos' })]), tit,
+      edSection('Planos', 'planos', p),
+      h('div', { class: 'vx-sec' }, [h('h3', { text: 'Texto de presupuesto' })]), nota,
+      edSection('Conclusiones', 'concl', p)
+    ];
+  }
+
   function closeFormato() { fm.open = false; const m = document.getElementById('fmModal'); if (m) m.remove(); }
   function fmNewVar(label) {
     let k = slugKey(label);
@@ -2448,12 +2615,12 @@ if (typeof module !== "undefined") module.exports = buildReport2;
       const keys = allVarKeys(proj(PID));
       chosen.forEach((c) => { if (keys.indexOf(c.k) < 0) keys.push(c.k); });
       await mutateProject((q) => {
-        q.formato = { intro: intro, concl: concl, planosTitulo: res.planosTitulo || 'PLANO CON EL REGISTRO DE LAS AFECTACIONES', planos: planos, presupuestoNota: (res.presupuesto && res.presupuesto.nota) || '', from: fm.file, at: Date.now() };
+        setFormatoOf(q, fm.gid, { intro: intro, concl: concl, planosTitulo: res.planosTitulo || 'PLANO CON EL REGISTRO DE LAS AFECTACIONES', planos: planos, presupuestoNota: (res.presupuesto && res.presupuesto.nota) || '', from: fm.file, at: Date.now() });
         applyVarSettings(q, keys);
       });
       const pq = proj(PID);
       for (const r of projReports(PID)) {
-        if (!fm.apply || r.data.importError) continue;
+        if (!fm.apply || r.data.importError || !fmScope(r)) continue;
         r.data.intro = intro.map((b) => ({ t: b.t, x: b.x })); r.data.concl = concl.map((b) => ({ t: b.t, x: b.x }));
         r.data.vars = r.data.vars || {};
         projVars(pq).forEach((pv) => { if (r.data.vars[pv.key] == null) r.data.vars[pv.key] = pv.def || ''; });
@@ -2501,18 +2668,23 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     let body, foot;
     if (fm.step === 'pick') {
       const fi = h('input', { type: 'file', accept: '.docx', hidden: true, onchange: (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) readFormatoFile(f); } });
+      const gsel = (p.grupos || []).length ? h('div', { class: 'vx-sec' }, [h('h3', { text: 'Formato por grupo' }), h('p', { class: 'help', text: 'Cada grupo tiene su propio formato. Elige el grupo al que aplican el Word y el editor. Las variables son del proyecto.' }), (() => { const s = h('select', { class: 'vx-move', 'aria-label': 'Grupo' }, p.grupos.map((g) => h('option', { value: g.id, text: g.name }))); s.value = fm.gid; s.addEventListener('change', () => { fm.gid = s.value; renderFormato(); }); return s; })()]) : null;
       body = [
+        gsel,
         h('div', { class: 'vx-drop' }, [
           h('b', { text: 'Crear las variables desde un Word' }),
           h('p', { class: 'help', text: 'Resalta en el Word las partes que cambian (por ejemplo en amarillo). La app las detecta, las convierte en variables y guarda su texto como formato del proyecto.' }),
-          p && p.formato ? h('p', { class: 'help', text: 'Formato actual: ' + (p.formato.from || 'sin nombre') + '. Al subir uno nuevo se reemplaza.' }) : null,
+          fmtGroup(p, fm.gid) ? h('p', { class: 'help', text: 'Formato actual: ' + (fmtGroup(p, fm.gid).from || 'sin nombre') + '. Al subir uno nuevo se reemplaza el de este grupo.' }) : null,
           fm.busy ? h('p', { class: 'help', text: 'Leyendo el Word…' }) : null,
-          fi, h('button', { class: 'btn', type: 'button', disabled: fm.busy ? true : null, onclick: () => fi.click() }, [icon('doc'), 'Elegir el Word'])
+          fi, h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' }, [h('button', { class: 'btn', type: 'button', disabled: fm.busy ? true : null, onclick: () => fi.click() }, [icon('doc'), 'Elegir el Word']), h('button', { class: 'btn ghost', type: 'button', disabled: fm.busy ? true : null, onclick: openEditor }, [icon('wand'), 'Editar textos del formato'])])
         ]),
         h('div', { class: 'vx-sec' }, [h('h3', { text: 'Variables del proyecto' }), h('p', { class: 'help', text: 'Renómbralas y elige si son únicas en cada informe o globales. El valor de las globales se asigna en Ajustes del proyecto.' })]),
         h('div', { class: 'vx' }, allVarKeys(p).map((k) => varCard(k, null, p)))
       ];
       foot = [h('button', { class: 'btn ghost', type: 'button', onclick: closeFormato }, ['Cancelar']), h('button', { class: 'btn', type: 'button', disabled: fm.busy ? true : null, onclick: saveVarsOnly }, ['Guardar variables'])];
+    } else if (fm.step === 'edit') {
+      body = renderEditBody(p);
+      foot = [h('button', { class: 'btn ghost', type: 'button', onclick: () => { fm.step = 'pick'; fm.err = ''; renderFormato(); } }, ['Atrás']), h('button', { class: 'btn', type: 'button', disabled: fm.busy ? true : null, onclick: saveEditor }, [fm.busy ? 'Guardando…' : 'Guardar cambios'])];
     } else {
       const inUse = [];
       fm.occ.forEach((o) => { if (o.choice && inUse.indexOf(o.choice) < 0) inUse.push(o.choice); });
@@ -2528,14 +2700,14 @@ if (typeof module !== "undefined") module.exports = buildReport2;
       ];
       if (ignored.length) parts.push(h('div', { class: 'vx-sec' }, [h('h3', { text: 'Resaltados que quedan como texto fijo (' + ignored.length + ')' }), h('p', { class: 'help', text: 'Si alguno sí es una variable, asígnalo aquí.' })]), h('div', { class: 'vx-card' }, [h('div', { class: 'vx-occs' }, ignored.map((o) => h('div', { class: 'vx-snip' }, [snippet(o), moveSelect(o, p)])))]));
       parts.push(h('div', { class: 'vx-apply' }, [
-        h('label', { class: 'chk', for: 'fmApply' }, [cb, h('span', { text: 'Aplicar este texto también a los informes que ya están en el proyecto' })]),
+        h('label', { class: 'chk', for: 'fmApply' }, [cb, h('span', { text: 'Aplicar este texto también a los informes que ya están en este grupo' })]),
         h('span', { class: 'help', text: 'Reemplaza la introducción y las conclusiones de cada informe y conserva sus datos. Los que usen variables nuevas quedan en rojo hasta que las llenes.' })
       ]));
       body = parts;
       foot = [h('button', { class: 'btn ghost', type: 'button', onclick: () => { fm.step = 'pick'; fm.err = ''; renderFormato(); } }, ['Atrás']), h('button', { class: 'btn', type: 'button', disabled: fm.busy ? true : null, onclick: saveFormato }, [fm.busy ? 'Guardando…' : 'Guardar formato'])];
     }
     const box = h('div', { class: 'modal vx-modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Formato del proyecto' }, [
-      h('div', { class: 'modal-h' }, [h('div', null, [h('h2', { text: 'Formato del proyecto' }), h('p', { text: fm.step === 'pick' ? 'Variables y formato de los informes.' : 'Revisa lo que encontré en «' + fm.file + '».' })]),
+      h('div', { class: 'modal-h' }, [h('div', null, [h('h2', { text: 'Formato del proyecto' }), h('p', { text: fm.step === 'pick' ? 'Variables y formato de los informes.' : fm.step === 'edit' ? 'Edita los textos y las variables del formato.' : 'Revisa lo que encontré en «' + fm.file + '».' })]),
         h('button', { class: 'ib', type: 'button', 'aria-label': 'Cerrar', onclick: closeFormato }, [icon('x')])])
     ].concat(body).concat([fm.err ? h('div', { class: 'err', role: 'alert', text: fm.err }) : null, h('div', { class: 'foot' }, foot)]));
     const back = h('div', { id: 'fmModal', class: 'modal-bg', onclick: (e) => { if (e.target === back) closeFormato(); } }, [box]);
@@ -2544,7 +2716,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     back.scrollTop = sy;
   }
   function autoFormatoDoc(d, p, apply) {
-    const f = p && p.formato, df = (p && p.defaults) || {}, ch = [];
+    const f = fmtOf(p, d), df = (p && p.defaults) || {}, ch = [];
     d.cover = d.cover || {}; d.vars = d.vars || {};
     const mark = (l) => { if (ch.indexOf(l) < 0) ch.push(l); };
     const set = (o, k, v, l) => { if (!has(o[k]) && has(v)) { if (apply) o[k] = v; mark(l); } };
@@ -2690,11 +2862,12 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     st.planos = base.planos.map((b) => b.t === 'img' ? { t: 'img', role: b.role, item: b.role === 'fijo' ? b.item : null } : { t: b.t, x: b.x });
     st.concl = base.concl.map((b) => ({ t: b.t, x: b.x })); st.conclTitulo = base.conclTitulo; st.firma = base.firma;
     st.presupuesto.nota = base.presupuesto.nota;
-    if (p.formato) {
-      if (p.formato.intro && p.formato.intro.length) st.intro = p.formato.intro.map((b) => ({ t: b.t, x: b.x }));
-      if (p.formato.concl && p.formato.concl.length) { st.concl = p.formato.concl.map((b) => ({ t: b.t, x: b.x })); }
-      applyFormatoPlanos(st, p.formato);
-      if (has(p.formato.presupuestoNota)) st.presupuesto.nota = p.formato.presupuestoNota;
+    const gf = fmtGroup(p, gid);
+    if (gf) {
+      if (gf.intro && gf.intro.length) st.intro = gf.intro.map((b) => ({ t: b.t, x: b.x }));
+      if (gf.concl && gf.concl.length) { st.concl = gf.concl.map((b) => ({ t: b.t, x: b.x })); }
+      applyFormatoPlanos(st, gf);
+      if (has(gf.presupuestoNota)) st.presupuesto.nota = gf.presupuestoNota;
     }
     reports.unshift({ id: st.id, data: serialize(st) });
     R = st; view = 'editor'; step = 'portada'; setSave('saving'); queueSave(); renderAll(); toTop();
@@ -2904,7 +3077,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     st.appendChild(navFoot(has(R.cover.apartamento) ? '' : 'Falta el apartamento'));
   }
   function formatoBanner(which, blocks, redraw) {
-    const p = proj(PID), f = p && p.formato;
+    const p = proj(PID), f = fmtOf(p, R);
     if (!f) return null;
     if (formatoDiffs(serialize(R), p).indexOf(which) < 0) return null;
     return h('div', { class: 'warns' }, [
@@ -2952,7 +3125,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     const p = proj(PID) || { grupos: [] };
     p.grupos = p.grupos || [];
     const card = h('div', { class: 'mcard' });
-    { const f = p.formato;
+    { const f = fmtOf(p, R);
       if (f && f.planos) card.appendChild(h('div', { class: 'firmasum', style: 'margin:0 0 14px' }, [
         h('div', { style: 'flex:1;min-width:200px' }, [h('b', { text: 'Formato del proyecto' }), h('small', { text: 'Los textos y la imagen fija de esta sección no cambian. Rellénalos con los de ' + (f.from || 'el informe de referencia') + '.' })]),
         h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { applyFormatoPlanos(R, f); touch(); renderStage(); } }, [icon('wand'), 'Rellenar con el formato'])
@@ -3082,7 +3255,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     const req = presRequired(proj(PID));
     st.appendChild(stageHead(req ? 'Texto de la sección de presupuesto. La imagen de la hoja es opcional.' : 'El presupuesto es opcional en este proyecto. Si no cargas nada, el Word lleva solo la nota: ' + NOTA_PRESUPUESTO));
     const card = h('div', { class: 'mcard' });
-    { const f = proj(PID) && proj(PID).formato;
+    { const f = fmtOf(proj(PID), R);
       if (f && has(f.presupuestoNota)) card.appendChild(h('div', { class: 'firmasum', style: 'margin:0 0 14px' }, [
         h('div', { style: 'flex:1;min-width:200px' }, [h('b', { text: 'Formato del proyecto' }), h('small', { text: 'El texto no cambia: «' + f.presupuestoNota + '»' })]),
         h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { R.presupuesto.nota = f.presupuestoNota; touch(); renderStage(); } }, [icon('wand'), 'Rellenar con el formato'])

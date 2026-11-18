@@ -120,3 +120,12 @@ SUBGRUPOS COLAPSABLES Y ENVIAR Y CONTINUAR
 - Cada subgrupo tiene una flecha (o se hace clic en su nombre) para colapsar o expandir sus informes. El estado se recuerda en el navegador, por proyecto, grupo y subgrupo.
 - En el último paso del informe, el botón "Enviar y Continuar" envía el informe a Drive y abre el siguiente de la lista de su subgrupo (orden por apartamento). Al terminar un subgrupo pasa al siguiente, y tras el último informe del grupo vuelve a la vista del proyecto. Si el envío falla, se queda en el informe con el error.
 - Mientras "Enviar y Continuar" trabaja se muestra un aviso con un indicador de carga que bloquea la pantalla hasta que termina (o falla).
+
+FORMATO POR GRUPO Y EDITOR DE FORMATO
+- Cada grupo tiene su propio formato (introduccion, planos, presupuesto y conclusiones). Las variables y los valores globales siguen siendo del proyecto, en Ajustes del proyecto.
+- Al abrir un proyecto que tenia un formato global, se copia a cada grupo una sola vez. Los grupos nuevos parten de esa copia hasta que se les cambie el formato.
+- Formato > elegir el grupo > subir un Word o usar "Editar textos del formato". Subir un Word solo cambia el formato del grupo elegido y, si se marca, sus informes.
+- El editor permite cambiar el texto de cada parrafo, quitar o anadir parrafos, insertar variables y quitar variables personalizadas (las propias de Aseguradora, Poliza, Siniestro y Valor no se pueden quitar).
+- Al guardar: los informes del grupo cuyo texto sigue igual al formato anterior se actualizan completos. Los que tienen cambios propios los conservan: solo se actualizan o se quitan los parrafos que siguen identicos al formato anterior. Los parrafos nuevos solo llegan a los informes sin cambios propios.
+- Al quitar una variable se borra su marca y su valor de todos los informes del proyecto.
+- Se elimino la sugerencia automatica de la variable "Corredor de seguros" al leer un Word.

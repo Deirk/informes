@@ -163,7 +163,7 @@ async function importDocx(store, buf, o) {
     if (all.length) espacios.FOTOS = all;
   }
 
-  const fm = p0.formato || null;
+  const fm = (tg && tg.formato) || p0.formato || null;
   applyFormatoVars(res, fm);
   ((p0 && p0.globalVars) || []).forEach((k) => {
     const gv = ['seguro', 'poliza', 'siniestro', 'valor'].indexOf(k) > -1 ? ((p0.defaults || {})[k] || '') : (((p0.variables || []).filter((v) => v.key === k)[0] || {}).def || '');

@@ -2,8 +2,9 @@ const has = (v) => !!String(v == null ? '' : v).trim();
 
 function normText(x) { return String(x || '').toLowerCase().replace(/\{\{[a-z]+\}\}/g, '{}').replace(/\[[^\]]*\]/g, '[]').replace(/[\u2018\u2019\u201c\u201d]/g, '"').replace(/\s+/g, ' ').trim(); }
 function blocksKey(bl) { return (bl || []).map((b) => (b.t || 'p') + '|' + normText(b.x)).filter((s) => s.length > 2).join('\n'); }
+const fmtOf = (p, d) => { const g = ((p && p.grupos) || []).filter((x) => x.id === (d && d.grupoId))[0]; return (g && g.formato) || (p && p.formato) || null; };
 function formatoDiffs(d, p) {
-  const f = p && p.formato;
+  const f = fmtOf(p, d);
   const out = [];
   if (!f) return out;
   if (blocksKey(d.intro) !== blocksKey(f.intro)) out.push('intro');
