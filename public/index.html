@@ -329,6 +329,7 @@ body[data-phase="projects"] .lib,body[data-phase="project"] .lib{display:none}
 .chev .i{width:22px;height:22px;transition:transform .15s}
 .gcard.open .chev .i{transform:rotate(180deg)}
 .gbody{border-top:1px solid var(--line);padding:16px;display:flex;flex-direction:column;gap:16px}
+.sending{position:fixed;inset:0;background:rgba(0,0,0,.55);display:grid;place-items:center;z-index:10000}.sending-box{background:var(--paper,#fff);color:var(--ink,#111);padding:26px 32px;border-radius:16px;display:flex;flex-direction:column;align-items:center;gap:14px;max-width:min(90vw,380px);text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.35)}.sending-box p{margin:0;font-size:15px}.spin{width:38px;height:38px;border-radius:50%;border:4px solid var(--line,#ddd);border-top-color:#f5a623;animation:hspin .8s linear infinite}@keyframes hspin{to{transform:rotate(360deg)}}
 .subtog{border:0;background:transparent;color:inherit;cursor:pointer;padding:2px;display:inline-grid;place-items:center;border-radius:6px}.subtog:hover{background:var(--line)}.subtog .i{width:16px;height:16px;transition:transform .15s}.subh:not(.collapsed) .subtog .i{transform:rotate(180deg)}.subname{cursor:pointer}.subh.collapsed{margin-bottom:10px}.hya-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1d1d1d;color:#fff;padding:12px 18px;border-radius:12px;font-size:14px;z-index:9999;box-shadow:0 6px 24px rgba(0,0,0,.3);max-width:90vw}
 .subplan{display:inline-flex;align-items:center;gap:8px;margin-left:auto}.sthumb{width:56px;height:40px;object-fit:contain;border:1px solid var(--line);border-radius:8px;background:#fff;display:grid;place-items:center;font-size:10px;color:var(--muted);text-align:center}.sthumb.empty{background:transparent;width:auto;height:auto;border:0;font-size:12px;white-space:nowrap}
 .gplan{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
@@ -1809,10 +1810,20 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     } catch (e) { cardMsg[r.id] = (e && e.message) || 'No se pudo enviar a Drive'; }
     driveBusy = null; if (view === 'project') renderProject();
   }
+  function showSending(msg) {
+    hideSending();
+    const o = document.createElement('div'); o.className = 'sending'; o.id = 'sendingOv'; o.setAttribute('role', 'status'); o.setAttribute('aria-live', 'polite');
+    const b = document.createElement('div'); b.className = 'sending-box';
+    const sp = document.createElement('div'); sp.className = 'spin';
+    const t = document.createElement('p'); t.textContent = msg;
+    b.appendChild(sp); b.appendChild(t); o.appendChild(b); document.body.appendChild(o);
+  }
+  function hideSending() { const o = document.getElementById('sendingOv'); if (o) o.remove(); }
   async function sendEditorToDrive() {
     if (genState.busy || !R) return;
     const st = R;
     genState = { busy: true, kind: '', msg: '' }; renderStage();
+    showSending('Enviando el informe a Drive. Puede tardar un momento…');
     try {
       await flush(st);
       const j = await api('/api/drive/send?id=' + encodeURIComponent(st.id), { method: 'POST' });
@@ -1826,6 +1837,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
         showProject(); return;
       }
     } catch (e) { genState = { busy: false, kind: 'bad', msg: (e && e.message) || 'No se pudo enviar a Drive.' }; }
+    finally { hideSending(); }
     if (R === st) renderStage();
   }
   async function generateFromList(r) {

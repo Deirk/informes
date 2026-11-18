@@ -119,3 +119,4 @@ IMAGEN FIJA POR GRUPO Y PLANO POR SUBGRUPO
 SUBGRUPOS COLAPSABLES Y ENVIAR Y CONTINUAR
 - Cada subgrupo tiene una flecha (o se hace clic en su nombre) para colapsar o expandir sus informes. El estado se recuerda en el navegador, por proyecto, grupo y subgrupo.
 - En el último paso del informe, el botón "Enviar y Continuar" envía el informe a Drive y abre el siguiente de la lista de su subgrupo (orden por apartamento). Al terminar un subgrupo pasa al siguiente, y tras el último informe del grupo vuelve a la vista del proyecto. Si el envío falla, se queda en el informe con el error.
+- Mientras "Enviar y Continuar" trabaja se muestra un aviso con un indicador de carga que bloquea la pantalla hasta que termina (o falla).
