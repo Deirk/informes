@@ -120,6 +120,13 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
 .flist { display: flex; flex-direction: column; gap: 4px; max-height: 240px; overflow-y: auto; }
 .fitem { text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 7px 10px; cursor: pointer; font: inherit; color: var(--ink); }
 .fitem:hover { border-color: var(--accent); }
+.fills { display: flex; flex-direction: column; gap: 10px; }
+.fcard { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; background: var(--surface); }
+.ftitle { font-weight: 600; }
+.ftext { min-height: 120px; width: 100%; box-sizing: border-box; font: inherit; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); resize: vertical; }
+.frow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.thumbs { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.thumbs .thumb { width: 64px; height: 64px; object-fit: cover; border-radius: 6px; }
 .note.ok { background: var(--chip); color: var(--chip-ink); border-color: var(--accent); }
 </style>
 </head>
@@ -768,6 +775,7 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
     if (o.sect) p += o.sect;
     return '<w:p><w:pPr>' + p + '</w:pPr>' + runs.join('') + '</w:p>';
   }
+  var FILL = null;
   function textRuns(txt, o) {
     var out = [];
     String(txt).split(/(\{\{[A-Z0-9_]+\}\})/).forEach(function (part) {
@@ -775,7 +783,10 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
       var m = /^\{\{([A-Z0-9_]+)\}\}$/.exec(part);
       if (m) {
         var v = S.vars.filter(function (x) { return x.key === m[1].toLowerCase(); })[0];
-        out.push(run(v && v.ejemplo ? v.ejemplo : '[' + (v ? v.label : m[1]) + ']', Object.assign({}, o, { hl: true })));
+        if (FILL) {
+          var val = String(FILL.vals[m[1].toLowerCase()] || '').trim();
+          if (val) out.push(run(val, o)); else out.push(run('[' + (v ? v.label : m[1]) + ']', Object.assign({}, o, { hl: true })));
+        } else out.push(run(v && v.ejemplo ? v.ejemplo : '[' + (v ? v.label : m[1]) + ']', Object.assign({}, o, { hl: true })));
       } else out.push(run(part, o));
     });
     return out;
@@ -792,7 +803,12 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
   function imgDims(uri) {
     return new Promise(function (res) { var im = new Image(); im.onload = function () { res({ w: im.width, h: im.height }); }; im.onerror = function () { res({ w: 4, h: 3 }); }; im.src = uri; });
   }
-  async function buildDocx(styled) {
+  var textOf = function (m) { return FILL && FILL.texts[m.id] != null ? FILL.texts[m.id] : (m.text || ''); };
+  async function buildDocx(styled, fill) {
+    FILL = fill || null;
+    try { return await buildDocxInner(styled); } finally { FILL = null; }
+  }
+  async function buildDocxInner(styled) {
     var zip = new JSZip();
     var media = [], nid = 100;
     var drawing = async function (uri, land) {
@@ -806,8 +822,8 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
     var base = styled ? { font: FONT, sz: 22, color: INK } : {};
     var ph = function (t) {
       return styled
-        ? { runs: [run(t, { b: true, sz: 24, color: NAVY, font: FONT })], o: { fill: BAND, bl: { c: ACCENT, sz: 36 }, before: 120, after: 160 } }
-        : { runs: [run('[' + t + ']', { i: true, color: GRAY })], o: { after: 160 } };
+        ? { ph: true, runs: [run(t, { b: true, sz: 24, color: NAVY, font: FONT })], o: { fill: BAND, bl: { c: ACCENT, sz: 36 }, before: 120, after: 160 } }
+        : { ph: true, runs: [run('[' + t + ']', { i: true, color: GRAY })], o: { after: 160 } };
     };
     var cell = function (txt) {
       var nb = '<w:val w:val="none"/>';
@@ -821,7 +837,7 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
       if (m.tipo === 'portada') {
         if (styled) {
           var defs = ['TÍTULO DEL INFORME', 'ZONA O APARTAMENTO', 'NOMBRE DEL CONJUNTO', 'FECHA', 'ELABORADOR 1', 'ELABORADOR 2'];
-          var ls = String(m.text || '').split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean);
+          var ls = String(textOf(m)).split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean);
           var isDate = function (x) { return (/(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)/i.test(x) && /\d{4}/.test(x) && x.length < 40) || /^\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}$/.test(x) || /^\{\{FECHA/i.test(x); };
           var dateLine = ls.filter(isDate)[0];
           var rest = ls.filter(function (x) { return x !== dateLine; });
@@ -838,13 +854,14 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
           ps.push({ runs: [run('Elaborado por:', { b: true, sz: 20, color: NAVY, font: FONT })], o: { bl: { c: ACCENT, sz: 24, sp: 8 }, before: 1000, after: 80 } });
           (names.length ? names : [defs[4], defs[5]]).forEach(function (x) { ps.push({ runs: tr(x, { sz: 22, color: INK, font: FONT }), o: { bl: { c: ACCENT, sz: 24, sp: 8 }, after: 40 } }); });
         } else {
-          ps.push(ph('Portada: título, zona, conjunto, fecha y elaboradores'));
+          if (FILL) String(textOf(m)).split(/\n+/).forEach(function (x) { if (x.trim()) ps.push({ runs: textRuns(x.trim(), {}), o: { after: 120 } }); });
+          else ps.push(ph('Portada: título, zona, conjunto, fecha y elaboradores'));
         }
       } else {
         ps.push({ runs: [run(m.titulo, styled ? { b: true, sz: m.nivel ? 26 : 32, color: NAVY, font: FONT } : {})], o: { style: m.nivel ? 'Heading2' : 'Heading1', keep: true, before: 0, after: 280, bb: styled ? { c: ACCENT, sz: 18 } : null } });
       }
       if (m.tipo !== 'portada' || !styled) {
-        String(m.text || '').split(/\n\s*\n/).forEach(function (c) {
+        String(textOf(m)).split(/\n\s*\n/).forEach(function (c) {
           c = c.trim();
           if (!c) return;
           if (c.indexOf('## ') === 0) { ps.push({ runs: textRuns(c.slice(3), styled ? { b: true, sz: 24, color: NAVY, font: FONT } : { b: true }), o: { keep: true, before: 240, after: 120 } }); return; }
@@ -861,12 +878,23 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
         var b = items[k];
         if (b.t === 'tabla') ps.push(ph('Tabla fija del formato: ' + (b.x || '')));
         else if (m.tipo === 'galeria' || m.tipo === 'pegado') continue;
+        else if (FILL && FILL.imgs[m.id + ':' + k]) ps.push({ runs: [await drawing(FILL.imgs[m.id + ':' + k], m.orient === 'h')], o: { jc: 'center', after: 160 } });
         else if (b.idx != null && S.imgs[b.idx]) ps.push({ runs: [await drawing(S.imgs[b.idx], m.orient === 'h')], o: { jc: 'center', after: 160 } });
         else ps.push(ph('Imagen: ' + ROLES[b.rol]));
       }
       if (m.tipo === 'galeria') ps.push(ph('Fotos por espacio: una por página'));
       if (m.tipo === 'pegado') ps.push(ph('Imágenes pegadas (por ejemplo desde Excel), a todo el ancho'));
       if (m.tipo === 'firmas') ps.push(ph('Firma de quien suscribe el informe'));
+      if (FILL) {
+        var gal = FILL.imgs[m.id + ':g'] || [], pas = FILL.imgs[m.id + ':p'] || [], sg = FILL.imgs[m.id + ':f'];
+        ps = ps.filter(function (x) { return !x.ph; });
+        for (var gi = 0; gi < gal.length; gi++) {
+          if (gi > 0) ps.push({ runs: ['<w:r><w:br w:type="page"/></w:r>'], o: { after: 0 } });
+          ps.push({ runs: [await drawing(gal[gi], m.orient === 'h')], o: { jc: 'center', after: 160 } });
+        }
+        for (var pi = 0; pi < pas.length; pi++) ps.push({ runs: [await drawing(pas[pi], m.orient === 'h')], o: { jc: 'center', after: 160 } });
+        if (sg) ps.push({ runs: [await drawing(sg, false)], o: { jc: 'center', before: 60, after: 200 } });
+      }
       if (i < S.mods.length - 1) {
         if (ps[ps.length - 1].raw) ps.push({ runs: [], o: {} });
         ps[ps.length - 1].o.sect = sectXml(m, styled, i === 0);
@@ -1035,13 +1063,102 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
     ]));
     return h('section', { class: 'drive' }, kids);
   }
+  var R = { vals: {}, texts: {}, imgs: {}, name: '', busy: false, msg: '', err: '' };
+  try { var rz = JSON.parse(localStorage.getItem('hya-generation-fill') || 'null'); if (rz) { R.vals = rz.vals || {}; R.name = rz.name || ''; } } catch (e) {}
+  function saveR() { try { localStorage.setItem('hya-generation-fill', JSON.stringify({ vals: R.vals, name: R.name })); } catch (e) {} }
+  function pickImages(multi, cb) {
+    var f = h('input', { type: 'file', accept: 'image/*', multiple: multi ? true : null, class: 'sr', tabindex: '-1' });
+    f.addEventListener('change', function () {
+      var files = Array.prototype.slice.call(f.files || []).sort(function (a, b) { return a.name.localeCompare(b.name, 'es', { numeric: true }); });
+      var out = [];
+      var next = function (i) {
+        if (i >= files.length) { cb(out); return; }
+        readImage(files[i], function (u) { out.push(u); next(i + 1); });
+      };
+      next(0);
+    });
+    document.body.appendChild(f); f.click(); setTimeout(function () { f.remove(); }, 60000);
+  }
+  function thumbs(list) {
+    return h('div', { class: 'thumbs' }, list.slice(0, 12).map(function (u) { return h('img', { class: 'thumb', src: u, alt: 'Foto cargada' }); }).concat(list.length > 12 ? [h('span', { class: 'hint', text: '+' + (list.length - 12) + ' más' })] : []));
+  }
+  function fillCard(m, i) {
+    var kids = [h('div', { class: 'ftitle', text: (i + 1) + '. ' + (m.titulo || 'Sin título') + ' · ' + TYPES[m.tipo].n })];
+    var hasText = m.tipo !== 'galeria' && m.tipo !== 'pegado';
+    var cur = R.texts[m.id] != null ? R.texts[m.id] : (m.text || '');
+    if (hasText && (m.text || R.texts[m.id] != null || m.tipo === 'portada' || m.tipo === 'texto' && !(m.items || []).length)) {
+      var ta = h('textarea', { class: 'ftext', 'aria-label': 'Texto de ' + m.titulo, placeholder: m.tipo === 'portada' ? 'Línea 1: título. 2: zona. 3: conjunto. Luego Elaborado por, los nombres y la fecha.' : 'Página vacía: puedes escribir aquí si este módulo lleva texto.' });
+      ta.value = cur;
+      ta.addEventListener('input', function () { R.texts[m.id] = ta.value; });
+      kids.push(ta);
+    }
+    var slotBtn = function (label, key, multi) {
+      var have = R.imgs[key];
+      var n = multi ? (have || []).length : (have ? 1 : 0);
+      var row = h('div', { class: 'frow' }, [
+        h('button', { class: 'btn sm', type: 'button', onclick: function () { pickImages(multi, function (list) { if (!list.length) return; R.imgs[key] = multi ? (R.imgs[key] || []).concat(list) : list[0]; render(); }); } }, [label]),
+        h('span', { class: 'hint', text: n ? n + (n === 1 ? ' imagen cargada' : ' imágenes cargadas') : 'Sin imágenes' })
+      ]);
+      if (n) { row.appendChild(h('button', { class: 'btn sm danger', type: 'button', onclick: function () { delete R.imgs[key]; render(); } }, ['Quitar'])); }
+      kids.push(row);
+      if (n) kids.push(thumbs(multi ? have : [have]));
+    };
+    var items = m.items || [];
+    if (m.tipo !== 'galeria' && m.tipo !== 'pegado') items.forEach(function (b, k) { if (b.t === 'img') slotBtn('Subir imagen (' + ROLES[b.rol] + ')', m.id + ':' + k, false); });
+    if (m.tipo === 'galeria') slotBtn('Subir fotos (una por página)', m.id + ':g', true);
+    if (m.tipo === 'pegado') slotBtn('Subir imágenes a todo el ancho', m.id + ':p', true);
+    if (m.tipo === 'firmas') slotBtn('Subir firma', m.id + ':f', false);
+    if (kids.length === 1) kids.push(h('p', { class: 'hint', text: 'Página vacía en el informe.' }));
+    return h('div', { class: 'fcard' }, kids);
+  }
+  async function genReport(styled, toDrive) {
+    R.err = ''; R.msg = ''; R.busy = true; render();
+    try {
+      var blob = await buildDocx(styled, { vals: R.vals, texts: R.texts, imgs: R.imgs });
+      var base = (R.name || (S.file ? S.file + ' (informe)' : 'Informe')).trim() + (styled ? '' : ' sin estilo');
+      if (toDrive) {
+        if (!D.folder) throw new Error('Elige una carpeta de Drive en el panel de arriba.');
+        var j = await (await api('/api/drive/copy?folderId=' + encodeURIComponent(D.folder.id) + '&name=' + encodeURIComponent(base), { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: blob })).json();
+        R.msg = 'Informe guardado en Drive: "' + j.name + '" (carpeta ' + D.folder.name + ').';
+      } else {
+        await S.dl.save({ filename: base + '.docx', data: blob });
+        R.msg = 'Informe generado: ' + base + '.docx';
+      }
+    } catch (e) { R.err = e.message || 'No se pudo generar el informe.'; }
+    R.busy = false; render();
+  }
+  function fillPanel() {
+    var vrows = S.vars.map(function (v) {
+      var inp = h('input', { type: 'text', 'aria-label': v.label, placeholder: v.ejemplo || '' });
+      inp.value = R.vals[v.key] || '';
+      inp.addEventListener('input', function () { R.vals[v.key] = inp.value; saveR(); });
+      return h('label', { class: 'f' }, [v.label, inp]);
+    });
+    var nm = h('input', { type: 'text', 'aria-label': 'Nombre del informe', placeholder: 'Nombre del informe' });
+    nm.value = R.name; nm.addEventListener('input', function () { R.name = nm.value; saveR(); });
+    var off = R.busy || S.busy ? true : null;
+    return h('div', { class: 'panel' }, [
+      h('h2', { text: 'Llenar informe' }),
+      h('p', { class: 'hint', text: 'Prueba: llena el formato cargado con valores, textos e imágenes y genera el Word. Las imágenes y los textos de esta pestaña no se guardan al cerrar la página.' }),
+      S.vars.length ? h('div', { class: 'grid2' }, vrows) : h('p', { class: 'hint', text: 'Este formato no tiene variables.' }),
+      h('div', { class: 'fills' }, S.mods.map(fillCard)),
+      h('div', { class: 'drow' }, [nm]),
+      h('div', { class: 'drow' }, [
+        h('button', { class: 'btn main', type: 'button', disabled: off, onclick: function () { genReport(true, false); } }, ['Generar Word con estilo']),
+        h('button', { class: 'btn', type: 'button', disabled: off, onclick: function () { genReport(false, false); } }, ['Generar Word sin estilo']),
+        h('button', { class: 'btn', type: 'button', disabled: off || !D.folder ? true : null, onclick: function () { genReport(true, true); } }, ['Guardar en Drive con estilo'])
+      ]),
+      R.err ? h('div', { class: 'note err', text: R.err }) : null,
+      R.msg ? h('div', { class: 'note ok', text: R.msg }) : null
+    ]);
+  }
   function useSample() { var d = sampleData(); S.mods = d.mods; S.vars = d.vars; S.imgs = []; S.file = ''; S.sample = true; S.sel = 0; S.tab = 'mod'; S.err = ''; touch(); render(); }
 
   function render() {
     var fi = h('input', { type: 'file', accept: '.docx', class: 'sr', id: 'docx', tabindex: '-1' });
     fi.addEventListener('change', function () { if (fi.files[0]) loadDocx(fi.files[0]); });
-    var tabs = [['mod', 'Módulo'], ['prev', 'Vista previa'], ['vars', 'Variables'], ['steps', 'Pasos del informe'], ['json', 'JSON']];
-    var body = S.tab === 'prev' ? previewPanel() : S.tab === 'vars' ? varsPanel() : S.tab === 'steps' ? stepsPanel() : S.tab === 'json' ? jsonPanel() : modulePanel();
+    var tabs = [['mod', 'Módulo'], ['prev', 'Vista previa'], ['vars', 'Variables'], ['steps', 'Pasos del informe'], ['json', 'JSON'], ['fill', 'Llenar informe']];
+    var body = S.tab === 'prev' ? previewPanel() : S.tab === 'vars' ? varsPanel() : S.tab === 'steps' ? stepsPanel() : S.tab === 'json' ? jsonPanel() : S.tab === 'fill' ? fillPanel() : modulePanel();
     var drop = h('div', { class: 'drop' + (S.drag ? ' on' : ''), text: S.busy ? 'Leyendo el Word…' : 'Arrastra aquí un Word (.docx) para cortarlo en módulos por sus títulos.' });
     drop.addEventListener('dragover', function (e) { e.preventDefault(); if (!S.drag) { S.drag = true; drop.classList.add('on'); } });
     drop.addEventListener('dragleave', function () { S.drag = false; drop.classList.remove('on'); });
