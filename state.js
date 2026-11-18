@@ -27,9 +27,8 @@ function moduleGaps(d, project) {
   if (!has(c.apartamento) || !has(c.conjunto)) g.push('portada');
   if (!(d.intro || []).length || !has(v.seguro) || !has(v.poliza) || !has(v.siniestro) || customKeysIn(d.intro, project).some((k) => !has(v[k]))) g.push('introducción');
   else if (formatoDiffs(d, project).indexOf('intro') > -1) g.push('introducción distinta al formato');
-  const grp = project && (project.grupos || []).filter((x) => x.id === d.grupoId)[0];
   const ind = (d.planos || []).filter((b) => b.t === 'img' && b.role === 'individual')[0];
-  if (!(grp && grp.aid) || !(ind && ind.ref)) g.push('planos');
+  if (!planoGrupoOf(project, d) || !(ind && ind.ref)) g.push('planos');
   if (!Object.keys(d.espacios || {}).length) g.push('imágenes');
   if (!(project && project.presupuestoObligatorio === false) && !has(d.presupuesto && d.presupuesto.nota)) g.push('presupuesto');
   if (!(d.concl || []).length || !has(v.valor) || customKeysIn(d.concl, project).some((k) => !has(v[k]))) g.push('conclusiones');
@@ -59,6 +58,25 @@ function apartamentoFrom(meta, groupName) {
   return 'APARTAMENTO ' + num + (tower ? ' TORRE ' + tower : '');
 }
 
+function subKeyOf(d) {
+  const pth = d && d.drive && d.drive.path;
+  if (!pth) return '';
+  const sg = String(pth).split(' / ').slice(2);
+  const own = /^(apto?|apartamento)\.?\s*\d+\s*[a-z]?$/i;
+  if (sg.length && (sg.length > 1 || own.test(sg[sg.length - 1].trim()))) sg.pop();
+  return sg.join(' / ');
+}
+function groupOf(project, d) { return ((project && project.grupos) || []).filter((x) => x.id === (d && d.grupoId))[0] || null; }
+function planoGrupoOf(project, d) {
+  const g = groupOf(project, d);
+  const m = g && g.subplanos && g.subplanos[subKeyOf(d)];
+  return m && m.aid ? m : null;
+}
+function fijaOf(project, d) {
+  const g = groupOf(project, d);
+  return g && g.fija && g.fija.aid ? g.fija : null;
+}
+
 function fillApartamento(doc, project) {
   if (!doc || doc.importError || !doc.cover || has(doc.cover.apartamento)) return false;
   const g = ((project && project.grupos) || []).filter((x) => x.id === doc.grupoId)[0];
@@ -69,4 +87,4 @@ function fillApartamento(doc, project) {
   return true;
 }
 
-module.exports = { apartamentoFrom: apartamentoFrom, fillApartamento: fillApartamento, moduleGaps: moduleGaps, cardState: cardState, has: has };
+module.exports = { apartamentoFrom: apartamentoFrom, fillApartamento: fillApartamento, moduleGaps: moduleGaps, subKeyOf: subKeyOf, planoGrupoOf: planoGrupoOf, fijaOf: fijaOf, cardState: cardState, has: has };

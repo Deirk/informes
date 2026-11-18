@@ -231,6 +231,10 @@ function parseInforme(buf, JSZipLib, DOMParserCls, opts) {
         var maxArea = 0;
         planos.forEach(function (b) { if (b.t === 'img') maxArea = Math.max(maxArea, b.w * b.h); });
         var plans = planos.filter(function (b) { return b.t === 'img' && (maxArea === 0 || b.w * b.h >= maxArea * 0.35); });
+        if (plans.length > 2) {
+          var keepBig = plans.slice().sort(function (a, b) { return b.w * b.h - a.w * a.h; }).slice(0, 2);
+          plans = plans.filter(function (b) { return keepBig.indexOf(b) >= 0; });
+        }
         plans.forEach(function (b, i) { b.role = i === 0 ? 'grupo' : i === 1 ? 'individual' : 'fijo'; });
         planos.forEach(function (b) { if (b.t === 'img' && !b.role) b.role = 'fijo'; });
         if (!planos.some(function (b) { return b.role === 'individual'; })) {

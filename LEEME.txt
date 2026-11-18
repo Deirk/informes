@@ -103,3 +103,15 @@ MEMORIA DE CANTIDADES
 - Paso nuevo antes de Presupuesto: solo imágenes, se pueden agregar varias (Ctrl+V desde Excel, botón "Pegar imagen", subir o arrastrar). Es opcional.
 - En el Word va como sección "MEMORIA DE CANTIDADES" antes del Presupuesto, en páginas horizontales, con cada imagen a todo el ancho de la página (una imagen muy alta se limita por el alto de la página) y en el orden del paso. Si no hay imágenes, la sección no aparece.
 - No se suben a Drive como archivos sueltos; solo van dentro del Word.
+
+ORDEN DE PLANOS
+- Al importar un Word con tres imágenes en la sección de planos, solo las dos más grandes se toman como Plano y Plano marcado; la otra (por ejemplo la tabla de variables) queda como Imagen fija.
+- En el paso Planos el orden es: Imagen fija del informe, Plano, Plano individual marcado.
+- Si un proyecto ya tenía un formato guardado con el orden equivocado, hay que volver a subir el Word en Formato y guardarlo.
+
+IMAGEN FIJA POR GRUPO Y PLANO POR SUBGRUPO
+- Grupo (por ejemplo ZONAS PRIVADAS): en el lápiz de edición del grupo se sube la Imagen fija, la misma para todos sus informes. Si el grupo la tiene, el Word la usa antes que la del Formato.
+- Subgrupo (por ejemplo TORRE 1 / APTOS 01, según la carpeta de Drive del informe): en su encabezado se sube el Plano. Todos los informes de ese subgrupo lo usan.
+- En el paso Planos del informe el orden es Imagen fija del informe, Plano y Plano individual marcado. Los dos primeros se muestran solo para consulta; el plano individual marcado se sube en cada informe.
+- Nada se asigna automáticamente: los planos de grupo que ya estaban subidos no se mueven a los subgrupos y hay que subir el plano en cada subgrupo. Un informe sin plano de subgrupo queda con "planos" pendiente.
+- Al importar un Word ya no se crea un grupo ni se toma el plano de grupo del documento.

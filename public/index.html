@@ -329,6 +329,7 @@ body[data-phase="projects"] .lib,body[data-phase="project"] .lib{display:none}
 .chev .i{width:22px;height:22px;transition:transform .15s}
 .gcard.open .chev .i{transform:rotate(180deg)}
 .gbody{border-top:1px solid var(--line);padding:16px;display:flex;flex-direction:column;gap:16px}
+.subplan{display:inline-flex;align-items:center;gap:8px;margin-left:auto}.sthumb{width:56px;height:40px;object-fit:contain;border:1px solid var(--line);border-radius:8px;background:#fff;display:grid;place-items:center;font-size:10px;color:var(--muted);text-align:center}.sthumb.empty{background:transparent;width:auto;height:auto;border:0;font-size:12px;white-space:nowrap}
 .gplan{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
 .gplan>img,.gplan>.pv{width:170px;height:118px;object-fit:contain;border:1px solid var(--line);border-radius:10px;background:#fff;flex:none}
 .gplan .gi{flex:1 1 240px;display:flex;flex-direction:column;gap:10px;min-width:0}
@@ -684,6 +685,10 @@ function parseInforme(buf, JSZipLib, DOMParserCls, opts) {
         var maxArea = 0;
         planos.forEach(function (b) { if (b.t === 'img') maxArea = Math.max(maxArea, b.w * b.h); });
         var plans = planos.filter(function (b) { return b.t === 'img' && (maxArea === 0 || b.w * b.h >= maxArea * 0.35); });
+        if (plans.length > 2) {
+          var keepBig = plans.slice().sort(function (a, b) { return b.w * b.h - a.w * a.h; }).slice(0, 2);
+          plans = plans.filter(function (b) { return keepBig.indexOf(b) >= 0; });
+        }
         plans.forEach(function (b, i) { b.role = i === 0 ? 'grupo' : i === 1 ? 'individual' : 'fijo'; });
         planos.forEach(function (b) { if (b.t === 'img' && !b.role) b.role = 'fijo'; });
         if (!planos.some(function (b) { return b.role === 'individual'; })) {
@@ -1508,9 +1513,9 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     const pj = proj(d.projectId);
     if (!(d.intro || []).length || !has(v.seguro) || !has(v.poliza) || !has(v.siniestro) || customKeysIn(d.intro, pj).some((k) => !has(v[k]))) g.push('introducción');
     else if (formatoDiffs(d, proj(d.projectId)).indexOf('intro') > -1) g.push('introducción distinta al formato');
-    const p = proj(d.projectId), grp = p && (p.grupos || []).filter((x) => x.id === d.grupoId)[0];
+    const p = proj(d.projectId);
     const ind = (d.planos || []).filter((b) => b.t === 'img' && b.role === 'individual')[0];
-    if (!(grp && grp.aid) || !(ind && ind.ref)) g.push('planos');
+    if (!planoGrupoOf(p, d) || !(ind && ind.ref)) g.push('planos');
     if (!Object.keys(d.espacios || {}).length) g.push('imágenes');
     if (presRequired(proj(d.projectId)) && !has(d.presupuesto && d.presupuesto.nota)) g.push('presupuesto');
     if (!(d.concl || []).length || !has(v.valor) || customKeysIn(d.concl, pj).some((k) => !has(v[k]))) g.push('conclusiones');
@@ -1519,6 +1524,10 @@ if (typeof module !== "undefined") module.exports = buildReport2;
   }
   const NOTA_PRESUPUESTO = 'Nota: Los items cuya cantidad se encuentra en cero, corresponde a que no se requiere.';
   const presRequired = (p) => !(p && p.presupuestoObligatorio === false);
+  const subKeyOf = (d) => { const pth = d && d.drive && d.drive.path; if (!pth) return ''; const sg = String(pth).split(' / ').slice(2); const own = /^(apto?|apartamento)\.?\s*\d+\s*[a-z]?$/i; if (sg.length && (sg.length > 1 || own.test(sg[sg.length - 1].trim()))) sg.pop(); return sg.join(' / '); };
+  const groupOf = (p, d) => ((p && p.grupos) || []).filter((x) => x.id === (d && d.grupoId))[0] || null;
+  const planoGrupoOf = (p, d) => { const g = groupOf(p, d); const m = g && g.subplanos && g.subplanos[subKeyOf(d)]; return m && m.aid ? m : null; };
+  const fijaOf = (p, d) => { const g = groupOf(p, d); return g && g.fija && g.fija.aid ? g.fija : null; };
   const porEspacio = (p) => !(p && p.fotosPorEspacio === false);
   function normText(x) { return String(x || '').toLowerCase().replace(/\{\{[a-z]+\}\}/g, '{}').replace(/\[[^\]]*\]/g, '[]').replace(/[\u2018\u2019\u201c\u201d]/g, '"').replace(/\s+/g, ' ').trim(); }
   function blocksKey(bl) { return (bl || []).map((b) => (b.t || 'p') + '|' + normText(b.x)).filter((s) => s.length > 2).join('\n'); }
@@ -1539,8 +1548,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     if (!has(v.siniestro)) g.push('siniestro');
     if (!has(v.valor)) g.push('valor');
     const p = proj(d.projectId);
-    const grp = p && (p.grupos || []).filter((x) => x.id === d.grupoId)[0];
-    if (!grp) g.push('plano de grupo');
+    if (!planoGrupoOf(p, d)) g.push('plano');
     const ind = (d.planos || []).filter((b) => b.t === 'img' && b.role === 'individual')[0];
     if (!ind || !ind.ref) g.push('plano individual');
     if (!Object.keys(d.espacios || {}).length) g.push('fotos');
@@ -1702,12 +1710,21 @@ if (typeof module !== "undefined") module.exports = buildReport2;
   }
   async function buildDoc(st) {
     const p = proj(st.projectId) || {};
-    const g = (p.grupos || []).filter((x) => x.id === st.grupoId)[0];
-    const grupoItem = g && g.aid ? { aid: g.aid, w: g.w, h: g.h, url: '/_blob/' + g.aid, blob: null } : null;
+    const pg = planoGrupoOf(p, st), fj = fijaOf(p, st);
+    const asItem = (m) => m ? { aid: m.aid, w: m.w, h: m.h, url: '/_blob/' + m.aid, blob: null } : null;
+    const blocks = st.planos.slice();
+    if (fj && !blocks.some((b) => b.t === 'img' && b.role === 'fijo')) {
+      const gi = blocks.findIndex((b) => b.t === 'img' && b.role === 'grupo');
+      blocks.splice(gi < 0 ? 0 : gi, 0, { t: 'img', role: 'fijo', item: null });
+    }
     const planos = [];
-    for (const b of st.planos) {
-      if (b.t === 'img') planos.push({ t: 'img', role: b.role, img: await toGen(b.role === 'grupo' ? grupoItem : b.item) });
-      else planos.push({ t: b.t, x: b.x });
+    let fijoN = 0;
+    for (const b of blocks) {
+      if (b.t === 'img') {
+        let it = b.role === 'grupo' ? asItem(pg) : b.item;
+        if (b.role === 'fijo') { if (fijoN === 0 && fj) it = asItem(fj); fijoN++; }
+        planos.push({ t: 'img', role: b.role, img: await toGen(it) });
+      } else planos.push({ t: b.t, x: b.x });
     }
     const SP = window.SPACES || [];
     const has2 = (n) => (st.espacios[n] || []).length;
@@ -1865,7 +1882,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
         h('button', { class: 'rc-main', type: 'button', onclick: () => openProject(p.id) }, [
           h('span', { class: 'rc-t', text: p.data.name || 'Sin nombre' }),
           h('span', { class: 'rc-s', text: (p.data.defaults && p.data.defaults.conjunto) || 'Sin conjunto definido' }),
-          h('span', { class: 'rc-m', text: rs.length + (rs.length === 1 ? ' informe' : ' informes') + ' · ' + (p.data.grupos || []).length + ' planos de grupo' })
+          h('span', { class: 'rc-m', text: rs.length + (rs.length === 1 ? ' informe' : ' informes') + ' · ' + (p.data.grupos || []).length + ((p.data.grupos || []).length === 1 ? ' grupo' : ' grupos') })
         ]),
         h('div', { class: 'rc-foot' }, askDel ? [
           h('div', { class: 'rc-ask' }, [h('span', { text: '¿Eliminar este proyecto?' }),
@@ -1931,12 +1948,25 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     }
     return h('span', null, [b, fi]);
   }
-  async function setGroupPlan(p, g, file) {
+  async function setGroupFija(p, g, file) {
     try {
       const it = makeItem(await processBlob(file, 2200)); await uploadItem(it);
-      if (!it.aid) { planErr = 'No se pudo subir el plano (' + (it.err || 'error') + ').'; renderProject(); return; }
+      if (!it.aid) { planErr = 'No se pudo subir la imagen (' + (it.err || 'error') + ').'; renderProject(); return; }
       let old = null;
-      await mutateProject((q) => { const gg = (q.grupos || []).filter((x) => x.id === g.id)[0]; if (gg) { old = gg.aid; gg.aid = it.aid; gg.w = it.w; gg.h = it.h; gg.hash = ''; } });
+      await mutateProject((q) => { const gg = (q.grupos || []).filter((x) => x.id === g.id)[0]; if (gg) { old = gg.fija && gg.fija.aid; gg.fija = { aid: it.aid, w: it.w, h: it.h }; } });
+      if (old) gcAssets([old]);
+    } catch (e) { planErr = 'No se pudo leer esa imagen.'; }
+    renderProject();
+  }
+  async function setSubPlano(p, g, key, file) {
+    try {
+      let it = null;
+      if (file) {
+        it = makeItem(await processBlob(file, 2200)); await uploadItem(it);
+        if (!it.aid) { planErr = 'No se pudo subir el plano (' + (it.err || 'error') + ').'; renderProject(); return; }
+      }
+      let old = null;
+      await mutateProject((q) => { const gg = (q.grupos || []).filter((x) => x.id === g.id)[0]; if (gg) { gg.subplanos = gg.subplanos || {}; old = gg.subplanos[key] && gg.subplanos[key].aid; if (it) gg.subplanos[key] = { aid: it.aid, w: it.w, h: it.h }; else delete gg.subplanos[key]; } });
       if (old) gcAssets([old]);
     } catch (e) { planErr = 'No se pudo leer esa imagen.'; }
     renderProject();
@@ -1963,10 +1993,10 @@ if (typeof module !== "undefined") module.exports = buildReport2;
       ondragleave: () => head.classList.remove('over'),
       ondrop: (e) => { e.preventDefault(); e.stopPropagation(); head.classList.remove('over'); const f = Array.prototype.slice.call((e.dataTransfer && e.dataTransfer.files) || []); if (f.length) { openGroups.add(gid); renderProject(); importFiles(f, gid); } } }, [
       h('button', { class: 'gmain', type: 'button', 'aria-expanded': open ? 'true' : 'false', onclick: toggle }, [
-        g && g.aid ? h('img', { class: 'gthumb', src: '/_blob/' + g.aid, alt: '' }) : h('span', { class: 'gthumb empty' }, [icon('folder')]),
-        h('span', { class: 'gname' }, [h('b', { text: name }), h('small', { text: rs.length + (rs.length === 1 ? ' informe' : ' informes') + counts(rs) + (g && !g.aid ? ' · sin plano de grupo' : '') })])
+        g && g.fija && g.fija.aid ? h('img', { class: 'gthumb', src: '/_blob/' + g.fija.aid, alt: '' }) : h('span', { class: 'gthumb empty' }, [icon('folder')]),
+        h('span', { class: 'gname' }, [h('b', { text: name }), h('small', { text: rs.length + (rs.length === 1 ? ' informe' : ' informes') + counts(rs) + (g && !(g.fija && g.fija.aid) ? ' · sin imagen fija' : '') })])
       ]),
-      g ? h('button', { class: 'ib' + (editing ? ' on' : ''), type: 'button', title: 'Editar nombre y plano', 'aria-label': 'Editar nombre y plano del grupo', 'aria-pressed': editing ? 'true' : 'false', onclick: () => { if (editing) editGroups.delete(gid); else { editGroups.add(gid); openGroups.add(gid); } confirmDel = null; renderProject(); } }, [icon('pencil')]) : null,
+      g ? h('button', { class: 'ib' + (editing ? ' on' : ''), type: 'button', title: 'Editar nombre e imagen fija', 'aria-label': 'Editar nombre e imagen fija del grupo', 'aria-pressed': editing ? 'true' : 'false', onclick: () => { if (editing) editGroups.delete(gid); else { editGroups.add(gid); openGroups.add(gid); } confirmDel = null; renderProject(); } }, [icon('pencil')]) : null,
       h('button', { class: 'ib chev', type: 'button', 'aria-label': open ? 'Cerrar grupo' : 'Abrir grupo', onclick: toggle }, [icon('chev')])
     ]);
     const card = h('div', { class: 'gcard' + (open ? ' open' : '') }, [head]);
@@ -1976,23 +2006,18 @@ if (typeof module !== "undefined") module.exports = buildReport2;
       const ni = h('input', { type: 'text', maxlength: '60', 'aria-label': 'Nombre del grupo' }); ni.value = g.name || '';
       ni.addEventListener('input', () => { const q = proj(PID), gg = q && (q.grupos || []).filter((x) => x.id === g.id)[0]; if (gg) gg.name = ni.value; saveProjectLater(PID); });
       ni.addEventListener('change', () => renderProject());
-      const fi = h('input', { type: 'file', accept: 'image/*', hidden: true, onchange: (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) setGroupPlan(p, g, f); } });
+      const fi = h('input', { type: 'file', accept: 'image/*', hidden: true, onchange: (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) setGroupFija(p, g, f); } });
       const askG = confirmDel === 'g:' + g.id;
       body.appendChild(h('div', { class: 'gplan' }, [
-        g.aid ? h('img', { src: '/_blob/' + g.aid, alt: 'Plano del grupo ' + name }) : h('div', { class: 'pv empty', text: 'Sin plano' }),
+        g.fija && g.fija.aid ? h('img', { src: '/_blob/' + g.fija.aid, alt: 'Imagen fija del grupo ' + name }) : h('div', { class: 'pv empty', text: 'Sin imagen fija' }),
         h('div', { class: 'gi' }, [
           h('div', { class: 'fld' }, [h('label', { text: 'Nombre del grupo' }), ni]),
+          h('div', { class: 'fld' }, [h('span', { class: 'help', text: 'La imagen fija es la misma para todos los informes del grupo (por ejemplo la tabla de variables). El plano se sube en cada subgrupo.' })]),
           h('div', { class: 'mini' }, [
-            h('button', { class: 'btn ghost sm', type: 'button', onclick: () => fi.click() }, [icon('img'), g.aid ? 'Cambiar plano de grupo' : 'Subir plano de grupo']),
-            docPicker('Tomar el plano de un Word', async (f) => {
-              const d = await readDoc(f);
-              if (!d.plan) throw new Error('noplan');
-              const it = await planItem(d.plan); await uploadItem(it);
-              if (it.aid) { const hh = await sha(d.plan.bytes); let old = null; await mutateProject((q) => { const gg = (q.grupos || []).filter((x) => x.id === g.id)[0]; if (gg) { old = gg.aid; gg.aid = it.aid; gg.w = it.w; gg.h = it.h; gg.hash = hh; } fillDefaults(q, d.res, false); }); if (old) gcAssets([old]); } else { planErr = 'No se pudo subir el plano (' + (it.err || 'error') + ').'; }
-              renderProject();
-            }),
+            h('button', { class: 'btn ghost sm', type: 'button', onclick: () => fi.click() }, [icon('img'), g.fija && g.fija.aid ? 'Cambiar imagen fija' : 'Subir imagen fija']),
+            g.fija && g.fija.aid ? h('button', { class: 'btn ghost sm', type: 'button', onclick: async () => { const old = g.fija.aid; await mutateProject((q) => { const gg = (q.grupos || []).filter((x) => x.id === g.id)[0]; if (gg) delete gg.fija; }); gcAssets([old]); renderProject(); } }, [icon('trash'), 'Quitar']) : null,
             rs.length ? null : (askG ? [
-              h('button', { class: 'btn danger sm', type: 'button', onclick: () => { mutateProject((q) => { q.grupos = (q.grupos || []).filter((x) => x.id !== g.id); }); confirmDel = null; openGroups.delete(gid); gcAssets([g.aid]); renderProject(); } }, ['Eliminar grupo']),
+              h('button', { class: 'btn danger sm', type: 'button', onclick: () => { mutateProject((q) => { q.grupos = (q.grupos || []).filter((x) => x.id !== g.id); }); confirmDel = null; openGroups.delete(gid); gcAssets([g.aid, g.fija && g.fija.aid].concat(Object.keys(g.subplanos || {}).map((k) => g.subplanos[k].aid))); renderProject(); } }, ['Eliminar grupo']),
               h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { confirmDel = null; renderProject(); } }, ['Cancelar'])
             ] : h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { confirmDel = 'g:' + g.id; renderProject(); } }, [icon('trash'), 'Eliminar grupo'])),
           ].flat().filter(Boolean)),
@@ -2027,9 +2052,10 @@ if (typeof module !== "undefined") module.exports = buildReport2;
         const sets = {}; const order = [];
         rs.forEach((r) => { const k = subOf(r); if (!sets[k]) { sets[k] = []; order.push(k); } sets[k].push(r); });
         order.sort((a, b) => (a ? 1 : 0) - (b ? 1 : 0) || a.localeCompare(b, 'es', { numeric: true, sensitivity: 'base' }));
-        if (order.length === 1 && !order[0]) { const grid = h('div', { class: 'rgrid' }); rs.forEach((r) => grid.appendChild(reportCard(r, p))); area.appendChild(grid); }
-        else order.forEach((k) => {
-          area.appendChild(h('div', { class: 'subh' }, [icon('folder'), h('b', { text: k || 'Sin subcarpeta' }), h('span', { text: sets[k].length + (sets[k].length === 1 ? ' informe' : ' informes') }), (() => { const nn = sets[k].filter(autoNeeds); return nn.length ? h('button', { class: 'btn ghost sm', type: 'button', title: 'Rellena las secciones vacías con el formato y los datos del proyecto', onclick: () => autoFormatoRun(nn) }, [icon('wand'), 'Autogenerar formato (' + nn.length + ')']) : null; })()]));
+        order.forEach((k) => {
+          const sp = g && g.subplanos && g.subplanos[k] && g.subplanos[k].aid ? g.subplanos[k] : null;
+          const sfi = h('input', { type: 'file', accept: 'image/*', hidden: true, onchange: (e) => { const f = e.target.files[0]; e.target.value = ''; if (f && g) setSubPlano(p, g, k, f); } });
+          area.appendChild(h('div', { class: 'subh' }, [icon('folder'), h('b', { text: k || 'Sin subcarpeta' }), h('span', { text: sets[k].length + (sets[k].length === 1 ? ' informe' : ' informes') }), (() => { const nn = sets[k].filter(autoNeeds); return nn.length ? h('button', { class: 'btn ghost sm', type: 'button', title: 'Rellena las secciones vacías con el formato y los datos del proyecto', onclick: () => autoFormatoRun(nn) }, [icon('wand'), 'Autogenerar formato (' + nn.length + ')']) : null; })(), g ? h('span', { class: 'subplan' }, [sp ? h('img', { class: 'sthumb', src: '/_blob/' + sp.aid, alt: 'Plano de ' + (k || 'sin subcarpeta') }) : h('span', { class: 'sthumb empty', text: 'Sin plano' }), h('button', { class: 'btn ghost sm', type: 'button', onclick: () => sfi.click() }, [icon('img'), sp ? 'Cambiar plano' : 'Subir plano']), sp ? h('button', { class: 'btn ghost sm', type: 'button', onclick: () => setSubPlano(p, g, k, null) }, [icon('trash'), 'Quitar plano']) : null, sfi]) : null]));
           const grid = h('div', { class: 'rgrid' }); sets[k].forEach((r) => grid.appendChild(reportCard(r, p))); area.appendChild(grid);
         });
       }
@@ -2049,7 +2075,6 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     const fromDoc = docPicker('Rellenar desde un Word', async (f) => {
       const d = await readDoc(f);
       if (d.tower && !has(agName)) agName = d.tower;
-      if (d.plan) agItem = await planItem(d.plan);
       await mutateProject((q) => fillDefaults(q, d.res, false));
       addGroupOpen = true; renderProject();
     }, 'Leyendo el Word…');
@@ -2060,7 +2085,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
       agBusy = true; create.disabled = true; create.textContent = 'Creando…'; showErr('');
       const g = { id: uid(), name: agName.trim(), aid: null, w: 0, h: 0, hash: '' };
       let planMsg = '';
-      if (agItem) { await uploadItem(agItem); if (agItem.aid) { g.aid = agItem.aid; g.w = agItem.w; g.h = agItem.h; } else planMsg = 'No se pudo subir el plano (' + (agItem.err || 'error') + '). Súbelo luego desde el grupo.'; }
+      if (agItem) { await uploadItem(agItem); if (agItem.aid) { g.fija = { aid: agItem.aid, w: agItem.w, h: agItem.h }; } else planMsg = 'No se pudo subir la imagen fija (' + (agItem.err || 'error') + '). Súbela luego desde el grupo.'; }
       const ok = await mutateProject((q) => { q.grupos = q.grupos || []; q.grupos.push(g); });
       agBusy = false;
       if (!ok) { create.disabled = false; create.textContent = 'Crear grupo'; showErr('No se pudo guardar el grupo (' + (lastDbErr || 'error') + '). Inténtalo de nuevo.'); return; }
@@ -2070,16 +2095,16 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     } }, ['Crear grupo']);
     function paint() {
       pv.innerHTML = '';
-      pv.appendChild(agItem ? h('img', { src: agItem.url, alt: 'Plano del grupo' }) : h('div', { class: 'pv empty', text: 'Sin plano todavía' }));
-      pv.appendChild(h('div', { class: 'mini' }, [h('button', { class: 'btn ghost sm', type: 'button', onclick: () => fi.click() }, [icon('img'), agItem ? 'Cambiar plano' : 'Subir plano de grupo']), agItem ? h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { agItem = null; paint(); } }, ['Quitar']) : null]));
+      pv.appendChild(agItem ? h('img', { src: agItem.url, alt: 'Imagen fija del grupo' }) : h('div', { class: 'pv empty', text: 'Sin imagen todavía' }));
+      pv.appendChild(h('div', { class: 'mini' }, [h('button', { class: 'btn ghost sm', type: 'button', onclick: () => fi.click() }, [icon('img'), agItem ? 'Cambiar imagen' : 'Subir imagen fija']), agItem ? h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { agItem = null; paint(); } }, ['Quitar']) : null]));
     }
     ni.addEventListener('input', () => { agName = ni.value; create.disabled = !has(agName); });
     create.disabled = !has(agName);
     paint();
     const box = h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Añadir grupo' }, [
-      h('div', { class: 'modal-h' }, [h('div', null, [h('h2', { text: 'Añadir grupo' }), h('p', { text: 'Un grupo reúne los apartamentos que comparten plano, por ejemplo la torre B.' })]),
+      h('div', { class: 'modal-h' }, [h('div', null, [h('h2', { text: 'Añadir grupo' }), h('p', { text: 'Un grupo reúne los apartamentos que comparten la imagen fija, por ejemplo zonas privadas. El plano se sube en cada subgrupo.' })]),
         h('button', { class: 'ib', type: 'button', 'aria-label': 'Cerrar', onclick: close }, [icon('x')])]),
-      h('div', { class: 'fields' }, [h('div', { class: 'fld wide' }, [h('label', { text: 'Nombre del grupo' }), ni]), h('div', { class: 'fld wide' }, [h('label', { text: 'Plano de grupo (opcional, puedes subirlo después)' }), pv, fi]), h('div', { class: 'fld wide' }, [fromDoc, h('span', { class: 'help', text: 'Toma de un informe el nombre de la torre, el plano de grupo y los datos del proyecto.' })])]),
+      h('div', { class: 'fields' }, [h('div', { class: 'fld wide' }, [h('label', { text: 'Nombre del grupo' }), ni]), h('div', { class: 'fld wide' }, [h('label', { text: 'Imagen fija (opcional, puedes subirla después)' }), pv, fi]), h('div', { class: 'fld wide' }, [fromDoc, h('span', { class: 'help', text: 'Toma de un informe el nombre de la torre, el plano de grupo y los datos del proyecto.' })])]),
       errBox, h('div', { class: 'foot' }, [h('button', { class: 'btn ghost', type: 'button', onclick: close }, ['Cancelar']), create])
     ]);
     const back = h('div', { class: 'modal-bg', onclick: (e) => { if (e.target === back) close(); } }, [box]);
@@ -2102,7 +2127,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
       ])]));
     const gs = p.grupos || [];
     if (!openedOnce && gs.length && projReady && repReady) { openedOnce = true; openGroups.add(gs[0].id); }
-    st.appendChild(h('div', { class: 'sec-h' }, [h('div', null, [h('h1', { class: 'ph', text: 'Grupos' }), h('p', { text: 'Cada grupo reúne los apartamentos que comparten plano. Ábrelo para ver sus informes o arrastra un Word encima.' })]),
+    st.appendChild(h('div', { class: 'sec-h' }, [h('div', null, [h('h1', { class: 'ph', text: 'Grupos' }), h('p', { text: 'Cada grupo reúne los apartamentos que comparten la imagen fija y cada subgrupo tiene su plano. Ábrelo para ver sus informes o arrastra un Word encima.' })]),
       h('button', { class: 'btn', type: 'button', onclick: () => { addGroupOpen = true; renderProject(); } }, [icon('plus'), 'Añadir grupo'])]));
     if (driveOpen) st.appendChild(driveBar(p));
     const orphan = projReports(PID).some((r) => !gs.some((x) => x.id === r.data.grupoId));
@@ -2883,7 +2908,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
     st.planos = out;
   }
   function stepPlanos(st) {
-    st.appendChild(stageHead('Un plano por grupo de apartamentos y el plano individual con el marcado de las afectaciones.'));
+    st.appendChild(stageHead('Tres imágenes, en este orden: la imagen fija del informe, el plano del subgrupo y el plano individual con las afectaciones marcadas de este apartamento.'));
     const p = proj(PID) || { grupos: [] };
     p.grupos = p.grupos || [];
     const card = h('div', { class: 'mcard' });
@@ -2892,31 +2917,20 @@ if (typeof module !== "undefined") module.exports = buildReport2;
         h('div', { style: 'flex:1;min-width:200px' }, [h('b', { text: 'Formato del proyecto' }), h('small', { text: 'Los textos y la imagen fija de esta sección no cambian. Rellénalos con los de ' + (f.from || 'el informe de referencia') + '.' })]),
         h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { applyFormatoPlanos(R, f); touch(); renderStage(); } }, [icon('wand'), 'Rellenar con el formato'])
       ])); }
-    const sel = h('select', { id: 'grpSel', 'aria-label': 'Plano de grupo' }, [h('option', { value: '', text: '— Sin plano de grupo —' })].concat(p.grupos.map((g) => h('option', { value: g.id, text: g.name || 'Grupo' }))));
-    sel.value = R.grupoId && p.grupos.some((g) => g.id === R.grupoId) ? R.grupoId : '';
-    sel.addEventListener('change', () => { R.grupoId = sel.value; touch(); renderStage(); });
-    const fi = h('input', { type: 'file', accept: 'image/*', hidden: true, onchange: async (e) => {
-      const f = e.target.files[0]; e.target.value = ''; if (!f) return;
-      try {
-        const it = makeItem(await processBlob(f, 2200)); await uploadItem(it);
-        if (!it.aid) { alert_('No se pudo subir la imagen. Inténtalo de nuevo.'); return; }
-        const g = { id: uid(), name: 'Plano de grupo ' + (p.grupos.length + 1), aid: it.aid, w: it.w, h: it.h, hash: 'u' + it.aid };
-        p.grupos.push(g); R.grupoId = g.id; await saveProject(PID); touch(); renderStage();
-      } catch (x) { alert_('No se pudo leer esa imagen.'); }
-    } });
-    const g = p.grupos.filter((x) => x.id === R.grupoId)[0];
-    card.appendChild(h('div', { class: 'fields' }, [
-      h('div', { class: 'fld wide' }, [h('label', { text: 'Plano de grupo' }), sel, h('span', { class: 'help', text: 'Es el mismo para todos los apartamentos del grupo (por ejemplo del 101 al 1301 de la torre B).' })])
+    const pg = planoGrupoOf(p, R), fj = fijaOf(p, R), gg = groupOf(p, R), sk = subKeyOf(R);
+    if (fj) card.appendChild(h('div', { class: 'slot' }, [
+      h('div', { class: 'pv' }, [h('img', { src: '/_blob/' + fj.aid, alt: 'Imagen fija del grupo' })]),
+      h('div', { class: 'sl' }, [h('b', { text: 'Imagen fija del informe' }), h('small', { text: 'Es la misma para todos los informes del grupo' + (gg && gg.name ? ' ' + gg.name : '') + ' (por ejemplo la tabla de variables). Para cambiarla, edita el grupo en la vista del proyecto.' })])
     ]));
+    else R.planos.filter((b) => b.t === 'img' && b.role === 'fijo').forEach((b, i) => {
+      card.appendChild(slot('Imagen fija del informe' + (i ? ' ' + (i + 1) : ''), () => b.item, (v) => { b.item = v; }, { help: 'Es igual en todos los informes (por ejemplo la tabla de variables). Si la subes en la edición del grupo, no hace falta subirla aquí.', removable: true }));
+    });
     card.appendChild(h('div', { class: 'slot', style: 'margin-top:14px' }, [
-      g && g.aid ? h('div', { class: 'pv' }, [h('img', { src: '/_blob/' + g.aid, alt: g.name })]) : h('div', { class: 'pv empty', text: 'Elige un plano de grupo' }),
-      h('div', { class: 'sl' }, [h('b', { text: g ? g.name : 'Plano de grupo' }), h('div', { class: 'mini' }, [h('button', { class: 'btn ghost sm', type: 'button', onclick: () => fi.click() }, [icon('plus'), 'Subir un plano de grupo nuevo'])]), fi])
+      pg ? h('div', { class: 'pv' }, [h('img', { src: '/_blob/' + pg.aid, alt: 'Plano' })]) : h('div', { class: 'pv empty', text: 'Sin plano' }),
+      h('div', { class: 'sl' }, [h('b', { text: 'Plano' }), h('small', { text: pg ? 'Plano del subgrupo ' + (sk || 'sin subcarpeta') + ', el mismo para todos sus apartamentos. Para cambiarlo, usa el encabezado del subgrupo en la vista del proyecto.' : 'El subgrupo ' + (sk || 'sin subcarpeta') + ' aún no tiene plano. Súbelo en el encabezado del subgrupo, en la vista del proyecto.' })])
     ]));
     const ind = R.planos.filter((b) => b.t === 'img' && b.role === 'individual')[0];
-    if (ind) card.appendChild(slot('Plano individual con el marcado', () => ind.item, (v) => { ind.item = v; }, { help: 'La prueba de la evidencia marcada sobre el plano de este apartamento.', emptyText: 'Sube el plano marcado' }));
-    R.planos.filter((b) => b.t === 'img' && b.role === 'fijo').forEach((b, i) => {
-      card.appendChild(slot('Imagen fija del informe' + (i ? ' ' + (i + 1) : ''), () => b.item, (v) => { b.item = v; }, { help: 'Es igual en todos los informes (por ejemplo la tabla de variables).', removable: true }));
-    });
+    if (ind) card.appendChild(slot('Plano individual marcado', () => ind.item, (v) => { ind.item = v; }, { help: 'El plano de este apartamento con las afectaciones marcadas. Es lo único que se sube en cada informe.', emptyText: 'Sube el plano individual marcado' }));
     card.appendChild(blocksEditor(R.planos.filter((b) => b.t !== 'img'), () => {}, 'Editar los textos de esta sección', (nb) => {
       const out = []; let ti = 0, last = -1;
       R.planos.forEach((b) => { if (b.t === 'img') out.push(b); else { last = out.length; if (ti < nb.length) out.push(nb[ti++]); } });

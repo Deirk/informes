@@ -144,20 +144,7 @@ async function importDocx(store, buf, o) {
     if (b.t !== 'img') { planos.push({ t: b.t, x: b.x }); continue; }
     if (!b.bytes) { planos.push({ t: 'img', role: b.role, ref: null }); continue; }
     if (b.role === 'grupo') {
-      const key = sha(b.bytes);
-      let g = tg || groups.filter((x) => x.hash === key)[0] || null;
-      if (!g || !g.aid) {
-        const r = await up(b, 2200);
-        if (r) {
-          if (g) fx.group = { id: g.id, aid: r.aid, w: r.w, h: r.h, hash: key };
-          else {
-            const nm = tm ? 'Torre ' + tm[0].split(/\s+/)[1].toUpperCase() : 'Grupo ' + (groups.length + 1);
-            g = { id: uid(), name: nm, aid: r.aid, w: r.w, h: r.h, hash: key };
-            fx.newGroup = g;
-          }
-        } else warns.push('el plano de grupo no se pudo procesar');
-      }
-      if (g) grupoId = g.id;
+      if (tg) grupoId = tg.id;
       planos.push({ t: 'img', role: 'grupo', ref: null });
     } else {
       planos.push({ t: 'img', role: b.role, ref: b.role === 'fijo' ? await shared(b, 2200) : await up(b, 2200) });

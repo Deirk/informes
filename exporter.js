@@ -1,7 +1,7 @@
 const D = require('docx');
 const buildReport = require('./gen');
 const { SPACES } = require('./parse');
-const { has, cardState, moduleGaps } = require('./state');
+const { has, cardState, moduleGaps, planoGrupoOf, fijaOf } = require('./state');
 const { withLock } = require('./importer');
 
 const jobs = {};
@@ -29,12 +29,21 @@ function presupuestoFor(project, doc, img) {
 }
 
 async function buildRep(store, doc, project, cfg) {
-  const g = ((project && project.grupos) || []).filter((x) => x.id === doc.grupoId)[0];
-  const groupRef = g && g.aid ? { aid: g.aid, w: g.w, h: g.h } : null;
+  const groupRef = planoGrupoOf(project, doc);
+  const fija = fijaOf(project, doc);
+  const blocks = (doc.planos || []).slice();
+  if (fija && !blocks.some((b) => b.t === 'img' && b.role === 'fijo')) {
+    const gi = blocks.findIndex((b) => b.t === 'img' && b.role === 'grupo');
+    blocks.splice(gi < 0 ? 0 : gi, 0, { t: 'img', role: 'fijo', ref: null });
+  }
   const planos = [];
-  for (const b of doc.planos || []) {
-    if (b.t === 'img') planos.push({ t: 'img', role: b.role, img: await asImg(store, b.role === 'grupo' ? groupRef : b.ref) });
-    else planos.push({ t: b.t, x: b.x });
+  let fijoN = 0;
+  for (const b of blocks) {
+    if (b.t === 'img') {
+      let ref = b.role === 'grupo' ? groupRef : b.ref;
+      if (b.role === 'fijo') { if (fijoN === 0 && fija) ref = fija; fijoN++; }
+      planos.push({ t: 'img', role: b.role, img: await asImg(store, ref) });
+    } else planos.push({ t: b.t, x: b.x });
   }
   const esp = doc.espacios || {};
   const has2 = (n) => (esp[n] || []).length;
