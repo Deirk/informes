@@ -147,5 +147,6 @@ Pagina /generation
 - Guardar copia con estilo / sin estilo: sube un Word nuevo a la carpeta elegida, con el nombre "<archivo> (formato).docx". No sobreescribe nada. La credencial necesita permiso de editor en esa carpeta.
 
 Llenar informe (en /generation)
-- Con el formato cargado, la pestana "Llenar informe" pide los valores de las variables, deja editar el texto de cada modulo y sube imagenes a los modulos que las tienen (Imagenes, Galeria, Imagenes pegadas, Firmas).
-- Generar Word con estilo / sin estilo lo descarga; "Guardar en Drive con estilo" lo sube a la carpeta elegida. Los textos e imagenes de esa pestana no se guardan al cerrar la pagina. Es solo para pruebas.
+- Con el formato cargado, el boton Llenar abre el formulario del informe: un paso por modulo del formato (las pestanas vacias no tienen paso y salen como paginas en blanco), mas un primer paso con las variables.
+- Cada paso muestra el texto editable y los espacios para subir imagenes del modulo (Imagenes, Planos, Fotos por espacio, Imagenes pegadas, Firmas). Imagenes y Planos son dos tipos de modulo; en ambos se anaden las imagenes que hagan falta y cada una puede llevar un titulo opcional. Las imagenes se suben desde el equipo, no desde Drive.
+- Al final se descarga el Word con estilo o sin estilo. Es solo para pruebas: textos e imagenes no se guardan al cerrar la pagina.

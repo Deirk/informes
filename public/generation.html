@@ -125,6 +125,10 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
 .ftitle { font-weight: 600; }
 .ftext { min-height: 120px; width: 100%; box-sizing: border-box; font: inherit; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); resize: vertical; }
 .frow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ilist { display: flex; flex-direction: column; gap: 8px; }
+.irow { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.irow .thumb { width: 64px; height: 64px; object-fit: cover; }
+.irow input[type=text] { min-width: 0; }
 .thumbs { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .thumbs .thumb { width: 64px; height: 64px; object-fit: cover; border-radius: 6px; }
 .note.ok { background: var(--chip); color: var(--chip-ink); border-color: var(--accent); }
@@ -144,15 +148,17 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
   var TYPES = {
     portada: { n: 'Portada', d: 'Paso con los datos de la portada: conjunto, apartamento, fecha y elaboradores.' },
     texto: { n: 'Texto', d: 'Paso con el texto editable. Las variables se llenan en cada informe.' },
-    imagenes: { n: 'Imágenes y planos', d: 'Paso con las imágenes del módulo. Cada una tiene un rol: fija en todo el grupo, igual por subgrupo o propia de cada informe.' },
+    imagenes: { n: 'Imágenes', d: 'Paso donde se añaden las imágenes que hagan falta, cada una con un título opcional.' },
+    planos: { n: 'Planos', d: 'Paso donde se añaden los planos, cada uno con un título opcional.' },
     galeria: { n: 'Fotos por espacio', d: 'Paso donde se suben las fotos de cada espacio, una por página.' },
     pegado: { n: 'Imágenes pegadas', d: 'Paso donde se pegan imágenes copiadas, por ejemplo desde Excel.' },
     tabla: { n: 'Tabla', d: 'Tabla del formato que se conserva igual en cada informe.' },
     firmas: { n: 'Firmas', d: 'Paso con la firma de quienes suscriben el informe.' }
   };
+  var isImgT = function (x) { return x === 'imagenes' || x === 'planos'; };
   var ROLES = { fija: 'Fija en todo el grupo', subgrupo: 'Igual por subgrupo', informe: 'Propia de cada informe' };
   var BUILTIN = { seguro: 'Aseguradora', poliza: 'Póliza', siniestro: 'Siniestro', valor: 'Valor total' };
-  var S = { namesOpen: false, namesText: '', dl: null, mods: [], vars: [], imgs: [], sel: 0, tab: 'mod', file: '', sample: true, busy: false, err: '', drag: false, confirmDel: false, copied: false };
+  var S = { view: 'format', namesOpen: false, namesText: '', dl: null, mods: [], vars: [], imgs: [], sel: 0, tab: 'mod', file: '', sample: true, busy: false, err: '', drag: false, confirmDel: false, copied: false };
   var uid = 0;
   var newId = function () { uid += 1; return 'm' + Date.now().toString(36) + uid; };
   var root = document.getElementById('app');
@@ -456,7 +462,8 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
       else if (/firma|elabor/.test(t)) m.tipo = 'firmas';
       else if (/memoria|presupuesto/.test(t)) m.tipo = 'pegado';
       else if (/registro|fotogr/.test(t) || nImg > 5) m.tipo = 'galeria';
-      else if (/plano/.test(t) || (nImg >= 1 && nTxt <= 2)) m.tipo = 'imagenes';
+      else if (/plano/.test(t)) m.tipo = 'planos';
+      else if (nImg >= 1 && nTxt <= 2) m.tipo = 'imagenes';
       else if (!nTxt && m.blocks.some(function (b) { return b.t === 'tabla'; })) m.tipo = 'tabla';
       else m.tipo = 'texto';
       delete m.pre; delete m._sec; delete m._named;
@@ -538,7 +545,7 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
       h('div', { class: 'mods' }, items.length ? items : [h('p', { class: 'hint', text: 'Sin módulos. Sube un Word o añade uno.' })]),
       h('div', { class: 'add' }, [sel, h('button', { class: 'btn sm', type: 'button', onclick: function () {
         var tipo = sel.value, m = { id: newId(), tipo: tipo, titulo: TYPES[tipo].n.toUpperCase(), orient: 'v', obligatorio: false, text: '', items: [] };
-        if (tipo === 'imagenes') m.items.push({ t: 'img', idx: null, rol: 'informe' });
+        if (isImgT(tipo)) m.items.push({ t: 'img', idx: null, rol: 'informe' });
         m.nivel = cur() ? (cur().nivel || 0) : 0;
         S.mods.splice(S.sel + 1, 0, m); S.sel = S.sel + 1; S.tab = 'mod'; touch(); render();
       } }, ['Añadir'])]),
@@ -589,7 +596,7 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
     title.value = m.titulo; title.addEventListener('input', function () { m.titulo = title.value; touch(); });
     title.addEventListener('change', render);
     var tipo = h('select', { id: 'mtipo' }, Object.keys(TYPES).map(function (k) { return h('option', { value: k, text: TYPES[k].n }); }));
-    tipo.value = m.tipo; tipo.addEventListener('change', function () { m.tipo = tipo.value; touch(); render(); });
+    tipo.value = m.tipo; tipo.addEventListener('change', function () { m.tipo = tipo.value; if (isImgT(m.tipo) && !(m.items || []).some(function (b) { return b.t === 'img'; })) { m.items = (m.items || []).concat([{ t: 'img', idx: null, rol: 'informe' }]); } touch(); render(); });
     var ori = h('select', { id: 'mori' }, [h('option', { value: 'v', text: 'Vertical' }), h('option', { value: 'h', text: 'Horizontal' })]);
     ori.value = m.orient; ori.addEventListener('change', function () { m.orient = ori.value; touch(); render(); });
     var niv = h('select', { id: 'mniv' }, [h('option', { value: '0', text: 'Pestaña principal' }), h('option', { value: '1', text: 'Subpestaña de la anterior' })]);
@@ -636,8 +643,8 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
       ta,
       h('p', { class: 'hint', text: 'Una línea que empieza con ## es un subtítulo. Las variables se escriben como {{ASEGURADORA}} y se insertan con el selector.' }),
       hiddenN ? h('p', { class: 'hint', text: hiddenN + ' imágenes del Word de ejemplo no se guardan en el formato. Cada informe trae las suyas.' }) : null,
-      shown.length || m.tipo === 'imagenes' ? h('div', { class: 'blocks' }, shown.map(function (x) { return itemEditor(m, x.b, x.i); })) : null,
-      m.tipo === 'imagenes' ? h('div', null, [h('button', { class: 'btn sm', type: 'button', onclick: function () { m.items.push({ t: 'img', idx: null, rol: 'informe' }); touch(); render(); } }, ['+ Imagen'])]) : null,
+      shown.length || isImgT(m.tipo) ? h('div', { class: 'blocks' }, shown.map(function (x) { return itemEditor(m, x.b, x.i); })) : null,
+      isImgT(m.tipo) ? h('div', null, [h('button', { class: 'btn sm', type: 'button', onclick: function () { m.items.push({ t: 'img', idx: null, rol: 'informe' }); touch(); render(); } }, ['+ Imagen'])]) : null,
       h('div', null, [del])
     ]);
   }
@@ -705,7 +712,7 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
       if (m.orient === 'h') badges.push(h('span', { class: 'badge', text: 'Página horizontal' }));
       badges.push(h('span', { class: 'badge', text: m.obligatorio ? 'Obligatorio' : 'Opcional' }));
       uv.forEach(function (k) { badges.push(h('span', { class: 'chip', text: varLabel(k) })); });
-      (m.items || []).filter(function (b) { return b.t === 'img' && m.tipo === 'imagenes'; }).forEach(function (b) { badges.push(h('span', { class: 'badge', text: ROLES[b.rol] })); });
+      (m.items || []).filter(function (b) { return b.t === 'img' && isImgT(m.tipo); }).forEach(function (b) { badges.push(h('span', { class: 'badge', text: ROLES[b.rol] })); });
       return h('div', { class: 'step' }, [h('div', { class: 'n', text: String(i + 1) }), h('div', null, [h('b', { text: m.titulo }), h('div', { class: 'hint', text: TYPES[m.tipo].d }), h('div', { class: 'badges' }, badges)])]);
     });
     return h('div', { class: 'panel' }, [
@@ -831,6 +838,11 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
       var tb = ['top', 'left', 'bottom', 'right', 'insideH', 'insideV'].map(function (s) { return '<w:' + s + ' w:val="none" w:color="FFFFFF" w:sz="0"/>'; }).join('');
       return '<w:tbl><w:tblPr><w:tblW w:type="dxa" w:w="9360"/><w:tblBorders>' + tb + '</w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="9360"/></w:tblGrid><w:tr><w:tc><w:tcPr><w:tcW w:type="dxa" w:w="9360"/><w:tcBorders>' + bd + '</w:tcBorders><w:shd w:fill="' + ACCENT + '" w:color="auto" w:val="clear"/><w:tcMar><w:top w:type="dxa" w:w="130"/><w:left w:type="dxa" w:w="240"/><w:bottom w:type="dxa" w:w="130"/><w:right w:type="dxa" w:w="240"/></w:tcMar></w:tcPr><w:p>' + textRuns(txt, { b: true, sz: 32, color: NAVY, font: FONT }).join('') + '</w:p></w:tc></w:tr></w:tbl>';
     };
+    var imgPs = async function (e, land) {
+      var out = [{ runs: [await drawing(e.u, land)], o: { jc: 'center', after: e.t ? 40 : 160, keep: !!e.t } }];
+      if (e.t && String(e.t).trim()) out.push({ runs: [run(String(e.t).trim(), styled ? { i: true, sz: 20, color: GRAY, font: FONT } : { i: true })], o: { jc: 'center', after: 200 } });
+      return out;
+    };
     var body = '';
     for (var i = 0; i < S.mods.length; i++) {
       var m = S.mods[i], ps = [], pre = '';
@@ -878,7 +890,7 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
         var b = items[k];
         if (b.t === 'tabla') ps.push(ph('Tabla fija del formato: ' + (b.x || '')));
         else if (m.tipo === 'galeria' || m.tipo === 'pegado') continue;
-        else if (FILL && FILL.imgs[m.id + ':' + k]) ps.push({ runs: [await drawing(FILL.imgs[m.id + ':' + k], m.orient === 'h')], o: { jc: 'center', after: 160 } });
+        else if (FILL && FILL.imgs[m.id + ':' + k]) { (await imgPs(FILL.imgs[m.id + ':' + k], m.orient === 'h')).forEach(function (x) { ps.push(x); }); }
         else if (b.idx != null && S.imgs[b.idx]) ps.push({ runs: [await drawing(S.imgs[b.idx], m.orient === 'h')], o: { jc: 'center', after: 160 } });
         else ps.push(ph('Imagen: ' + ROLES[b.rol]));
       }
@@ -886,14 +898,16 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
       if (m.tipo === 'pegado') ps.push(ph('Imágenes pegadas (por ejemplo desde Excel), a todo el ancho'));
       if (m.tipo === 'firmas') ps.push(ph('Firma de quien suscribe el informe'));
       if (FILL) {
+        var xtra = FILL.imgs[m.id + ':x'] || [];
+        for (var xi = 0; xi < xtra.length; xi++) (await imgPs(xtra[xi], m.orient === 'h')).forEach(function (x) { ps.push(x); });
         var gal = FILL.imgs[m.id + ':g'] || [], pas = FILL.imgs[m.id + ':p'] || [], sg = FILL.imgs[m.id + ':f'];
         ps = ps.filter(function (x) { return !x.ph; });
         for (var gi = 0; gi < gal.length; gi++) {
           if (gi > 0) ps.push({ runs: ['<w:r><w:br w:type="page"/></w:r>'], o: { after: 0 } });
-          ps.push({ runs: [await drawing(gal[gi], m.orient === 'h')], o: { jc: 'center', after: 160 } });
+          (await imgPs(gal[gi], m.orient === 'h')).forEach(function (x) { ps.push(x); });
         }
-        for (var pi = 0; pi < pas.length; pi++) ps.push({ runs: [await drawing(pas[pi], m.orient === 'h')], o: { jc: 'center', after: 160 } });
-        if (sg) ps.push({ runs: [await drawing(sg, false)], o: { jc: 'center', before: 60, after: 200 } });
+        for (var pi = 0; pi < pas.length; pi++) (await imgPs(pas[pi], m.orient === 'h')).forEach(function (x) { ps.push(x); });
+        if (sg) ps.push({ runs: [await drawing(sg.u, false)], o: { jc: 'center', before: 60, after: 200 } });
       }
       if (i < S.mods.length - 1) {
         if (ps[ps.length - 1].raw) ps.push({ runs: [], o: {} });
@@ -1082,83 +1096,132 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
   function thumbs(list) {
     return h('div', { class: 'thumbs' }, list.slice(0, 12).map(function (u) { return h('img', { class: 'thumb', src: u, alt: 'Foto cargada' }); }).concat(list.length > 12 ? [h('span', { class: 'hint', text: '+' + (list.length - 12) + ' más' })] : []));
   }
-  function fillCard(m, i) {
-    var kids = [h('div', { class: 'ftitle', text: (i + 1) + '. ' + (m.titulo || 'Sin título') + ' · ' + TYPES[m.tipo].n })];
-    var hasText = m.tipo !== 'galeria' && m.tipo !== 'pegado';
-    var cur = R.texts[m.id] != null ? R.texts[m.id] : (m.text || '');
-    if (hasText && (m.text || R.texts[m.id] != null || m.tipo === 'portada' || m.tipo === 'texto' && !(m.items || []).length)) {
-      var ta = h('textarea', { class: 'ftext', 'aria-label': 'Texto de ' + m.titulo, placeholder: m.tipo === 'portada' ? 'Línea 1: título. 2: zona. 3: conjunto. Luego Elaborado por, los nombres y la fecha.' : 'Página vacía: puedes escribir aquí si este módulo lleva texto.' });
-      ta.value = cur;
+  var FS = { step: 0 };
+  function fillSteps() {
+    var st = [];
+    if (S.vars.length) st.push({ kind: 'vars' });
+    S.mods.forEach(function (m, i) { if (!(m.tipo === 'texto' && !m.text && !(m.items || []).length)) st.push({ kind: 'mod', m: m, i: i }); });
+    return st;
+  }
+  function stepDone(s) {
+    if (s.kind === 'vars') return S.vars.every(function (v) { return String(R.vals[v.key] || '').trim(); });
+    var m = s.m, k, any = false;
+    if (R.texts[m.id] != null) any = true;
+    for (k in R.imgs) if (k.indexOf(m.id + ':') === 0) any = true;
+    return any;
+  }
+  function slotRow(kids, label, key, multi) {
+    var have = R.imgs[key];
+    var list = multi ? (have || []) : (have ? [have] : []);
+    var n = list.length;
+    var row = h('div', { class: 'frow' }, [
+      h('button', { class: 'btn', type: 'button', onclick: function () { pickImages(multi, function (us) { if (!us.length) return; var add = us.map(function (u) { return { u: u, t: '' }; }); R.imgs[key] = multi ? (R.imgs[key] || []).concat(add) : add[0]; render(); }); } }, [label]),
+      h('span', { class: 'hint', text: n ? n + (n === 1 ? ' imagen cargada' : ' imágenes cargadas') : 'Sin imágenes' })
+    ]);
+    if (n) row.appendChild(h('button', { class: 'btn sm danger', type: 'button', onclick: function () { delete R.imgs[key]; render(); } }, ['Quitar todas']));
+    kids.push(row);
+    if (n) kids.push(h('div', { class: 'ilist' }, list.map(function (e, idx) {
+      var ti = h('input', { type: 'text', 'aria-label': 'Título de la imagen ' + (idx + 1), placeholder: 'Título (opcional)' });
+      ti.value = e.t || '';
+      ti.addEventListener('input', function () { e.t = ti.value; });
+      var kidsI = [h('img', { class: 'thumb', src: e.u, alt: 'Imagen ' + (idx + 1) }), ti];
+      if (multi) kidsI.push(h('button', { class: 'mini', type: 'button', 'aria-label': 'Quitar imagen', onclick: function () { R.imgs[key].splice(idx, 1); if (!R.imgs[key].length) delete R.imgs[key]; render(); } }, ['×']));
+      return h('div', { class: 'irow' }, kidsI);
+    })));
+  }
+  function stepBody(s) {
+    var kids = [];
+    if (s.kind === 'vars') {
+      kids.push(h('h2', { text: 'Datos del informe' }));
+      kids.push(h('p', { class: 'hint', text: 'Estos valores reemplazan las variables en todos los textos.' }));
+      kids.push(h('div', { class: 'grid2' }, S.vars.map(function (v) {
+        var inp = h('input', { type: 'text', 'aria-label': v.label, placeholder: v.ejemplo || '' });
+        inp.value = R.vals[v.key] || '';
+        inp.addEventListener('input', function () { R.vals[v.key] = inp.value; saveR(); });
+        return h('label', { class: 'f' }, [v.label, inp]);
+      })));
+      return kids;
+    }
+    var m = s.m;
+    kids.push(h('h2', { text: m.titulo || 'Sin título' }));
+    kids.push(h('p', { class: 'hint', text: TYPES[m.tipo].d }));
+    if (m.tipo !== 'galeria' && m.tipo !== 'pegado') {
+      var ta = h('textarea', { class: 'ftext', 'aria-label': 'Texto de ' + m.titulo, placeholder: m.tipo === 'portada' ? 'Línea 1: título. 2: zona. 3: conjunto. Luego Elaborado por, los nombres y la fecha.' : 'Texto de este módulo.' });
+      ta.value = R.texts[m.id] != null ? R.texts[m.id] : (m.text || '');
       ta.addEventListener('input', function () { R.texts[m.id] = ta.value; });
       kids.push(ta);
     }
-    var slotBtn = function (label, key, multi) {
-      var have = R.imgs[key];
-      var n = multi ? (have || []).length : (have ? 1 : 0);
-      var row = h('div', { class: 'frow' }, [
-        h('button', { class: 'btn sm', type: 'button', onclick: function () { pickImages(multi, function (list) { if (!list.length) return; R.imgs[key] = multi ? (R.imgs[key] || []).concat(list) : list[0]; render(); }); } }, [label]),
-        h('span', { class: 'hint', text: n ? n + (n === 1 ? ' imagen cargada' : ' imágenes cargadas') : 'Sin imágenes' })
-      ]);
-      if (n) { row.appendChild(h('button', { class: 'btn sm danger', type: 'button', onclick: function () { delete R.imgs[key]; render(); } }, ['Quitar'])); }
-      kids.push(row);
-      if (n) kids.push(thumbs(multi ? have : [have]));
-    };
     var items = m.items || [];
-    if (m.tipo !== 'galeria' && m.tipo !== 'pegado') items.forEach(function (b, k) { if (b.t === 'img') slotBtn('Subir imagen (' + ROLES[b.rol] + ')', m.id + ':' + k, false); });
-    if (m.tipo === 'galeria') slotBtn('Subir fotos (una por página)', m.id + ':g', true);
-    if (m.tipo === 'pegado') slotBtn('Subir imágenes a todo el ancho', m.id + ':p', true);
-    if (m.tipo === 'firmas') slotBtn('Subir firma', m.id + ':f', false);
-    if (kids.length === 1) kids.push(h('p', { class: 'hint', text: 'Página vacía en el informe.' }));
-    return h('div', { class: 'fcard' }, kids);
+    if (isImgT(m.tipo)) {
+      slotRow(kids, m.tipo === 'planos' ? 'Añadir planos' : 'Añadir imágenes', m.id + ':x', true);
+    } else if (m.tipo !== 'galeria' && m.tipo !== 'pegado') {
+      items.forEach(function (b, k) { if (b.t === 'img') slotRow(kids, 'Subir imagen (' + ROLES[b.rol] + ')', m.id + ':' + k, false); });
+    }
+    if (m.tipo === 'galeria') slotRow(kids, 'Subir fotos (una por página)', m.id + ':g', true);
+    if (m.tipo === 'pegado') slotRow(kids, 'Subir imágenes a todo el ancho', m.id + ':p', true);
+    if (m.tipo === 'firmas') slotRow(kids, 'Subir firma', m.id + ':f', false);
+    return kids;
   }
-  async function genReport(styled, toDrive) {
+  async function genReport(styled) {
     R.err = ''; R.msg = ''; R.busy = true; render();
     try {
       var blob = await buildDocx(styled, { vals: R.vals, texts: R.texts, imgs: R.imgs });
       var base = (R.name || (S.file ? S.file + ' (informe)' : 'Informe')).trim() + (styled ? '' : ' sin estilo');
-      if (toDrive) {
-        if (!D.folder) throw new Error('Elige una carpeta de Drive en el panel de arriba.');
-        var j = await (await api('/api/drive/copy?folderId=' + encodeURIComponent(D.folder.id) + '&name=' + encodeURIComponent(base), { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: blob })).json();
-        R.msg = 'Informe guardado en Drive: "' + j.name + '" (carpeta ' + D.folder.name + ').';
-      } else {
-        await S.dl.save({ filename: base + '.docx', data: blob });
-        R.msg = 'Informe generado: ' + base + '.docx';
-      }
+      await S.dl.save({ filename: base + '.docx', data: blob });
+      R.msg = 'Informe generado: ' + base + '.docx';
     } catch (e) { R.err = e.message || 'No se pudo generar el informe.'; }
     R.busy = false; render();
   }
-  function fillPanel() {
-    var vrows = S.vars.map(function (v) {
-      var inp = h('input', { type: 'text', 'aria-label': v.label, placeholder: v.ejemplo || '' });
-      inp.value = R.vals[v.key] || '';
-      inp.addEventListener('input', function () { R.vals[v.key] = inp.value; saveR(); });
-      return h('label', { class: 'f' }, [v.label, inp]);
+  function renderFill() {
+    var steps = fillSteps();
+    if (FS.step >= steps.length) FS.step = Math.max(0, steps.length - 1);
+    var s = steps[FS.step];
+    var blanks = S.mods.length - steps.filter(function (x) { return x.kind === 'mod'; }).length;
+    var list = steps.map(function (x, k) {
+      var title = x.kind === 'vars' ? 'Datos del informe' : x.m.titulo;
+      return h('div', { class: 'mod' + (k === FS.step ? ' on' : ''), role: 'button', tabindex: '0', onclick: function () { FS.step = k; render(); }, onkeydown: function (e) { if (e.key === 'Enter') { FS.step = k; render(); } } }, [
+        h('div', { style: 'min-width:0' }, [h('div', { class: 't', text: title }), h('div', { class: 'k', text: (k + 1) + '. ' + (x.kind === 'vars' ? 'Variables' : TYPES[x.m.tipo].n) + (stepDone(x) ? ' · listo' : '') })])
+      ]);
     });
+    var last = FS.step === steps.length - 1;
+    var off = R.busy ? true : null;
     var nm = h('input', { type: 'text', 'aria-label': 'Nombre del informe', placeholder: 'Nombre del informe' });
     nm.value = R.name; nm.addEventListener('input', function () { R.name = nm.value; saveR(); });
-    var off = R.busy || S.busy ? true : null;
-    return h('div', { class: 'panel' }, [
-      h('h2', { text: 'Llenar informe' }),
-      h('p', { class: 'hint', text: 'Prueba: llena el formato cargado con valores, textos e imágenes y genera el Word. Las imágenes y los textos de esta pestaña no se guardan al cerrar la página.' }),
-      S.vars.length ? h('div', { class: 'grid2' }, vrows) : h('p', { class: 'hint', text: 'Este formato no tiene variables.' }),
-      h('div', { class: 'fills' }, S.mods.map(fillCard)),
-      h('div', { class: 'drow' }, [nm]),
+    var nav = [
+      h('button', { class: 'btn', type: 'button', disabled: FS.step === 0 ? true : null, onclick: function () { FS.step -= 1; render(); } }, ['Anterior']),
+      h('button', { class: 'btn main', type: 'button', disabled: last ? true : null, onclick: function () { FS.step += 1; render(); } }, ['Siguiente'])
+    ];
+    var fin = h('div', { class: 'fcard' }, [
+      h('div', { class: 'ftitle', text: 'Generar el informe' }),
+      h('p', { class: 'hint', text: 'Se descarga como Word. Las imágenes se toman de lo que subiste aquí, no de Drive.' + (blanks ? ' Además salen ' + blanks + ' páginas vacías de las pestañas sin contenido.' : '') }),
+      nm,
       h('div', { class: 'drow' }, [
-        h('button', { class: 'btn main', type: 'button', disabled: off, onclick: function () { genReport(true, false); } }, ['Generar Word con estilo']),
-        h('button', { class: 'btn', type: 'button', disabled: off, onclick: function () { genReport(false, false); } }, ['Generar Word sin estilo']),
-        h('button', { class: 'btn', type: 'button', disabled: off || !D.folder ? true : null, onclick: function () { genReport(true, true); } }, ['Guardar en Drive con estilo'])
+        h('button', { class: 'btn main', type: 'button', disabled: off, onclick: function () { genReport(true); } }, ['Generar Word con estilo']),
+        h('button', { class: 'btn', type: 'button', disabled: off, onclick: function () { genReport(false); } }, ['Generar Word sin estilo'])
       ]),
       R.err ? h('div', { class: 'note err', text: R.err }) : null,
       R.msg ? h('div', { class: 'note ok', text: R.msg }) : null
     ]);
+    root.innerHTML = '';
+    [
+      h('header', { class: 'top' }, [
+        h('div', null, [h('h1', { text: 'Llenar informe' }), h('p', { text: (S.file || 'Formato de ejemplo') + ': un paso por módulo del formato.' })]),
+        h('div', { class: 'tools' }, [h('button', { class: 'btn', type: 'button', onclick: function () { S.view = 'format'; render(); } }, ['Volver al formato'])])
+      ]),
+      h('div', { class: 'cols' }, [
+        h('aside', { class: 'side' }, [h('h2', { text: 'Pasos' }), h('div', { class: 'mods' }, list.concat([h('div', { class: 'mod' + (!s ? ' on' : ''), role: 'button', tabindex: '0', onclick: function () { FS.step = steps.length - 1; render(); } }, [h('div', { class: 't', text: 'Generar' }), h('div', { class: 'k', text: 'Descarga del Word' })])]))]),
+        h('div', { class: 'main' }, [h('div', { class: 'panel' }, (s ? stepBody(s) : []).concat([h('div', { class: 'drow' }, nav)]).concat(last ? [fin] : []))])
+      ])
+    ].forEach(function (n) { if (n) root.appendChild(n); });
   }
   function useSample() { var d = sampleData(); S.mods = d.mods; S.vars = d.vars; S.imgs = []; S.file = ''; S.sample = true; S.sel = 0; S.tab = 'mod'; S.err = ''; touch(); render(); }
 
   function render() {
+    if (S.view === 'fill') { renderFill(); return; }
     var fi = h('input', { type: 'file', accept: '.docx', class: 'sr', id: 'docx', tabindex: '-1' });
     fi.addEventListener('change', function () { if (fi.files[0]) loadDocx(fi.files[0]); });
-    var tabs = [['mod', 'Módulo'], ['prev', 'Vista previa'], ['vars', 'Variables'], ['steps', 'Pasos del informe'], ['json', 'JSON'], ['fill', 'Llenar informe']];
-    var body = S.tab === 'prev' ? previewPanel() : S.tab === 'vars' ? varsPanel() : S.tab === 'steps' ? stepsPanel() : S.tab === 'json' ? jsonPanel() : S.tab === 'fill' ? fillPanel() : modulePanel();
+    var tabs = [['mod', 'Módulo'], ['prev', 'Vista previa'], ['vars', 'Variables'], ['steps', 'Pasos del informe'], ['json', 'JSON']];
+    var body = S.tab === 'prev' ? previewPanel() : S.tab === 'vars' ? varsPanel() : S.tab === 'steps' ? stepsPanel() : S.tab === 'json' ? jsonPanel() : modulePanel();
     var drop = h('div', { class: 'drop' + (S.drag ? ' on' : ''), text: S.busy ? 'Leyendo el Word…' : 'Arrastra aquí un Word (.docx) para cortarlo en módulos por sus títulos.' });
     drop.addEventListener('dragover', function (e) { e.preventDefault(); if (!S.drag) { S.drag = true; drop.classList.add('on'); } });
     drop.addEventListener('dragleave', function () { S.drag = false; drop.classList.remove('on'); });
@@ -1167,7 +1230,7 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
     [
       h('header', { class: 'top' }, [
         h('div', null, [h('h1', { text: 'Generación de formato' }), h('p', { text: 'Lee el formato desde Drive, edítalo por módulos y guarda una copia en Drive.' })]),
-        h('div', { class: 'tools' }, [fi, h('button', { class: 'btn main', type: 'button', disabled: S.busy ? true : null, onclick: function () { fi.click(); } }, ['Subir un Word']), h('button', { class: 'btn', type: 'button', onclick: useSample }, ['Cargar ejemplo']), h('button', { class: 'btn', type: 'button', disabled: S.dl && !S.busy ? null : true, title: S.dl ? 'Exporta el formato como Word con colores, bandas y pie de página de la app' : 'La descarga no está disponible en esta vista', onclick: function () { exportDocx(true); } }, ['Exportar Word con estilo']), h('button', { class: 'btn', type: 'button', disabled: S.dl && !S.busy ? null : true, title: S.dl ? 'Exporta el formato como Word sencillo, sin diseño' : 'La descarga no está disponible en esta vista', onclick: function () { exportDocx(false); } }, ['Exportar Word sin estilo'])])
+        h('div', { class: 'tools' }, [fi, h('button', { class: 'btn main', type: 'button', disabled: S.busy ? true : null, onclick: function () { fi.click(); } }, ['Subir un Word']), h('button', { class: 'btn', type: 'button', onclick: useSample }, ['Cargar ejemplo']), h('button', { class: 'btn main', type: 'button', disabled: S.busy ? true : null, onclick: function () { S.view = 'fill'; FS.step = 0; R.msg = ''; R.err = ''; render(); } }, ['Llenar']), h('button', { class: 'btn', type: 'button', disabled: S.dl && !S.busy ? null : true, title: S.dl ? 'Exporta el formato como Word con colores, bandas y pie de página de la app' : 'La descarga no está disponible en esta vista', onclick: function () { exportDocx(true); } }, ['Exportar Word con estilo']), h('button', { class: 'btn', type: 'button', disabled: S.dl && !S.busy ? null : true, title: S.dl ? 'Exporta el formato como Word sencillo, sin diseño' : 'La descarga no está disponible en esta vista', onclick: function () { exportDocx(false); } }, ['Exportar Word sin estilo'])])
       ]),
       drivePanel(),
       S.err ? h('div', { class: 'note err', text: S.err }) : null,
