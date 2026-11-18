@@ -244,5 +244,41 @@ module.exports = function createDrive(cfg, root, deps) {
     return res.json();
   }
 
-  return { folders: folders, folder: folder, scan: scan, doc: doc, upload: upload, replace: replace, getClient: getClient };
+  async function find(folderId, name) {
+    await guard(folderId);
+    const nm = String(name || '').trim();
+    if (!nm) throw new Error('Escribe el nombre del archivo.');
+    const esc = nm.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    const list = await listAll(q(["'" + folderId + "' in parents", 'trashed=false', "(mimeType='" + GDOC + "' or mimeType='" + DOCX + "')", "name contains '" + esc + "'"]), 'id,name,mimeType,modifiedTime');
+    const low = nm.toLowerCase().replace(/\.docx$/, '');
+    const exact = list.filter((f) => String(f.name).toLowerCase().replace(/\.docx$/, '') === low);
+    return { files: (exact.length ? exact : list).map((f) => ({ id: f.id, name: f.name, google: f.mimeType === GDOC, modifiedTime: f.modifiedTime })) };
+  }
+
+  function flattenTabs(tabs, depth, out) {
+    (tabs || []).forEach((t) => {
+      out.push({ title: String((t.tabProperties && t.tabProperties.title) || '').trim() || 'Sin nombre', nivel: depth > 0 ? 1 : 0, depth: depth });
+      flattenTabs(t.childTabs, depth + 1, out);
+    });
+    return out;
+  }
+
+  async function tabs(id) {
+    await guard(id);
+    const meta = await json(API + '/' + id + '?fields=id,name,mimeType&supportsAllDrives=true');
+    if (meta.mimeType !== GDOC) return { google: false, tabs: [] };
+    const mask = 'tabs(tabProperties(title),childTabs(tabProperties(title),childTabs(tabProperties(title),childTabs(tabProperties(title)))))';
+    const res = await request('https://docs.googleapis.com/v1/documents/' + id + '?includeTabsContent=true&fields=' + encodeURIComponent(mask));
+    if (!res.ok) {
+      let m = '';
+      try { const j = await res.json(); m = (j.error && j.error.message) || ''; } catch (e) {}
+      throw new Error(res.status === 403 || res.status === 404
+        ? 'La API de Google Docs no está habilitada para esta credencial o no tiene acceso al documento' + (m ? ' (' + m + ')' : '') + '. Habilita "Google Docs API" en el proyecto de Google Cloud.'
+        : 'Google Docs respondió ' + res.status + (m ? ': ' + m : ''));
+    }
+    const j = await res.json();
+    return { google: true, tabs: flattenTabs(j.tabs, 0, []) };
+  }
+
+  return { folders: folders, folder: folder, scan: scan, doc: doc, upload: upload, replace: replace, find: find, tabs: tabs, getClient: getClient };
 };

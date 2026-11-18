@@ -188,6 +188,16 @@ async function handle(req, res) {
     try {
       if (parts[2] === 'folders') return send(res, 200, await drive.folders(url.searchParams.get('parent') || 'root'));
       if (parts[2] === 'folder') return send(res, 200, await drive.folder(url.searchParams.get('ref')));
+      if (parts[2] === 'find') return send(res, 200, await drive.find(url.searchParams.get('folderId') || '', url.searchParams.get('name') || ''));
+      if (parts[2] === 'tabs') return send(res, 200, await drive.tabs(url.searchParams.get('id') || ''));
+      if (parts[2] === 'file') return send(res, 200, await drive.doc(url.searchParams.get('id') || ''), 'application/octet-stream');
+      if (parts[2] === 'copy' && method === 'POST') {
+        const buf = await readBody(req, 128 * 1024 * 1024);
+        if (!buf.length) return fail(res, 400, 'Archivo vacío');
+        let nm = String(url.searchParams.get('name') || '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim() || 'Formato';
+        if (!/\.docx$/i.test(nm)) nm += '.docx';
+        return send(res, 200, await drive.upload({ parentId: url.searchParams.get('folderId') || '', name: nm, buf: buf }));
+      }
       if (parts[2] === 'send' && method === 'POST') {
         const id = url.searchParams.get('id') || '';
         if (!NAME.test(id)) return fail(res, 400, 'Informe no válido');
@@ -211,6 +221,7 @@ async function handle(req, res) {
     }
   }
 
+  if (method === 'GET' && (p === '/generation' || p === '/generation/')) return serveStatic(res, '/generation.html');
   if (method === 'GET') return serveStatic(res, p);
   fail(res, 404, 'No encontrado');
 }

@@ -138,3 +138,10 @@ FORMATO POR GRUPO Y EDITOR DE FORMATO
 - Los grupos nuevos empiezan sin formato y solo con las variables basicas (Aseguradora, Poliza, Siniestro, Valor). Ya no heredan las variables ni el formato de otro grupo.
 - Si el Word del formato no trae partes resaltadas, la app detecta por patron la aseguradora (ante X, Se solicita a X), la poliza, el siniestro y el valor ($...). El corredor no se convierte en variable.
 - Al subir un Word de formato, la casilla "Aplicar este texto tambien a los informes que ya estan en este grupo" viene marcada.
+
+Pagina /generation
+- Abre https://tu-app/generation (misma contrasena). Es independiente del resto de la app: no toca proyectos, grupos ni informes.
+- Elegir carpeta: navega Drive desde DRIVE_ROOT_FOLDER_ID. Escribe el nombre del archivo (Google Doc o Word) y pulsa Leer archivo.
+- Si es un Google Doc, los nombres y subpestanas salen de las pestanas del documento (API de Google Docs). Hay que habilitar "Google Docs API" en el proyecto de Google Cloud de la credencial. Si no esta habilitada, la pagina avisa y se pueden pegar los nombres a mano en "Nombres de las pestanas".
+- Si es un .docx, no trae nombres de pestanas: se pegan a mano.
+- Guardar copia con estilo / sin estilo: sube un Word nuevo a la carpeta elegida, con el nombre "<archivo> (formato).docx". No sobreescribe nada. La credencial necesita permiso de editor en esa carpeta.

@@ -1,0 +1,1020 @@
+<!doctype html>
+<html lang="es"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Generación de formato HyA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+/* Layout: lista de modulos a la izquierda, trabajo y vista previa a la derecha, hoja de papel como unidad visual */
+:root {
+  --bg: #f2f4f3; --surface: #ffffff; --surface2: #e8eeec; --ink: #17201f; --muted: #566462; --line: #d1dad7;
+  --accent: #12665e; --accent-ink: #ffffff; --chip: #d6ebe6; --chip-ink: #0b4a43; --warn: #a3480f; --warn-bg: #f8e6d8;
+  --page: #ffffff; --page-ink: #1c2222; --page-line: #cfd6d3;
+  --font-head: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif; --font-body: 'Inter', 'Segoe UI', system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1514; --surface: #162120; --surface2: #1e2b2a; --ink: #e4edeb; --muted: #94a6a3; --line: #2b3a38;
+    --accent: #4cc2b5; --accent-ink: #04201d; --chip: #1d3b37; --chip-ink: #a4e6dc; --warn: #f0a06a; --warn-bg: #3a2616;
+    --page: #f7f9f8; --page-ink: #1c2222; --page-line: #3a4a48; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1514; --surface: #162120; --surface2: #1e2b2a; --ink: #e4edeb; --muted: #94a6a3; --line: #2b3a38;
+  --accent: #4cc2b5; --accent-ink: #04201d; --chip: #1d3b37; --chip-ink: #a4e6dc; --warn: #f0a06a; --warn-bg: #3a2616;
+  --page: #f7f9f8; --page-ink: #1c2222; --page-line: #3a4a48; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 14px; line-height: 1.5; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 40px; }
+h1, h2, h3 { font-family: var(--font-head); text-wrap: balance; margin: 0; }
+button, select, input, textarea { font: inherit; color: inherit; }
+button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.wrap { max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+.top { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: flex-end; justify-content: space-between; }
+.top h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.01em; }
+.top p { margin: 4px 0 0; color: var(--muted); max-width: 62ch; }
+.tools { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; cursor: pointer; font-weight: 500; }
+.btn:hover { border-color: var(--accent); }
+.btn.main { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.sm { padding: 3px 8px; font-size: 12px; }
+.btn.danger { color: var(--warn); }
+.btn[disabled] { opacity: .5; cursor: default; }
+.note { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
+.note b { color: var(--ink); font-weight: 600; }
+.note.err { background: var(--warn-bg); color: var(--warn); border-color: var(--warn); }
+.drop { border: 1.5px dashed var(--line); border-radius: 10px; padding: 10px 14px; color: var(--muted); }
+.drop.on { border-color: var(--accent); background: var(--chip); color: var(--chip-ink); }
+.cols { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 860px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+.side { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.side h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; padding: 2px 4px; }
+.mods { display: flex; flex-direction: column; gap: 4px; }
+.mod { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px; align-items: center; border: 1px solid transparent; border-radius: 8px; padding: 6px 8px; cursor: pointer; background: transparent; text-align: left; width: 100%; }
+.mod:hover { background: var(--surface2); }
+.mod.on { background: var(--chip); border-color: var(--accent); }
+.mod .t { font-weight: 500; overflow-wrap: anywhere; }
+.mod .k { font-size: 12px; color: var(--muted); }
+.mod .mv { display: flex; gap: 2px; }
+.mod.sub { margin-left: 20px; width: calc(100% - 20px); border-left: 3px solid var(--line); border-radius: 4px 8px 8px 4px; }
+.mod.sub .t { font-size: 13px; }
+.namesbox { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; border-top: 1px solid var(--line); padding-top: 10px; }
+.namesbox textarea { min-height: 160px; font: 12px/1.4 ui-monospace, monospace; }
+.mini { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; width: 24px; height: 24px; cursor: pointer; line-height: 1; padding: 0; }
+.mini:hover { border-color: var(--accent); }
+.add { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; border-top: 1px solid var(--line); padding-top: 10px; }
+select, input[type=text], textarea { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; width: 100%; min-width: 0; }
+textarea { resize: vertical; min-height: 72px; line-height: 1.45; }
+.main { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--line); }
+.tab { background: transparent; border: 0; border-bottom: 2px solid transparent; padding: 8px 12px; cursor: pointer; font-weight: 500; color: var(--muted); }
+.tab.on { color: var(--ink); border-bottom-color: var(--accent); }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.panel h2 { font-size: 18px; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+label.f { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 500; }
+label.chk { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--ink); }
+.hint { color: var(--muted); font-size: 13px; margin: 0; }
+textarea.big { min-height: 380px; font-size: 14px; line-height: 1.55; }
+.row2 { display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-end; }
+.row2 select { width: auto; max-width: 100%; }
+.blocks { display: flex; flex-direction: column; gap: 8px; }
+.blk { border: 1px solid var(--line); border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 6px; background: var(--bg); }
+.blk .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.blk .row select { width: auto; max-width: 100%; }
+.tag { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; margin-right: auto; }
+.thumb { max-width: 160px; max-height: 110px; border-radius: 6px; border: 1px solid var(--line); object-fit: contain; background: #fff; }
+.slot { border: 1.5px dashed var(--line); border-radius: 8px; padding: 14px; color: var(--muted); text-align: center; }
+.chip { display: inline-block; background: var(--chip); color: var(--chip-ink); border-radius: 5px; padding: 0 6px; font-weight: 500; font-size: .92em; white-space: nowrap; }
+.vtable { display: flex; flex-direction: column; gap: 8px; }
+.vrow { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(120px, 1fr) minmax(120px, 1.2fr) auto auto; gap: 8px; align-items: center; border: 1px solid var(--line); border-radius: 8px; padding: 8px; background: var(--bg); }
+@media (max-width: 860px) { .vrow { grid-template-columns: minmax(0, 1fr); } }
+.pages { display: flex; flex-direction: column; gap: 18px; align-items: center; background: var(--surface2); border-radius: 10px; padding: 18px 10px; overflow-x: auto; }
+.pwrap { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.plabel { font-size: 12px; color: var(--muted); }
+.page { background: var(--page); color: var(--page-ink); border: 1px solid var(--page-line); box-shadow: 0 1px 6px rgba(0, 0, 0, .12); padding: 7% 8%; font-family: Georgia, 'Times New Roman', serif; font-size: 13px; line-height: 1.5; display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
+.page.v { width: min(100%, 520px); min-height: calc(min(100%, 520px) * 1.414); }
+.page.h { width: min(100%, 760px); min-height: 330px; }
+.page h4 { margin: 0; font-family: Georgia, serif; font-size: 16px; font-weight: 700; }
+.page h5 { margin: 4px 0 0; font-family: Georgia, serif; font-size: 13px; font-weight: 700; }
+.page p { margin: 0; text-align: justify; }
+.page img { max-width: 100%; max-height: 200px; object-fit: contain; align-self: center; }
+.ph { border: 1.5px dashed #9aa5a2; color: #5a6664; text-align: center; padding: 18px 8px; font-family: var(--font-body); font-size: 12px; border-radius: 4px; }
+.steps { display: flex; flex-direction: column; gap: 8px; }
+.step { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 10px; border: 1px solid var(--line); border-radius: 8px; padding: 10px; background: var(--bg); }
+.step .n { font-family: var(--font-head); font-weight: 700; font-size: 18px; color: var(--accent); }
+.step b { font-weight: 600; }
+.badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.badge { font-size: 11px; border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; color: var(--muted); background: var(--surface); }
+pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px; overflow: auto; max-height: 520px; font-size: 12px; line-height: 1.45; }
+.sr { position: absolute; left: -9999px; }
+@media (prefers-reduced-motion: no-preference) { .btn, .mod, .tab { transition: background .12s, border-color .12s; } }
+.drive { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.drive h2 { margin: 0; font-size: 15px; }
+.drow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.drow input[type=text] { flex: 1 1 260px; min-width: 0; }
+.dfolder { color: var(--muted); overflow-wrap: anywhere; min-width: 0; }
+.picker { border: 1px solid var(--line); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px; background: var(--surface2); }
+.crumbs { display: flex; flex-wrap: wrap; gap: 4px; }
+.crumb { border: 0; background: var(--surface); border-radius: 6px; padding: 3px 8px; cursor: pointer; font: inherit; color: var(--ink); }
+.flist { display: flex; flex-direction: column; gap: 4px; max-height: 240px; overflow-y: auto; }
+.fitem { text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 7px 10px; cursor: pointer; font: inherit; color: var(--ink); }
+.fitem:hover { border-color: var(--accent); }
+.note.ok { background: var(--chip); color: var(--chip-ink); border-color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="wrap" id="app"></div>
+<script src="/vendor/jszip.min.js"></script>
+<script>
+(function () {
+  var W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  var R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  var A = 'http://schemas.openxmlformats.org/drawingml/2006/main';
+  var V = 'urn:schemas-microsoft-com:vml';
+  var KEY = 'hya-generation-v1';
+  var TYPES = {
+    portada: { n: 'Portada', d: 'Paso con los datos de la portada: conjunto, apartamento, fecha y elaboradores.' },
+    texto: { n: 'Texto', d: 'Paso con el texto editable. Las variables se llenan en cada informe.' },
+    imagenes: { n: 'Imágenes y planos', d: 'Paso con las imágenes del módulo. Cada una tiene un rol: fija en todo el grupo, igual por subgrupo o propia de cada informe.' },
+    galeria: { n: 'Fotos por espacio', d: 'Paso donde se suben las fotos de cada espacio, una por página.' },
+    pegado: { n: 'Imágenes pegadas', d: 'Paso donde se pegan imágenes copiadas, por ejemplo desde Excel.' },
+    tabla: { n: 'Tabla', d: 'Tabla del formato que se conserva igual en cada informe.' },
+    firmas: { n: 'Firmas', d: 'Paso con la firma de quienes suscriben el informe.' }
+  };
+  var ROLES = { fija: 'Fija en todo el grupo', subgrupo: 'Igual por subgrupo', informe: 'Propia de cada informe' };
+  var BUILTIN = { seguro: 'Aseguradora', poliza: 'Póliza', siniestro: 'Siniestro', valor: 'Valor total' };
+  var S = { namesOpen: false, namesText: '', dl: null, mods: [], vars: [], imgs: [], sel: 0, tab: 'mod', file: '', sample: true, busy: false, err: '', drag: false, confirmDel: false, copied: false };
+  var uid = 0;
+  var newId = function () { uid += 1; return 'm' + Date.now().toString(36) + uid; };
+  var root = document.getElementById('app');
+
+  function h(tag, attrs, kids) {
+    var el = document.createElement(tag);
+    Object.keys(attrs || {}).forEach(function (k) {
+      var v = attrs[k];
+      if (v == null || v === false) return;
+      if (k === 'class') el.className = v;
+      else if (k === 'text') el.textContent = v;
+      else if (k.indexOf('on') === 0) el.addEventListener(k.slice(2), v);
+      else if (k === 'value') el.value = v;
+      else if (v === true) el.setAttribute(k, '');
+      else el.setAttribute(k, v);
+    });
+    (kids || []).forEach(function (c) { if (c == null || c === false) return; el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
+    return el;
+  }
+  var norm = function (t) { return String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); };
+  var upperRatio = function (t) { var l = String(t).replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ]/g, ''); if (!l) return 0; return l.replace(/[^A-ZÁÉÍÓÚÑ]/g, '').length / l.length; };
+
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify({ mods: S.mods, vars: S.vars, imgs: S.imgs, file: S.file, sample: S.sample })); }
+    catch (e) {
+      try { localStorage.setItem(KEY, JSON.stringify({ mods: S.mods, vars: S.vars, imgs: [], file: S.file, sample: S.sample })); } catch (e2) {}
+    }
+  }
+  function load() {
+    try {
+      var s = JSON.parse(localStorage.getItem(KEY) || 'null');
+      if (s && s.mods && s.mods.length && s.mods.every(function (m) { return m && typeof m.text === 'string' && Array.isArray(m.items) && m.titulo != null; })) { S.mods = s.mods; S.vars = s.vars || []; S.imgs = s.imgs || []; S.file = s.file || ''; S.sample = !!s.sample; return true; }
+    } catch (e) {}
+    return false;
+  }
+
+  var TAB_LIST = ['PORTADA', 'INTRODUCCION', 'INFORME', 'FACHADA 1', '  PRINCIPAL-A', '  POSTERIOR-A', '  LATERAL IZQUIERDA-A', '  LATERAL DERECHA-A', 'FACHADA 2', '  PRINCIPAL-B', '  POSTERIOR-B', '  LATERAL IZQUIERDA-B', '  LATERAL DERECHA-B', 'FACHADA 3', '  PRINCIPAL C', '  POSTERIOR C', '  LATERAL IZQ C', '  LATERAL DER C', 'PUNTOS FIJOS 1', '  PFA (1-4)-A', '  PFA (5-8)-A', '  PFA (9-12)-A', 'PUNTOS FIJOS 2', '  PFB (1-4)-B', '  PFB (5-8)-B', '  PFB (9-12)-B', 'PUNTOS FIJOS 3', '  PFC (1-4)-C', '  PFC (5-8)-C', '  PFC (9-12)-C', 'PARQUEADEROS', 'PRESUPUESTO', 'CONCLUSIONES'];
+  function nameLines(txt) {
+    return String(txt || '').split(/\r?\n/).map(function (l) {
+      var sub = /^(\s{2,}|\t+|[-–·•>]+\s*)/.test(l);
+      var n = l.replace(/^[\s\-–·•>]+/, '').trim();
+      return n ? { n: n, nivel: sub ? 1 : 0 } : null;
+    }).filter(Boolean);
+  }
+  function guessTipo(name, idx) {
+    var t = norm(name);
+    if (idx === 0 && /portada/.test(t)) return 'portada';
+    if (/firma|elabor/.test(t)) return 'firmas';
+    if (/memoria|presupuesto/.test(t)) return 'pegado';
+    return 'texto';
+  }
+  function newTab(name, nivel, idx) {
+    var tipo = guessTipo(name, idx);
+    return { id: newId(), tipo: tipo, titulo: name, orient: 'v', obligatorio: tipo === 'portada' || /introduc|informe|conclusi/.test(norm(name)), text: '', items: [], nivel: nivel };
+  }
+  function sampleData() {
+    var mods = nameLines(TAB_LIST.join('\n')).map(function (x, i) { return newTab(x.n, x.nivel, i); });
+    mods[1].text = 'El presente informe técnico documenta, localiza, cuantifica y presupuesta los daños presentados en las zonas comunes del conjunto residencial, como consecuencia del sismo ocurrido el 10 de agosto de 2026.\n\nSe presenta ante {{SEGURO}}, en el marco de la póliza No. {{POLIZA}} y el siniestro No. {{SINIESTRO}}.\n\nLa inspección fue realizada por profesionales de la arquitectura y la ingeniería civil, quienes verificaron en sitio las zonas comunes que conforman el conjunto.';
+    mods[2].text = 'El presente informe se estructura por capítulos, correspondientes a los componentes inspeccionados. Para cada uno se presentan los hallazgos identificados.\n\n## PLANOS Y REGISTRO FOTOGRÁFICO\n\nEn este informe se exponen algunas de las fotos con los hallazgos correspondientes a cada espacio.';
+    mods[mods.length - 1].text = 'Los costos fueron calculados mediante análisis de precios unitarios (APU), con valores de mercado vigentes, y consolidados en el presupuesto detallado. El valor total asciende a {{VALOR}}.\n\nSe solicita a {{SEGURO}} la revisión del presente informe y, conforme a las coberturas de la póliza No. {{POLIZA}}, el reconocimiento y desembolso del valor presupuestado dentro del siniestro No. {{SINIESTRO}}.';
+    var vars = [
+      { key: 'seguro', label: 'Aseguradora', ejemplo: 'SBS Seguros Colombia S.A.', global: true },
+      { key: 'poliza', label: 'Póliza', ejemplo: '1000252', global: true },
+      { key: 'siniestro', label: 'Siniestro', ejemplo: '003-535-1000101', global: true },
+      { key: 'valor', label: 'Valor total', ejemplo: '$[VALOR TOTAL]', global: false }
+    ];
+    return { mods: mods, vars: vars };
+  }
+  var kids = function (el, n) { return Array.prototype.filter.call(el.children, function (c) { return c.localName === n; }); };
+  var kid = function (el, n) { return kids(el, n)[0] || null; };
+  var wv = function (el, n) { var k = el && kid(el, n); return k ? k.getAttributeNS(W, 'val') : null; };
+
+  function runInfo(r) {
+    var rp = kid(r, 'rPr'), hl = false, b = false;
+    if (rp) {
+      var hv = wv(rp, 'highlight');
+      if (hv && hv !== 'none') hl = true;
+      var sh = kid(rp, 'shd');
+      if (sh) { var f = (sh.getAttributeNS(W, 'fill') || '').toLowerCase(); if (f && f !== 'auto' && f !== 'ffffff') hl = true; }
+      var bb = kid(rp, 'b');
+      if (bb) { var bv = bb.getAttributeNS(W, 'val'); b = !(bv === '0' || bv === 'false'); }
+    }
+    var t = '';
+    Array.prototype.forEach.call(r.children, function (c) {
+      if (c.localName === 't') t += c.textContent;
+      else if (c.localName === 'tab') t += ' ';
+      else if (c.localName === 'br' && c.getAttributeNS(W, 'type') !== 'page') t += ' ';
+    });
+    var imgs = Array.prototype.map.call(r.getElementsByTagNameNS(A, 'blip'), function (x) { return x.getAttributeNS(R, 'embed'); });
+    Array.prototype.forEach.call(r.getElementsByTagNameNS(V, 'imagedata'), function (x) { imgs.push(x.getAttributeNS(R, 'id')); });
+    return { t: t, hl: hl, b: b, imgs: imgs.filter(Boolean) };
+  }
+  function parsePara(p) {
+    var ppr = kid(p, 'pPr');
+    var runs = Array.prototype.map.call(p.getElementsByTagNameNS(W, 'r'), runInfo);
+    var text = runs.map(function (r) { return r.t; }).join('');
+    var imgs = [];
+    runs.forEach(function (r) { r.imgs.forEach(function (i) { imgs.push(i); }); });
+    var withText = runs.filter(function (r) { return r.t.trim(); });
+    return { k: 'p', style: ppr ? wv(ppr, 'pStyle') : '', runs: runs, text: text, imgs: imgs, bold: withText.length > 0 && withText.every(function (r) { return r.b; }), sect: ppr ? kid(ppr, 'sectPr') : null };
+  }
+  function orientOf(sp) {
+    var pg = sp && kid(sp, 'pgSz');
+    if (!pg) return 'v';
+    var o = pg.getAttributeNS(W, 'orient'), w = +pg.getAttributeNS(W, 'w'), hh = +pg.getAttributeNS(W, 'h');
+    return o === 'landscape' || w > hh ? 'h' : 'v';
+  }
+  function headLevel(b) {
+    if (b.k !== 'p' || b.imgs.length) return 0;
+    var t = b.text.trim();
+    if (!t || t.length > 90) return 0;
+    var st = b.style || '';
+    var m = /^(heading|ttulo|titulo|título)(\d)?$/i.exec(st);
+    if (m) return m[2] && +m[2] > 1 && !(upperRatio(t) > 0.9 && t.length >= 6 && !/[.:;,]$/.test(t)) ? +m[2] : 1;
+    if (/^title$/i.test(st)) return 1;
+    if (/^\d+[.)]\s+\S/.test(t) && upperRatio(t) > 0.7) return 1;
+    if (/^\d+\.\d+[.)]?\s+\S/.test(t) && b.bold) return 2;
+    if (upperRatio(t) > 0.9 && t.length >= 6 && !/[.:;,]$/.test(t) && b.bold) return 1;
+    return 0;
+  }
+
+  async function shrink(uri) {
+    return new Promise(function (res) {
+      var im = new Image();
+      im.onload = function () {
+        var r = Math.min(1, 640 / Math.max(im.width, im.height, 1));
+        var c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(im.width * r)); c.height = Math.max(1, Math.round(im.height * r));
+        var x = c.getContext('2d');
+        x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0, c.width, c.height);
+        res(c.toDataURL('image/jpeg', 0.72));
+      };
+      im.onerror = function () { res(null); };
+      im.src = uri;
+    });
+  }
+
+  async function parseDocx(buf) {
+    var zip = await JSZip.loadAsync(buf);
+    var xml = await zip.file('word/document.xml').async('string');
+    var doc = new DOMParser().parseFromString(xml, 'application/xml');
+    var rels = {};
+    var rf = zip.file('word/_rels/document.xml.rels');
+    if (rf) {
+      var rd = new DOMParser().parseFromString(await rf.async('string'), 'application/xml');
+      Array.prototype.forEach.call(rd.getElementsByTagName('Relationship'), function (x) { rels[x.getAttribute('Id')] = x.getAttribute('Target'); });
+    }
+    var body = doc.getElementsByTagNameNS(W, 'body')[0];
+    var ids = [];
+    Array.prototype.forEach.call(body.getElementsByTagNameNS(A, 'blip'), function (x) { ids.push(x.getAttributeNS(R, 'embed')); });
+    Array.prototype.forEach.call(body.getElementsByTagNameNS(V, 'imagedata'), function (x) { ids.push(x.getAttributeNS(R, 'id')); });
+    var imgs = [], idxOf = {};
+    var seen = {};
+    for (var i = 0; i < ids.length; i++) {
+      var id = ids[i];
+      if (!id || seen[id]) continue;
+      seen[id] = true;
+      if (imgs.length >= 150) { idxOf[id] = null; continue; }
+      var tg = rels[id] || '';
+      var ext = (/\.(\w+)$/.exec(tg) || [])[1];
+      var mime = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif' }[String(ext || '').toLowerCase()];
+      var zf = mime && zip.file('word/' + tg.replace(/^\/?(word\/)?/, ''));
+      var uri = null;
+      if (zf) uri = await shrink('data:' + mime + ';base64,' + await zf.async('base64'));
+      if (uri) { idxOf[id] = imgs.length; imgs.push(uri); } else idxOf[id] = null;
+    }
+
+    var blocks = [], pend = [], secN = 0;
+    Array.prototype.forEach.call(body.children, function (el) {
+      if (el.localName === 'p') {
+        var pb = parsePara(el);
+        pend.push(pb);
+        if (pb.sect) { var o = orientOf(pb.sect); pend.forEach(function (x) { x.orient = o; x.sec = secN; blocks.push(x); }); pend = []; secN += 1; }
+      } else if (el.localName === 'tbl') {
+        var rows = kids(el, 'tr');
+        var cells = [];
+        var ims = [];
+        Array.prototype.forEach.call(el.getElementsByTagNameNS(W, 'p'), function (pp) { var q = parsePara(pp); if (q.text.trim()) cells.push(q.text.trim()); q.imgs.forEach(function (x) { ims.push(x); }); });
+        pend.push({ k: 't', rows: rows.length, text: cells.slice(0, 4).join(' | '), imgs: ims });
+      } else if (el.localName === 'sectPr') {
+        var o2 = orientOf(el); pend.forEach(function (x) { x.orient = o2; x.sec = secN; blocks.push(x); }); pend = []; secN += 1;
+      }
+    });
+    pend.forEach(function (x) { x.orient = 'v'; x.sec = secN; blocks.push(x); });
+
+    var mods = [], cur = null;
+    var maxSec = secN;
+    blocks.forEach(function (b) { if (b.sec + 1 > maxSec) maxSec = b.sec + 1; });
+    var tabMode = maxSec >= 3;
+    var open = function (t, pre, sec) { cur = { id: newId(), tipo: 'texto', titulo: t, orient: 'v', obligatorio: false, blocks: [], pre: !!pre, _o: [], _sec: sec, nivel: 0 }; mods.push(cur); return cur; };
+    if (tabMode) { for (var si = 0; si < maxSec; si++) { open('Pestaña ' + (si + 1), si === 0, si); mods[si]._named = false; } }
+    blocks.forEach(function (b) {
+      var lv = headLevel(b);
+      if (tabMode) {
+        cur = mods[b.sec];
+        if (lv === 1) {
+          if (!cur._named && !cur.blocks.length) { cur.titulo = b.text.trim(); cur._named = true; cur.pre = false; }
+          else cur.blocks.push({ t: 'h', x: b.text.trim() });
+          return;
+        }
+        if (b.k === 'p' && !b.text.trim() && !b.imgs.length) return;
+      } else {
+      if (lv === 1) {
+        open(b.text.trim(), false, b.sec);
+        return;
+      }
+      if (b.k === 'p' && !b.text.trim() && !b.imgs.length) return;
+      if (!cur) open('Portada', true, b.sec);
+      else if (b.sec !== cur._sec && cur.blocks.length) open('Sección ' + (mods.length + 1), false, b.sec);
+      }
+      cur._o.push(b.orient);
+      if (lv === 2) { cur.blocks.push({ t: 'h', x: b.text.trim() }); return; }
+      if (b.k === 't') {
+        cur.blocks.push({ t: 'tabla', x: b.text, filas: b.rows });
+        b.imgs.forEach(function (r) { cur.blocks.push({ t: 'img', idx: idxOf[r] == null ? null : idxOf[r], rol: 'informe' }); });
+        return;
+      }
+      if (b.text.trim()) cur.blocks.push({ t: 'p', x: b.text, runs: b.runs });
+      b.imgs.forEach(function (r) { cur.blocks.push({ t: 'img', idx: idxOf[r] == null ? null : idxOf[r], rol: 'informe' }); });
+    });
+
+    var vars = [], byVal = {}, n = 0;
+    var hlCount = 0;
+    var okVal = function (t) { var v = t.trim(); return v && v.length <= 80 && /[A-Za-z0-9]/.test(v); };
+    mods.forEach(function (m) {
+      m.blocks.forEach(function (b) {
+        if (b.t !== 'p') return;
+        var buf = '';
+        b.runs.forEach(function (r) { if (r.hl) buf += r.t; else { if (okVal(buf)) hlCount += 1; buf = ''; } });
+        if (okVal(buf)) hlCount += 1;
+      });
+    });
+    var anyHl = hlCount >= 2;
+    var keyFor = function (value, before) {
+      var bf = norm(before).slice(-48);
+      var key = null;
+      if (/poliza/.test(bf)) key = 'poliza';
+      else if (/siniestro/.test(bf)) key = 'siniestro';
+      else if (/(\bante|aseguradora|solicita a|compania)\s*$/.test(bf)) key = 'seguro';
+      else if (/^\$/.test(value) || /(valor|total|asciende)/.test(bf)) key = 'valor';
+      if (byVal[value]) return byVal[value];
+      if (!key || vars.some(function (v) { return v.key === key; })) { n += 1; key = key && !vars.some(function (v) { return v.key === key; }) ? key : 'var' + n; }
+      vars.push({ key: key, label: BUILTIN[key] || 'Variable ' + n, ejemplo: value, global: false });
+      byVal[value] = key;
+      return key;
+    };
+    var tag = function (k) { return '{{' + k.toUpperCase() + '}}'; };
+    mods.forEach(function (m) {
+      m.blocks.forEach(function (b) {
+        if (b.t !== 'p') return;
+        if (anyHl) {
+          var out = '', buf = '', acc = '';
+          var flush = function () {
+            if (!buf) return;
+            var val = buf.trim();
+            if (val && val.length <= 80 && /[A-Za-z0-9]/.test(val)) out += buf.replace(val, tag(keyFor(val, acc))); else out += buf;
+            acc += buf; buf = '';
+          };
+          b.runs.forEach(function (r) {
+            if (r.hl) buf += r.t; else { flush(); out += r.t; acc += r.t; }
+          });
+          flush();
+          b.x = out;
+        } else {
+          var rules = [
+            { k: 'seguro', rx: /\bante\s+(?!el\b|la\b|los\b|las\b)([^,]{3,80}?)(?=,|\s+en el marco)/gi },
+            { k: 'seguro', rx: /\bsolicita\s+a\s+([^,]{3,80}?)\s+la\s+revisi[oó]n/gi },
+            { k: 'poliza', rx: /p[oó]liza\s+(?:No\.?|N[°º]\.?|n[uú]mero)?\s*(\d[\w-]*)/gi },
+            { k: 'siniestro', rx: /siniestro\s+(?:No\.?|N[°º]\.?|n[uú]mero)?\s*(\d[\d-]*)/gi },
+            { k: 'valor', rx: /(\$\s?\[[^\]]*\]|\$\s?\d[\d.,]*)/g }
+          ];
+          rules.forEach(function (ru) {
+            b.x = b.x.replace(ru.rx, function (m0, g) {
+              var ex = vars.filter(function (v) { return v.key === ru.k; })[0];
+              if (!ex) vars.push({ key: ru.k, label: BUILTIN[ru.k], ejemplo: g, global: false });
+              return m0.replace(g, tag(ru.k));
+            });
+          });
+        }
+        delete b.runs;
+      });
+    });
+    mods.forEach(function (m) {
+      var c = m._o.filter(function (o) { return o === 'h'; }).length;
+      m.orient = m._o.length && c * 2 > m._o.length ? 'h' : 'v';
+      delete m._o;
+      var nImg = m.blocks.filter(function (b) { return b.t === 'img'; }).length;
+      var nTxt = m.blocks.filter(function (b) { return b.t === 'p'; }).length;
+      var t = norm(m.titulo);
+      if (m.pre) { m.tipo = 'portada'; m.obligatorio = true; }
+      else if (/firma|elabor/.test(t)) m.tipo = 'firmas';
+      else if (/memoria|presupuesto/.test(t)) m.tipo = 'pegado';
+      else if (/registro|fotogr/.test(t) || nImg > 5) m.tipo = 'galeria';
+      else if (/plano/.test(t) || (nImg >= 1 && nTxt <= 2)) m.tipo = 'imagenes';
+      else if (!nTxt && m.blocks.some(function (b) { return b.t === 'tabla'; })) m.tipo = 'tabla';
+      else m.tipo = 'texto';
+      delete m.pre; delete m._sec; delete m._named;
+      m.text = m.blocks.filter(function (b) { return b.t === 'p' || b.t === 'h'; }).map(function (b) { return b.t === 'h' ? '## ' + b.x : b.x.replace(/\s+/g, ' ').trim(); }).filter(Boolean).join('\n\n');
+      m.items = m.blocks.filter(function (b) { return b.t === 'img' || b.t === 'tabla'; });
+      delete m.blocks;
+    });
+    return { mods: mods, vars: vars, imgs: imgs };
+  }
+
+  function cur() { return S.mods[S.sel] || null; }
+  function touch() { save(); }
+  function varLabel(k) { var v = S.vars.filter(function (x) { return x.key === k; })[0]; return v ? v.label : k; }
+  function usedVars(m) {
+    var out = [];
+    String(m.text || '').replace(/\{\{([A-Z0-9_]+)\}\}/g, function (a, k) { var kk = k.toLowerCase(); if (out.indexOf(kk) < 0) out.push(kk); return a; });
+    return out;
+  }
+  function withChips(txt, parent) {
+    var parts = String(txt || '').split(/(\{\{[A-Z0-9_]+\}\})/);
+    parts.forEach(function (s) {
+      var m = /^\{\{([A-Z0-9_]+)\}\}$/.exec(s);
+      if (m) parent.appendChild(h('span', { class: 'chip', text: varLabel(m[1].toLowerCase()) }));
+      else if (s) parent.appendChild(document.createTextNode(s));
+    });
+    return parent;
+  }
+  function move(arr, i, d) { var j = i + d; if (j < 0 || j >= arr.length) return; var t = arr[i]; arr[i] = arr[j]; arr[j] = t; }
+  function removeVar(key) {
+    var rx = new RegExp('\\s*\\{\\{' + key.toUpperCase() + '\\}\\}', 'g');
+    S.mods.forEach(function (m) { m.text = String(m.text || '').replace(rx, '').replace(/ {2,}/g, ' '); });
+    S.vars = S.vars.filter(function (v) { return v.key !== key; });
+  }
+  function listPanel() {
+    var items = S.mods.map(function (m, i) {
+      return h('div', { class: 'mod' + (i === S.sel ? ' on' : '') + (m.nivel ? ' sub' : ''), role: 'button', tabindex: '0', onclick: function () { S.sel = i; S.confirmDel = false; S.tab = 'mod'; render(); }, onkeydown: function (e) { if (e.key === 'Enter') { S.sel = i; S.tab = 'mod'; render(); } } }, [
+        h('div', { style: 'min-width:0' }, [h('div', { class: 't', text: m.titulo || 'Sin título' }), h('div', { class: 'k', text: (i + 1) + '. ' + TYPES[m.tipo].n + (m.orient === 'h' ? ' · horizontal' : '') + (m.obligatorio ? ' · obligatorio' : '') + (!m.text && !(m.items || []).length && m.tipo === 'texto' ? ' · página vacía' : '') })]),
+        h('div', { class: 'mv' }, [
+          h('button', { class: 'mini', type: 'button', title: 'Subir', 'aria-label': 'Subir módulo', onclick: function (e) { e.stopPropagation(); move(S.mods, i, -1); if (S.sel === i) S.sel = Math.max(0, i - 1); touch(); render(); } }, ['↑']),
+          h('button', { class: 'mini', type: 'button', title: 'Bajar', 'aria-label': 'Bajar módulo', onclick: function (e) { e.stopPropagation(); move(S.mods, i, 1); if (S.sel === i) S.sel = Math.min(S.mods.length - 1, i + 1); touch(); render(); } }, ['↓'])
+        ])
+      ]);
+    });
+    var sel = h('select', { id: 'newtype', 'aria-label': 'Tipo de módulo nuevo' }, Object.keys(TYPES).map(function (k) { return h('option', { value: k, text: TYPES[k].n }); }));
+    sel.value = S.newType || 'texto';
+    sel.addEventListener('change', function () { S.newType = sel.value; });
+    var nb = null;
+    if (S.namesOpen) {
+      var nta = h('textarea', { id: 'names', 'aria-label': 'Nombres de las pestañas', placeholder: 'PORTADA\nINTRODUCCION\nFACHADA 1\n  PRINCIPAL-A\n  POSTERIOR-A' });
+      nta.value = S.namesText || '';
+      nta.addEventListener('input', function () { S.namesText = nta.value; });
+      nb = h('div', { class: 'namesbox' }, [
+        h('p', { class: 'hint', text: 'Una pestaña por línea, en el orden del documento. Las subpestañas llevan sangría (dos espacios o un guion). Se renombran los módulos en orden y, si sobran líneas, se añaden módulos vacíos.' }),
+        nta,
+        h('div', { class: 'row2' }, [
+          h('button', { class: 'btn sm', type: 'button', onclick: function () {
+            var ls = nameLines(S.namesText);
+            if (!ls.length) return;
+            ls.forEach(function (x, i) {
+              if (S.mods[i]) { var mm = S.mods[i]; mm.titulo = x.n; mm.nivel = x.nivel; if (!mm.text && !(mm.items || []).length) { mm.tipo = guessTipo(x.n, i); mm.obligatorio = mm.tipo === 'portada' || /introduc|informe|conclusi/.test(norm(x.n)); } }
+              else S.mods.push(newTab(x.n, x.nivel, i));
+            });
+            S.namesOpen = false; touch(); render();
+          } }, ['Aplicar nombres']),
+          h('button', { class: 'btn sm', type: 'button', onclick: function () { S.namesOpen = false; render(); } }, ['Cerrar'])
+        ])
+      ]);
+    }
+    return h('aside', { class: 'side' }, [
+      h('h2', { text: 'Módulos del formato' }),
+      h('div', { class: 'mods' }, items.length ? items : [h('p', { class: 'hint', text: 'Sin módulos. Sube un Word o añade uno.' })]),
+      h('div', { class: 'add' }, [sel, h('button', { class: 'btn sm', type: 'button', onclick: function () {
+        var tipo = sel.value, m = { id: newId(), tipo: tipo, titulo: TYPES[tipo].n.toUpperCase(), orient: 'v', obligatorio: false, text: '', items: [] };
+        if (tipo === 'imagenes') m.items.push({ t: 'img', idx: null, rol: 'informe' });
+        m.nivel = cur() ? (cur().nivel || 0) : 0;
+        S.mods.splice(S.sel + 1, 0, m); S.sel = S.sel + 1; S.tab = 'mod'; touch(); render();
+      } }, ['Añadir'])]),
+      h('div', null, [h('button', { class: 'btn sm', type: 'button', onclick: function () {
+        S.namesOpen = !S.namesOpen;
+        if (S.namesOpen && !S.namesText) S.namesText = S.mods.map(function (m) { return (m.nivel ? '  ' : '') + m.titulo; }).join('\n');
+        render();
+      } }, ['Nombres de las pestañas'])]),
+      nb
+    ]);
+  }
+
+  function readImage(file, cb) {
+    var fr = new FileReader();
+    fr.onload = function () { shrink(String(fr.result)).then(function (u) { if (u) cb(u); }); };
+    fr.readAsDataURL(file);
+  }
+
+  function itemEditor(m, b, i) {
+    var row = h('div', { class: 'row' }, []);
+    row.appendChild(h('span', { class: 'tag', text: b.t === 'tabla' ? 'Tabla' : 'Imagen' }));
+    var out = h('div', { class: 'blk' }, [row]);
+    if (b.t === 'tabla') {
+      out.appendChild(h('p', { class: 'hint', text: 'Tabla de ' + (b.filas || '?') + ' filas. Primeras celdas: ' + (b.x || 'sin texto') }));
+    } else {
+      var rs = h('select', { 'aria-label': 'Rol de la imagen' }, Object.keys(ROLES).map(function (k) { return h('option', { value: k, text: ROLES[k] }); }));
+      rs.value = b.rol || 'informe';
+      rs.addEventListener('change', function () { b.rol = rs.value; touch(); render(); });
+      row.appendChild(rs);
+      if (b.idx != null && S.imgs[b.idx]) out.appendChild(h('img', { class: 'thumb', src: S.imgs[b.idx], alt: 'Imagen del formato' }));
+      else out.appendChild(h('div', { class: 'slot', text: b.rol === 'informe' ? 'Espacio para la imagen propia de cada informe' : 'Sin archivo. Sube la imagen ' + (b.rol === 'fija' ? 'fija del grupo' : 'de cada subgrupo') + ' aquí o en el grupo.' }));
+      if (b.rol !== 'informe') {
+        var fi = h('input', { type: 'file', accept: 'image/*', class: 'sr', id: 'fi' + i, tabindex: '-1' });
+        fi.addEventListener('change', function () { if (fi.files[0]) readImage(fi.files[0], function (u) { S.imgs.push(u); b.idx = S.imgs.length - 1; touch(); render(); }); });
+        row.appendChild(fi);
+        row.appendChild(h('button', { class: 'btn sm', type: 'button', onclick: function () { fi.click(); } }, [b.idx != null ? 'Cambiar archivo' : 'Subir archivo']));
+      }
+    }
+    row.appendChild(h('button', { class: 'mini', type: 'button', 'aria-label': 'Subir', onclick: function () { move(m.items, i, -1); touch(); render(); } }, ['↑']));
+    row.appendChild(h('button', { class: 'mini', type: 'button', 'aria-label': 'Bajar', onclick: function () { move(m.items, i, 1); touch(); render(); } }, ['↓']));
+    row.appendChild(h('button', { class: 'btn sm danger', type: 'button', onclick: function () { m.items.splice(i, 1); touch(); render(); } }, ['Quitar']));
+    return out;
+  }
+  function modulePanel() {
+    var m = cur();
+    if (!m) return h('div', { class: 'panel' }, [h('p', { class: 'hint', text: 'Elige un módulo de la lista.' })]);
+    var title = h('input', { type: 'text', id: 'mt', 'aria-label': 'Título' });
+    title.value = m.titulo; title.addEventListener('input', function () { m.titulo = title.value; touch(); });
+    title.addEventListener('change', render);
+    var tipo = h('select', { id: 'mtipo' }, Object.keys(TYPES).map(function (k) { return h('option', { value: k, text: TYPES[k].n }); }));
+    tipo.value = m.tipo; tipo.addEventListener('change', function () { m.tipo = tipo.value; touch(); render(); });
+    var ori = h('select', { id: 'mori' }, [h('option', { value: 'v', text: 'Vertical' }), h('option', { value: 'h', text: 'Horizontal' })]);
+    ori.value = m.orient; ori.addEventListener('change', function () { m.orient = ori.value; touch(); render(); });
+    var niv = h('select', { id: 'mniv' }, [h('option', { value: '0', text: 'Pestaña principal' }), h('option', { value: '1', text: 'Subpestaña de la anterior' })]);
+    niv.value = m.nivel ? '1' : '0'; niv.addEventListener('change', function () { m.nivel = niv.value === '1' ? 1 : 0; touch(); render(); });
+    var ob = h('input', { type: 'checkbox', id: 'mob' }); ob.checked = !!m.obligatorio;
+    ob.addEventListener('change', function () { m.obligatorio = ob.checked; touch(); render(); });
+    var ta = h('textarea', { id: 'mtext', class: 'big', 'aria-label': 'Texto del módulo', placeholder: 'Escribe o pega aquí el texto completo del módulo. Deja una línea en blanco entre párrafos.' });
+    ta.value = m.text || '';
+    ta.addEventListener('input', function () { m.text = ta.value; touch(); });
+    var ins = h('select', { 'aria-label': 'Insertar variable' }, [h('option', { value: '', text: 'Insertar variable…' })].concat(S.vars.map(function (v) { return h('option', { value: v.key, text: v.label }); })));
+    ins.addEventListener('change', function () {
+      if (!ins.value) return;
+      var t = '{{' + ins.value.toUpperCase() + '}}', st = ta.selectionStart == null ? ta.value.length : ta.selectionStart, en = ta.selectionEnd == null ? st : ta.selectionEnd;
+      ta.value = ta.value.slice(0, st) + t + ta.value.slice(en); m.text = ta.value; touch(); ins.value = ''; ta.focus(); ta.selectionStart = ta.selectionEnd = st + t.length;
+    });
+    var hid = m.tipo === 'galeria' || m.tipo === 'pegado';
+    var shown = m.items.map(function (b, i) { return { b: b, i: i }; }).filter(function (x) { return !(hid && x.b.t === 'img'); });
+    var hiddenN = m.items.length - shown.length;
+    var del = S.confirmDel
+      ? h('button', { class: 'btn danger', type: 'button', onclick: function () { S.mods.splice(S.sel, 1); S.sel = Math.max(0, S.sel - 1); S.confirmDel = false; touch(); render(); } }, ['Confirmar: quitar módulo'])
+      : h('button', { class: 'btn danger', type: 'button', onclick: function () { S.confirmDel = true; render(); } }, ['Quitar módulo']);
+    var split = h('button', { class: 'btn sm', type: 'button', title: 'Corta el texto en la posición del cursor y crea un módulo nuevo con lo que sigue', onclick: function () {
+      var pos = ta.selectionStart == null ? ta.value.length : ta.selectionStart;
+      var nm = { id: newId(), tipo: 'texto', nivel: m.nivel || 0, titulo: 'NUEVO MÓDULO', orient: m.orient, obligatorio: false, text: ta.value.slice(pos).trim(), items: [] };
+      m.text = ta.value.slice(0, pos).trim();
+      S.mods.splice(S.sel + 1, 0, nm); S.sel += 1; touch(); render();
+    } }, ['Dividir aquí']);
+    var next = S.mods[S.sel + 1];
+    var join = h('button', { class: 'btn sm', type: 'button', disabled: next ? null : true, onclick: function () {
+      m.text = ((ta.value || '') + '\n\n' + (next.text || '')).trim(); m.items = m.items.concat(next.items || []);
+      S.mods.splice(S.sel + 1, 1); touch(); render();
+    } }, ['Unir con el siguiente']);
+    return h('div', { class: 'panel' }, [
+      h('h2', { text: m.titulo || 'Módulo sin título' }),
+      h('div', { class: 'grid2' }, [
+        h('label', { class: 'f', for: 'mt' }, ['Título del módulo', title]),
+        h('label', { class: 'f', for: 'mtipo' }, ['Tipo', tipo]),
+        h('label', { class: 'f', for: 'mori' }, ['Orientación de la página', ori]),
+        h('label', { class: 'f', for: 'mniv' }, ['Nivel de la pestaña', niv])
+      ]),
+      h('label', { class: 'chk', for: 'mob' }, [ob, 'Obligatorio: el informe no se marca completo sin este módulo']),
+      h('p', { class: 'hint', text: 'Genera en el editor de informes: ' + TYPES[m.tipo].d }),
+      h('div', { class: 'row2' }, [h('label', { class: 'f', for: 'mtext', style: 'flex:1' }, ['Texto del módulo']), ins, split, join]),
+      ta,
+      h('p', { class: 'hint', text: 'Una línea que empieza con ## es un subtítulo. Las variables se escriben como {{ASEGURADORA}} y se insertan con el selector.' }),
+      hiddenN ? h('p', { class: 'hint', text: hiddenN + ' imágenes del Word de ejemplo no se guardan en el formato. Cada informe trae las suyas.' }) : null,
+      shown.length || m.tipo === 'imagenes' ? h('div', { class: 'blocks' }, shown.map(function (x) { return itemEditor(m, x.b, x.i); })) : null,
+      m.tipo === 'imagenes' ? h('div', null, [h('button', { class: 'btn sm', type: 'button', onclick: function () { m.items.push({ t: 'img', idx: null, rol: 'informe' }); touch(); render(); } }, ['+ Imagen'])]) : null,
+      h('div', null, [del])
+    ]);
+  }
+  function pageFor(m, i) {
+    var pg = h('div', { class: 'page ' + (m.orient === 'h' ? 'h' : 'v') }, []);
+    if (m.tipo !== 'portada') pg.appendChild(h('h4', { text: m.titulo }));
+    String(m.text || '').split(/\n\s*\n/).forEach(function (c) {
+      c = c.trim();
+      if (!c) return;
+      if (c.indexOf('## ') === 0) pg.appendChild(withChips(c.slice(3), h('h5')));
+      else pg.appendChild(withChips(c.replace(/\s*\n\s*/g, ' '), h('p')));
+    });
+    (m.items || []).forEach(function (b) {
+      if (b.t === 'tabla') pg.appendChild(h('div', { class: 'ph', text: 'Tabla fija del formato: ' + (b.x || '') }));
+      else if (b.t === 'img' && m.tipo !== 'galeria' && m.tipo !== 'pegado') {
+        if (b.idx != null && S.imgs[b.idx]) pg.appendChild(h('img', { src: S.imgs[b.idx], alt: ROLES[b.rol] }));
+        else pg.appendChild(h('div', { class: 'ph', text: 'Imagen: ' + ROLES[b.rol] }));
+      }
+    });
+    if (m.tipo === 'portada') pg.appendChild(h('div', { class: 'ph', text: 'Portada: conjunto, apartamento, fecha y elaboradores' }));
+    if (m.tipo === 'galeria') pg.appendChild(h('div', { class: 'ph', text: 'Fotos por espacio, una por página' }));
+    if (m.tipo === 'pegado') pg.appendChild(h('div', { class: 'ph', text: 'Imágenes pegadas en el informe, a todo el ancho' }));
+    if (m.tipo === 'firmas') pg.appendChild(h('div', { class: 'ph', text: 'Firma de quien suscribe' }));
+    return h('div', { class: 'pwrap' }, [h('div', { class: 'plabel', text: 'Módulo ' + (i + 1) + (m.nivel ? ' (subpestaña)' : '') + ' · ' + TYPES[m.tipo].n + ' · ' + (m.orient === 'h' ? 'horizontal' : 'vertical') }), pg]);
+  }
+  function previewPanel() {
+    return h('div', { class: 'panel' }, [
+      h('h2', { text: 'Vista previa del formato' }),
+      h('p', { class: 'hint', text: 'Las variables aparecen como etiquetas. Las fotos, imágenes pegadas y firmas se muestran como espacios, porque las pone cada informe.' }),
+      h('div', { class: 'pages' }, S.mods.map(pageFor))
+    ]);
+  }
+
+  function varsPanel() {
+    var nm = h('input', { type: 'text', id: 'nv', placeholder: 'Nombre de la variable nueva', 'aria-label': 'Nombre de la variable nueva' });
+    var rows = S.vars.map(function (v) {
+      var lab = h('input', { type: 'text', 'aria-label': 'Nombre de ' + v.key }); lab.value = v.label;
+      lab.addEventListener('input', function () { v.label = lab.value; touch(); });
+      var ej = h('input', { type: 'text', 'aria-label': 'Ejemplo de ' + v.key }); ej.value = v.ejemplo || '';
+      ej.addEventListener('input', function () { v.ejemplo = ej.value; touch(); });
+      var gl = h('select', { 'aria-label': 'Ámbito de ' + v.key }, [h('option', { value: '0', text: 'Única en cada informe' }), h('option', { value: '1', text: 'Global del grupo' })]);
+      gl.value = v.global ? '1' : '0'; gl.addEventListener('change', function () { v.global = gl.value === '1'; touch(); });
+      var uses = 0;
+      S.mods.forEach(function (m) { if (usedVars(m).indexOf(v.key) > -1) uses += 1; });
+      return h('div', { class: 'vrow' }, [lab, ej, gl, h('span', { class: 'hint', text: uses + (uses === 1 ? ' módulo' : ' módulos') }), h('button', { class: 'btn sm danger', type: 'button', onclick: function () { removeVar(v.key); touch(); render(); } }, ['Quitar'])]);
+    });
+    return h('div', { class: 'panel' }, [
+      h('h2', { text: 'Variables del formato' }),
+      h('p', { class: 'hint', text: 'Salen de los textos de los módulos. Al quitar una variable se borra su marca de todos los textos. Revisa que no quede texto suelto que la mencione.' }),
+      h('div', { class: 'vtable' }, rows.length ? rows : [h('p', { class: 'hint', text: 'Este formato no tiene variables.' })]),
+      h('div', { class: 'grid2' }, [nm, h('div', null, [h('button', { class: 'btn', type: 'button', onclick: function () {
+        var label = nm.value.trim(); if (!label) return;
+        var key = norm(label).replace(/[^a-z]/g, '').slice(0, 24) || 'var';
+        var base = key, k = 1;
+        while (S.vars.some(function (v) { return v.key === key; })) { k += 1; key = base + String.fromCharCode(96 + Math.min(k, 26)); }
+        S.vars.push({ key: key, label: label, ejemplo: '', global: false }); touch(); render();
+      } }, ['Crear variable'])])])
+    ]);
+  }
+
+  function stepsPanel() {
+    var steps = S.mods.map(function (m, i) {
+      var uv = usedVars(m);
+      var badges = [h('span', { class: 'badge', text: TYPES[m.tipo].n })];
+      if (m.orient === 'h') badges.push(h('span', { class: 'badge', text: 'Página horizontal' }));
+      badges.push(h('span', { class: 'badge', text: m.obligatorio ? 'Obligatorio' : 'Opcional' }));
+      uv.forEach(function (k) { badges.push(h('span', { class: 'chip', text: varLabel(k) })); });
+      (m.items || []).filter(function (b) { return b.t === 'img' && m.tipo === 'imagenes'; }).forEach(function (b) { badges.push(h('span', { class: 'badge', text: ROLES[b.rol] })); });
+      return h('div', { class: 'step' }, [h('div', { class: 'n', text: String(i + 1) }), h('div', null, [h('b', { text: m.titulo }), h('div', { class: 'hint', text: TYPES[m.tipo].d }), h('div', { class: 'badges' }, badges)])]);
+    });
+    return h('div', { class: 'panel' }, [
+      h('h2', { text: 'Pasos del editor de informes' }),
+      h('p', { class: 'hint', text: 'Así quedaría el editor de cada informe de este grupo: un paso por módulo, en este orden, con sus variables.' }),
+      h('div', { class: 'steps' }, steps)
+    ]);
+  }
+
+  function exportJson() {
+    return {
+      version: 1, archivo: S.file || 'ejemplo',
+      modulos: S.mods.map(function (m) {
+        var skip = m.tipo === 'galeria' || m.tipo === 'pegado';
+        return {
+          id: m.id, tipo: m.tipo, titulo: m.titulo, nivel: m.nivel ? 1 : 0, orientacion: m.orient === 'h' ? 'horizontal' : 'vertical', obligatorio: !!m.obligatorio,
+          texto: m.text || '',
+          elementos: (m.items || []).filter(function (b) { return !(skip && b.t === 'img'); }).map(function (b) {
+            if (b.t === 'img') return { t: 'imagen', rol: b.rol, archivo: b.idx == null ? null : 'imagen-' + (b.idx + 1) };
+            return { t: 'tabla', filas: b.filas, resumen: b.x };
+          })
+        };
+      }),
+      variables: S.vars.map(function (v) { return { key: v.key, etiqueta: v.label, ejemplo: v.ejemplo, global: !!v.global }; })
+    };
+  }
+  function jsonPanel() {
+    var txt = JSON.stringify(exportJson(), null, 2);
+    var pre = h('pre', { class: 'json', text: txt });
+    return h('div', { class: 'panel' }, [
+      h('h2', { text: 'Formato en JSON' }),
+      h('p', { class: 'hint', text: 'Es lo que la app desplegada guardaría por grupo. Las imágenes no van dentro, solo su rol.' }),
+      h('div', null, [h('button', { class: 'btn', type: 'button', onclick: function () {
+        var done = function () { S.copied = true; render(); setTimeout(function () { S.copied = false; render(); }, 1600); };
+        var fb = function () { var r = document.createRange(); r.selectNodeContents(pre); var s = window.getSelection(); s.removeAllRanges(); s.addRange(r); };
+        try { navigator.clipboard.writeText(txt).then(done, fb); } catch (e) { fb(); }
+      } }, [S.copied ? 'Copiado' : 'Copiar JSON'])]),
+      pre
+    ]);
+  }
+
+  var NAVY = '1A1A1A', ACCENT = 'FBAA11', GRAY = '5F5F5F', BAND = 'FFF3D6', INK = '1F1F1F', FONT = 'Calibri';
+  var esc = function (t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
+  function rPr(o) {
+    var x = '';
+    if (o.font) x += '<w:rFonts w:ascii="' + o.font + '" w:hAnsi="' + o.font + '" w:cs="' + o.font + '"/>';
+    if (o.b) x += '<w:b/>';
+    if (o.i) x += '<w:i/>';
+    if (o.color) x += '<w:color w:val="' + o.color + '"/>';
+    if (o.sz) x += '<w:sz w:val="' + o.sz + '"/><w:szCs w:val="' + o.sz + '"/>';
+    if (o.hl) x += '<w:highlight w:val="yellow"/>';
+    return x ? '<w:rPr>' + x + '</w:rPr>' : '';
+  }
+  function run(t, o) { return '<w:r>' + rPr(o || {}) + '<w:t xml:space="preserve">' + esc(t) + '</w:t></w:r>'; }
+  function paraXml(runs, o) {
+    var p = '';
+    if (o.style) p += '<w:pStyle w:val="' + o.style + '"/>';
+    if (o.keep) p += '<w:keepNext/>';
+    var bd = '';
+    if (o.bb) bd += '<w:bottom w:val="single" w:sz="' + o.bb.sz + '" w:space="4" w:color="' + o.bb.c + '"/>';
+    if (o.bl) bd += '<w:left w:val="single" w:sz="' + o.bl.sz + '" w:space="6" w:color="' + o.bl.c + '"/>';
+    if (bd) p += '<w:pBdr>' + bd + '</w:pBdr>';
+    if (o.fill) p += '<w:shd w:val="clear" w:color="auto" w:fill="' + o.fill + '"/>';
+    p += '<w:spacing w:before="' + (o.before || 0) + '" w:after="' + (o.after == null ? 120 : o.after) + '"/>';
+    if (o.jc) p += '<w:jc w:val="' + o.jc + '"/>';
+    if (o.sect) p += o.sect;
+    return '<w:p><w:pPr>' + p + '</w:pPr>' + runs.join('') + '</w:p>';
+  }
+  function textRuns(txt, o) {
+    var out = [];
+    String(txt).split(/(\{\{[A-Z0-9_]+\}\})/).forEach(function (part) {
+      if (!part) return;
+      var m = /^\{\{([A-Z0-9_]+)\}\}$/.exec(part);
+      if (m) {
+        var v = S.vars.filter(function (x) { return x.key === m[1].toLowerCase(); })[0];
+        out.push(run(v && v.ejemplo ? v.ejemplo : '[' + (v ? v.label : m[1]) + ']', Object.assign({}, o, { hl: true })));
+      } else out.push(run(part, o));
+    });
+    return out;
+  }
+  function sectXml(m, styled) {
+    var land = m.orient === 'h';
+    var pg = land ? '<w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/>' : '<w:pgSz w:w="11906" w:h="16838"/>';
+    return '<w:sectPr>' + (styled ? '<w:footerReference w:type="default" r:id="rIdFoot"/>' : '') + '<w:type w:val="nextPage"/>' + pg + '<w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="567" w:footer="567" w:gutter="0"/></w:sectPr>';
+  }
+  function imgDims(uri) {
+    return new Promise(function (res) { var im = new Image(); im.onload = function () { res({ w: im.width, h: im.height }); }; im.onerror = function () { res({ w: 4, h: 3 }); }; im.src = uri; });
+  }
+  async function buildDocx(styled) {
+    var zip = new JSZip();
+    var media = [], nid = 100;
+    var drawing = async function (uri, land) {
+      var d = await imgDims(uri), maxW = land ? 8600000 : 5700000, maxH = land ? 4300000 : 6400000;
+      var sc = Math.min(maxW / d.w, maxH / d.h), cx = Math.round(d.w * sc), cy = Math.round(d.h * sc);
+      nid += 1;
+      var rid = 'rIdImg' + nid, name = 'image' + nid + '.jpg';
+      media.push({ rid: rid, name: name, data: uri.split(',')[1] });
+      return '<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="' + cx + '" cy="' + cy + '"/><wp:docPr id="' + nid + '" name="Imagen ' + nid + '"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="' + nid + '" name="' + name + '"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="' + rid + '"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="' + cx + '" cy="' + cy + '"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>';
+    };
+    var base = styled ? { font: FONT, sz: 22, color: INK } : {};
+    var ph = function (t) {
+      return styled
+        ? { runs: [run(t, { b: true, sz: 24, color: NAVY, font: FONT })], o: { fill: BAND, bl: { c: ACCENT, sz: 36 }, before: 120, after: 160 } }
+        : { runs: [run('[' + t + ']', { i: true, color: GRAY })], o: { after: 160 } };
+    };
+    var body = '';
+    for (var i = 0; i < S.mods.length; i++) {
+      var m = S.mods[i], ps = [];
+      if (m.tipo === 'portada') {
+        if (styled) {
+          ps.push({ runs: [run('INFORME', { b: true, sz: 96, color: NAVY, font: FONT })], o: { bb: { c: ACCENT, sz: 36 }, after: 400 } });
+        }
+        ps.push(ph('Portada: conjunto, apartamento, fecha y elaboradores'));
+      } else {
+        ps.push({ runs: [run(m.titulo, styled ? { b: true, sz: m.nivel ? 26 : 32, color: NAVY, font: FONT } : {})], o: { style: m.nivel ? 'Heading2' : 'Heading1', keep: true, after: 280, bb: styled ? { c: ACCENT, sz: 18 } : null } });
+      }
+      String(m.text || '').split(/\n\s*\n/).forEach(function (c) {
+        c = c.trim();
+        if (!c) return;
+        if (c.indexOf('## ') === 0) ps.push({ runs: textRuns(c.slice(3), styled ? { b: true, sz: 24, color: NAVY, font: FONT } : { b: true }), o: { keep: true, before: 240, after: 120 } });
+        else ps.push({ runs: textRuns(c.replace(/\s*\n\s*/g, ' '), base), o: { jc: styled ? 'both' : null } });
+      });
+      var items = m.items || [];
+      for (var k = 0; k < items.length; k++) {
+        var b = items[k];
+        if (b.t === 'tabla') ps.push(ph('Tabla fija del formato: ' + (b.x || '')));
+        else if (m.tipo === 'galeria' || m.tipo === 'pegado') continue;
+        else if (b.idx != null && S.imgs[b.idx]) ps.push({ runs: [await drawing(S.imgs[b.idx], m.orient === 'h')], o: { jc: 'center', after: 160 } });
+        else ps.push(ph('Imagen: ' + ROLES[b.rol]));
+      }
+      if (m.tipo === 'galeria') ps.push(ph('Fotos por espacio: una por página'));
+      if (m.tipo === 'pegado') ps.push(ph('Imágenes pegadas (por ejemplo desde Excel), a todo el ancho'));
+      if (m.tipo === 'firmas') ps.push(ph('Firma de quien suscribe el informe'));
+      if (i < S.mods.length - 1) ps[ps.length - 1].o.sect = sectXml(m, styled);
+      ps.forEach(function (x) { body += paraXml(x.runs, x.o); });
+    }
+    var last = S.mods[S.mods.length - 1];
+    var NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"';
+    var head = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+    zip.file('[Content_Types].xml', head + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="jpg" ContentType="image/jpeg"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>' + (styled ? '<Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>' : '') + '</Types>');
+    zip.file('_rels/.rels', head + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
+    var rels = '<Relationship Id="rIdSty" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>';
+    if (styled) rels += '<Relationship Id="rIdFoot" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>';
+    media.forEach(function (x) { rels += '<Relationship Id="' + x.rid + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/' + x.name + '"/>'; zip.file('word/media/' + x.name, x.data, { base64: true }); });
+    zip.file('word/_rels/document.xml.rels', head + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + rels + '</Relationships>');
+    zip.file('word/document.xml', head + '<w:document ' + NS + '><w:body>' + body + sectXml(last, styled) + '</w:body></w:document>');
+    var f = 'Calibri';
+    zip.file('word/styles.xml', head + '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="' + f + '" w:hAnsi="' + f + '" w:cs="' + f + '"/><w:sz w:val="22"/><w:szCs w:val="22"/><w:lang w:val="es-CO"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="120" w:line="276" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style><w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/><w:pPr><w:keepNext/><w:spacing w:before="0" w:after="200"/><w:outlineLvl w:val="0"/></w:pPr><w:rPr><w:b/><w:sz w:val="32"/><w:szCs w:val="32"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/><w:pPr><w:keepNext/><w:spacing w:before="0" w:after="200"/><w:outlineLvl w:val="1"/></w:pPr><w:rPr><w:b/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr></w:style></w:styles>');
+    if (styled) {
+      var fr = function (t, o) { return run(t, o); };
+      var fld = function (code) { return '<w:r><w:rPr><w:color w:val="' + GRAY + '"/><w:sz w:val="18"/></w:rPr><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:rPr><w:color w:val="' + GRAY + '"/><w:sz w:val="18"/></w:rPr><w:instrText xml:space="preserve"> ' + code + ' </w:instrText></w:r><w:r><w:rPr><w:color w:val="' + GRAY + '"/><w:sz w:val="18"/></w:rPr><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:rPr><w:color w:val="' + GRAY + '"/><w:sz w:val="18"/></w:rPr><w:t>1</w:t></w:r><w:r><w:rPr><w:color w:val="' + GRAY + '"/><w:sz w:val="18"/></w:rPr><w:fldChar w:fldCharType="end"/></w:r>'; };
+      var ft = '<w:p><w:pPr><w:pBdr><w:top w:val="single" w:sz="12" w:space="6" w:color="' + ACCENT + '"/></w:pBdr><w:jc w:val="right"/></w:pPr>' + fr('Página ', { sz: 18, color: GRAY, font: FONT }) + fld('PAGE') + fr(' de ', { sz: 18, color: GRAY, font: FONT }) + fld('NUMPAGES') + '</w:p>';
+      zip.file('word/footer1.xml', head + '<w:ftr ' + NS + '>' + ft + '</w:ftr>');
+    }
+    return zip.generateAsync({ type: 'blob' });
+  }
+  async function exportDocx(styled) {
+    if (!S.dl || S.busy) return;
+    S.busy = true; S.err = ''; render();
+    try {
+      var blob = await buildDocx(styled);
+      var base = (S.file ? S.file.replace(/\.docx$/i, '') : 'Formato') + (styled ? '-formato-con-estilo' : '-formato-sin-estilo');
+      await S.dl.save({ filename: base + '.docx', data: blob });
+    } catch (e) {
+      if (!e || e.code !== 'declined') S.err = 'No se pudo exportar el Word' + (e && e.message ? ': ' + e.message : '.');
+    }
+    S.busy = false; render();
+  }
+  function applyParsed(res, fileName) {
+    S.mods = res.mods; S.vars = res.vars; S.imgs = res.imgs; S.file = fileName; S.sample = false; S.sel = 0; S.tab = 'mod'; S.confirmDel = false;
+    S.namesOpen = res.mods.some(function (m) { return /^Pestaña \d+$/.test(m.titulo); });
+    S.namesText = S.mods.map(function (m) { return (m.nivel ? '  ' : '') + m.titulo; }).join('\n');
+  }
+  async function loadDocx(file) {
+    S.busy = true; S.err = ''; render();
+    try {
+      var res = await parseDocx(await file.arrayBuffer());
+      if (!res.mods.length) throw new Error('vacio');
+      applyParsed(res, file.name);
+    } catch (e) { S.err = 'No se pudo leer ese Word. Debe ser un .docx con texto.'; }
+    S.busy = false; touch(); render();
+  }
+  var D = { open: false, stack: [], folders: [], loading: false, folder: null, name: '', copyName: '', found: [], msg: '', err: '', copying: false };
+  try { var dz = JSON.parse(localStorage.getItem('hya-generation-drive') || 'null'); if (dz) { D.folder = dz.folder || null; D.name = dz.name || ''; } } catch (e) {}
+  function saveD() { try { localStorage.setItem('hya-generation-drive', JSON.stringify({ folder: D.folder, name: D.name })); } catch (e) {} }
+  async function api(path, opt) {
+    var r = await fetch(path, opt || {});
+    if (r.status === 401) { location.href = '/login'; throw new Error('Sesión no iniciada'); }
+    if (!r.ok) { var m = ''; try { m = (await r.json()).error; } catch (e) {} throw new Error(m || ('Error ' + r.status)); }
+    return r;
+  }
+  async function browse(parentId) {
+    D.loading = true; D.err = ''; render();
+    try {
+      var j = await (await api('/api/drive/folders?parent=' + encodeURIComponent(parentId || 'root'))).json();
+      if (j.root && !D.stack.length) D.stack = [{ id: j.root.id, name: j.root.name }];
+      D.folders = j.folders || [];
+    } catch (e) { D.err = e.message; D.folders = []; }
+    D.loading = false; render();
+  }
+  function openPicker() {
+    D.open = true; D.stack = []; D.folders = [];
+    browse('root');
+  }
+  function enter(f) { D.stack.push({ id: f.id, name: f.name }); browse(f.id); }
+  function goTo(i) { D.stack = D.stack.slice(0, i + 1); browse(D.stack[i].id); }
+  function useFolder() { var c = D.stack[D.stack.length - 1]; if (!c) return; D.folder = { id: c.id, name: D.stack.map(function (x) { return x.name; }).join(' / ') }; D.open = false; D.found = []; D.msg = ''; saveD(); render(); }
+
+  async function readFromDrive(file) {
+    D.err = ''; D.msg = ''; S.busy = true; S.err = ''; render();
+    try {
+      var buf = await (await api('/api/drive/file?id=' + encodeURIComponent(file.id))).arrayBuffer();
+      var res = await parseDocx(buf);
+      if (!res.mods.length) throw new Error('El archivo no tiene contenido que cortar.');
+      applyParsed(res, file.name.replace(/\.docx$/i, '') + (file.google ? '' : ''));
+      D.found = [];
+      D.copyName = file.name.replace(/\.docx$/i, '') + ' (formato)';
+      var info = 'Leído "' + file.name + '": ' + res.mods.length + ' módulos.';
+      if (file.google) {
+        try {
+          var tj = await (await api('/api/drive/tabs?id=' + encodeURIComponent(file.id))).json();
+          var tl = tj.tabs || [];
+          if (tl.length === res.mods.length) {
+            tl.forEach(function (x, i) { var mm = S.mods[i]; mm.titulo = x.title; mm.nivel = x.nivel; if (!mm.text && !(mm.items || []).length) { mm.tipo = guessTipo(x.title, i); mm.obligatorio = mm.tipo === 'portada' || /introduc|informe|conclusi/.test(norm(x.title)); } });
+            S.namesOpen = false;
+            S.namesText = S.mods.map(function (m) { return (m.nivel ? '  ' : '') + m.titulo; }).join('\n');
+            info += ' Nombres y subpestañas tomados de las ' + tl.length + ' pestañas del documento.';
+          } else {
+            S.namesText = tl.map(function (x) { return (x.nivel ? '  ' : '') + x.title; }).join('\n');
+            S.namesOpen = true;
+            info += ' El documento tiene ' + tl.length + ' pestañas y el Word salió con ' + res.mods.length + ' secciones, así que no las alineé solo. Revisa la lista de nombres y aplícala.';
+          }
+        } catch (e) { info += ' No pude leer los nombres de las pestañas: ' + e.message; }
+      } else info += ' Es un archivo .docx: no trae nombres de pestañas, pégalos en "Nombres de las pestañas".';
+      D.msg = info;
+    } catch (e) { D.err = e.message || 'No se pudo leer el archivo.'; }
+    S.busy = false; touch(); render();
+  }
+  async function findInDrive() {
+    D.err = ''; D.msg = ''; D.found = [];
+    if (!D.folder) { D.err = 'Elige primero una carpeta.'; render(); return; }
+    if (!D.name.trim()) { D.err = 'Escribe el nombre del archivo.'; render(); return; }
+    saveD(); S.busy = true; render();
+    try {
+      var j = await (await api('/api/drive/find?folderId=' + encodeURIComponent(D.folder.id) + '&name=' + encodeURIComponent(D.name.trim()))).json();
+      var fs = j.files || [];
+      if (!fs.length) { D.err = 'No encontré un Word ni un Google Doc con ese nombre en esa carpeta.'; S.busy = false; render(); return; }
+      if (fs.length === 1) { S.busy = false; await readFromDrive(fs[0]); return; }
+      D.found = fs; D.msg = 'Hay ' + fs.length + ' archivos parecidos. Elige uno.';
+    } catch (e) { D.err = e.message; }
+    S.busy = false; render();
+  }
+  async function copyToDrive(styled) {
+    if (!D.folder) { D.err = 'Elige una carpeta de Drive para guardar la copia.'; render(); return; }
+    D.err = ''; D.msg = ''; D.copying = true; render();
+    try {
+      var blob = await buildDocx(styled);
+      var nm = (D.copyName || 'Formato').trim() + (styled ? '' : ' sin estilo');
+      var j = await (await api('/api/drive/copy?folderId=' + encodeURIComponent(D.folder.id) + '&name=' + encodeURIComponent(nm), { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: blob })).json();
+      D.msg = 'Copia guardada en Drive: "' + j.name + '" (carpeta ' + D.folder.name + ').';
+    } catch (e) { D.err = e.message || 'No se pudo guardar en Drive.'; }
+    D.copying = false; render();
+  }
+  function drivePanel() {
+    var nm = h('input', { type: 'text', id: 'dname', placeholder: 'Nombre del archivo, por ejemplo Inf Zonas Comunes', 'aria-label': 'Nombre del archivo en Drive' });
+    nm.value = D.name; nm.addEventListener('input', function () { D.name = nm.value; });
+    nm.addEventListener('keydown', function (e) { if (e.key === 'Enter') findInDrive(); });
+    var cn = h('input', { type: 'text', id: 'dcopy', placeholder: 'Nombre de la copia', 'aria-label': 'Nombre de la copia' });
+    cn.value = D.copyName; cn.addEventListener('input', function () { D.copyName = cn.value; });
+    var kids = [
+      h('h2', { text: 'Drive' }),
+      h('div', { class: 'drow' }, [
+        h('button', { class: 'btn', type: 'button', onclick: openPicker }, [D.folder ? 'Cambiar carpeta' : 'Elegir carpeta']),
+        h('span', { class: 'dfolder', text: D.folder ? D.folder.name : 'Sin carpeta elegida' })
+      ]),
+      h('div', { class: 'drow' }, [nm, h('button', { class: 'btn main', type: 'button', disabled: S.busy ? true : null, onclick: findInDrive }, ['Leer archivo'])])
+    ];
+    if (D.open) {
+      kids.push(h('div', { class: 'picker' }, [
+        h('div', { class: 'crumbs' }, D.stack.map(function (x, i) { return h('button', { class: 'crumb', type: 'button', onclick: function () { goTo(i); } }, [x.name]); })),
+        h('div', { class: 'flist' }, D.loading ? [h('p', { class: 'hint', text: 'Cargando carpetas…' })] : (D.folders.length ? D.folders.map(function (f) { return h('button', { class: 'fitem', type: 'button', onclick: function () { enter(f); } }, [f.name]); }) : [h('p', { class: 'hint', text: 'Esta carpeta no tiene subcarpetas.' })])),
+        h('div', { class: 'drow' }, [h('button', { class: 'btn main', type: 'button', disabled: D.stack.length ? null : true, onclick: useFolder }, ['Usar esta carpeta']), h('button', { class: 'btn', type: 'button', onclick: function () { D.open = false; render(); } }, ['Cancelar'])])
+      ]));
+    }
+    if (D.found.length) kids.push(h('div', { class: 'flist' }, D.found.map(function (f) { return h('button', { class: 'fitem', type: 'button', onclick: function () { readFromDrive(f); } }, [f.name + (f.google ? ' · Google Doc' : ' · Word')]); })));
+    if (D.err) kids.push(h('div', { class: 'note err', text: D.err }));
+    if (D.msg) kids.push(h('div', { class: 'note ok', text: D.msg }));
+    kids.push(h('div', { class: 'drow' }, [cn,
+      h('button', { class: 'btn', type: 'button', disabled: D.copying || S.busy || !D.folder ? true : null, title: 'Sube a la carpeta elegida un Word nuevo con el diseño de la app', onclick: function () { copyToDrive(true); } }, ['Guardar copia con estilo']),
+      h('button', { class: 'btn', type: 'button', disabled: D.copying || S.busy || !D.folder ? true : null, title: 'Sube a la carpeta elegida un Word sencillo, sin diseño', onclick: function () { copyToDrive(false); } }, ['Guardar copia sin estilo'])
+    ]));
+    return h('section', { class: 'drive' }, kids);
+  }
+  function useSample() { var d = sampleData(); S.mods = d.mods; S.vars = d.vars; S.imgs = []; S.file = ''; S.sample = true; S.sel = 0; S.tab = 'mod'; S.err = ''; touch(); render(); }
+
+  function render() {
+    var fi = h('input', { type: 'file', accept: '.docx', class: 'sr', id: 'docx', tabindex: '-1' });
+    fi.addEventListener('change', function () { if (fi.files[0]) loadDocx(fi.files[0]); });
+    var tabs = [['mod', 'Módulo'], ['prev', 'Vista previa'], ['vars', 'Variables'], ['steps', 'Pasos del informe'], ['json', 'JSON']];
+    var body = S.tab === 'prev' ? previewPanel() : S.tab === 'vars' ? varsPanel() : S.tab === 'steps' ? stepsPanel() : S.tab === 'json' ? jsonPanel() : modulePanel();
+    var drop = h('div', { class: 'drop' + (S.drag ? ' on' : ''), text: S.busy ? 'Leyendo el Word…' : 'Arrastra aquí un Word (.docx) para cortarlo en módulos por sus títulos.' });
+    drop.addEventListener('dragover', function (e) { e.preventDefault(); if (!S.drag) { S.drag = true; drop.classList.add('on'); } });
+    drop.addEventListener('dragleave', function () { S.drag = false; drop.classList.remove('on'); });
+    drop.addEventListener('drop', function (e) { e.preventDefault(); S.drag = false; if (e.dataTransfer.files[0]) loadDocx(e.dataTransfer.files[0]); });
+    root.innerHTML = '';
+    [
+      h('header', { class: 'top' }, [
+        h('div', null, [h('h1', { text: 'Generación de formato' }), h('p', { text: 'Lee el formato desde Drive, edítalo por módulos y guarda una copia en Drive.' })]),
+        h('div', { class: 'tools' }, [fi, h('button', { class: 'btn main', type: 'button', disabled: S.busy ? true : null, onclick: function () { fi.click(); } }, ['Subir un Word']), h('button', { class: 'btn', type: 'button', onclick: useSample }, ['Cargar ejemplo']), h('button', { class: 'btn', type: 'button', disabled: S.dl && !S.busy ? null : true, title: S.dl ? 'Exporta el formato como Word con colores, bandas y pie de página de la app' : 'La descarga no está disponible en esta vista', onclick: function () { exportDocx(true); } }, ['Exportar Word con estilo']), h('button', { class: 'btn', type: 'button', disabled: S.dl && !S.busy ? null : true, title: S.dl ? 'Exporta el formato como Word sencillo, sin diseño' : 'La descarga no está disponible en esta vista', onclick: function () { exportDocx(false); } }, ['Exportar Word sin estilo'])])
+      ]),
+      drivePanel(),
+      S.err ? h('div', { class: 'note err', text: S.err }) : null,
+      h('div', { class: 'note' }, [S.sample ? h('span', null, [h('b', { text: 'Ejemplo: ' }), 'formato de zonas comunes armado a mano, para probar el editor.']) : h('span', null, [h('b', { text: S.file }), ' cortado en ' + S.mods.length + ' módulos y ' + S.vars.length + ' variables.']), h('span', { text: 'Los cambios se guardan en este navegador.' })]),
+      drop,
+      h('div', { class: 'cols' }, [
+        listPanel(),
+        h('div', { class: 'main' }, [h('div', { class: 'tabs', role: 'tablist' }, tabs.map(function (t) { return h('button', { class: 'tab' + (S.tab === t[0] ? ' on' : ''), type: 'button', role: 'tab', 'aria-selected': S.tab === t[0] ? 'true' : 'false', onclick: function () { S.tab = t[0]; render(); } }, [t[1]]); })), body])
+      ])
+    ].forEach(function (n) { if (n) root.appendChild(n); });
+  }
+
+  if (!load()) { var d = sampleData(); S.mods = d.mods; S.vars = d.vars; }
+  render();
+  S.dl = {
+    save: function (o) {
+      return new Promise(function (res) {
+        var u = URL.createObjectURL(o.data), a = document.createElement('a');
+        a.href = u; a.download = o.filename; document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(u); }, 4000);
+        res({ status: 'saved' });
+      });
+    }
+  };
+  render();
+})();
+</script>
+</body></html>
