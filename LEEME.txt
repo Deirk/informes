@@ -150,3 +150,4 @@ Llenar informe (en /generation)
 - Con el formato cargado, el boton Llenar abre el formulario del informe: un paso por modulo del formato (las pestanas vacias no tienen paso y salen como paginas en blanco), mas un primer paso con las variables.
 - Cada paso muestra el texto editable y los espacios para subir imagenes del modulo (Imagenes, Planos, Fotos por espacio, Imagenes pegadas, Firmas). Imagenes y Planos son dos tipos de modulo; en ambos se anaden las imagenes que hagan falta y cada una puede llevar un titulo opcional. Las imagenes se suben desde el equipo, no desde Drive.
 - Al final se descarga el Word con estilo o sin estilo. Es solo para pruebas: textos e imagenes no se guardan al cerrar la pagina.
+- El formulario usa el mismo diseno del editor de informes de la app (progreso por puntos, PASO X DE N, tarjetas, subida de imagenes con titulo opcional). Sus estilos estan en public/app-shadow.css, copiados de index.html.

@@ -3,7 +3,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Generación de formato HyA</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&family=Bricolage+Grotesque:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=Source+Sans+3:wght@400;500;600;700&display=swap">
 <style>
 /* Layout: lista de modulos a la izquierda, trabajo y vista previa a la derecha, hoja de papel como unidad visual */
 :root {
@@ -1096,123 +1096,219 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
   function thumbs(list) {
     return h('div', { class: 'thumbs' }, list.slice(0, 12).map(function (u) { return h('img', { class: 'thumb', src: u, alt: 'Foto cargada' }); }).concat(list.length > 12 ? [h('span', { class: 'hint', text: '+' + (list.length - 12) + ' más' })] : []));
   }
-  var FS = { step: 0 };
+  var FS = { step: 0, host: null, shadow: null, cover: {} };
+  var FICON = {
+    back: '<path d="M19 12H5M11 6l-6 6 6 6"/>',
+    next: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    x: '<path d="M6 6l12 12M18 6L6 18"/>',
+    down: '<path d="M12 4v11M7 11l5 5 5-5M5 20h14"/>',
+    grid: '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>'
+  };
+  function ficon(n) {
+    var s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('class', 'i'); s.setAttribute('aria-hidden', 'true');
+    s.innerHTML = FICON[n];
+    return s;
+  }
   function fillSteps() {
     var st = [];
-    if (S.vars.length) st.push({ kind: 'vars' });
-    S.mods.forEach(function (m, i) { if (!(m.tipo === 'texto' && !m.text && !(m.items || []).length)) st.push({ kind: 'mod', m: m, i: i }); });
+    if (S.vars.length) st.push({ kind: 'vars', label: 'Datos', title: 'Datos del informe' });
+    S.mods.forEach(function (m, i) { if (!(m.tipo === 'texto' && !m.text && !(m.items || []).length)) st.push({ kind: 'mod', m: m, i: i, label: m.titulo, title: m.titulo }); });
+    st.push({ kind: 'gen', label: 'Generar', title: 'Generar informe' });
     return st;
   }
-  function stepDone(s) {
-    if (s.kind === 'vars') return S.vars.every(function (v) { return String(R.vals[v.key] || '').trim(); });
-    var m = s.m, k, any = false;
-    if (R.texts[m.id] != null) any = true;
-    for (k in R.imgs) if (k.indexOf(m.id + ':') === 0) any = true;
-    return any;
+  function imgKey(m) { return m.tipo === 'galeria' ? m.id + ':g' : m.tipo === 'pegado' ? m.id + ':p' : m.tipo === 'firmas' ? m.id + ':f' : isImgT(m.tipo) ? m.id + ':x' : null; }
+  function parseCover(txt) {
+    var ls = String(txt || '').split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean);
+    var isDate = function (x) { return (/(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)/i.test(x) && /\d{4}/.test(x) && x.length < 40) || /^\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}$/.test(x); };
+    var dl = ls.filter(isDate)[0] || '';
+    var rest = ls.filter(function (x) { return x !== dl; });
+    var ei = -1;
+    rest.forEach(function (x, k) { if (ei < 0 && /^elaborad[oa]s?\s+por/i.test(x)) ei = k; });
+    var head = ei >= 0 ? rest.slice(0, ei) : rest.slice(0, 3);
+    var names = ei >= 0 ? rest.slice(ei + 1) : rest.slice(3);
+    return { titulo: head[0] || '', zona: head[1] || '', conjunto: head[2] || '', fecha: dl, elab: names.join('\n') };
   }
-  function slotRow(kids, label, key, multi) {
-    var have = R.imgs[key];
-    var list = multi ? (have || []) : (have ? [have] : []);
-    var n = list.length;
-    var row = h('div', { class: 'frow' }, [
-      h('button', { class: 'btn', type: 'button', onclick: function () { pickImages(multi, function (us) { if (!us.length) return; var add = us.map(function (u) { return { u: u, t: '' }; }); R.imgs[key] = multi ? (R.imgs[key] || []).concat(add) : add[0]; render(); }); } }, [label]),
-      h('span', { class: 'hint', text: n ? n + (n === 1 ? ' imagen cargada' : ' imágenes cargadas') : 'Sin imágenes' })
+  function coverOf(m) { if (!FS.cover[m.id]) FS.cover[m.id] = parseCover(R.texts[m.id] != null ? R.texts[m.id] : m.text); return FS.cover[m.id]; }
+  function syncCover(m) {
+    var c = coverOf(m);
+    R.texts[m.id] = [c.titulo, c.zona, c.conjunto].concat(c.elab.trim() ? ['ELABORADO POR:'].concat(c.elab.split(/\n+/)) : []).concat(c.fecha ? [c.fecha] : []).filter(function (x) { return String(x).trim(); }).join('\n');
+  }
+  function fld(label, get, set, o) {
+    o = o || {};
+    var el = o.area ? h('textarea', { rows: String(o.rows || 3) }) : h('input', { type: 'text' });
+    el.value = get() || '';
+    if (o.placeholder) el.setAttribute('placeholder', o.placeholder);
+    el.addEventListener('input', function () { set(el.value); });
+    return h('div', { class: 'fld' + (o.wide ? ' wide' : '') }, [h('label', { text: label }), el, o.help ? h('span', { class: 'help', text: o.help }) : null]);
+  }
+  async function addImgs(key, multi, files) {
+    var imgs = files.filter(function (f) { return /^image\//.test(f.type); }).sort(function (a, b) { return a.name.localeCompare(b.name, 'es', { numeric: true }); });
+    if (!imgs.length) return;
+    var add = [];
+    for (var i = 0; i < imgs.length; i++) { var u = await new Promise(function (res) { readImage(imgs[i], res); setTimeout(function () { res(null); }, 20000); }); if (u) add.push({ u: u, t: '' }); }
+    if (!add.length) return;
+    R.imgs[key] = multi ? (R.imgs[key] || []).concat(add) : add[0];
+    render();
+  }
+  function photoTile(m, title) {
+    var key = imgKey(m), list = R.imgs[key] || [];
+    var fi = h('input', { type: 'file', accept: 'image/*', multiple: true, hidden: true, onchange: function (e) { var f = Array.prototype.slice.call(e.target.files); e.target.value = ''; addImgs(key, true, f); } });
+    var tile = h('div', { class: 'stile' + (list.length ? ' has' : ''),
+      ondragover: function (e) { e.preventDefault(); e.stopPropagation(); tile.classList.add('over'); },
+      ondragleave: function (e) { if (!tile.contains(e.relatedTarget)) tile.classList.remove('over'); },
+      ondrop: function (e) { e.preventDefault(); e.stopPropagation(); tile.classList.remove('over'); addImgs(key, true, Array.prototype.slice.call((e.dataTransfer && e.dataTransfer.files) || [])); }
+    }, [h('h4', null, [h('span', { text: title }), h('span', { class: 'cnt', text: list.length ? list.length + (list.length === 1 ? ' imagen' : ' imágenes') : 'sin imágenes' })])]);
+    if (list.length) {
+      var th = h('div', { class: 'thumbs' });
+      list.forEach(function (it, i) {
+        var cap = h('input', { type: 'text', placeholder: 'Título (opcional)', 'aria-label': 'Título de la imagen ' + (i + 1) }); cap.value = it.t || '';
+        cap.addEventListener('input', function () { it.t = cap.value; });
+        th.appendChild(h('div', { class: 'thumb' }, [
+          h('img', { src: it.u, alt: title + ' ' + (i + 1) }),
+          h('button', { class: 'rm', type: 'button', 'aria-label': 'Quitar imagen', onclick: function () { list.splice(i, 1); if (!list.length) delete R.imgs[key]; render(); } }, [ficon('x')]),
+          cap
+        ]));
+      });
+      tile.appendChild(th);
+    }
+    tile.appendChild(h('div', { class: 'addph', role: 'button', tabindex: '0', onclick: function () { fi.click(); }, onkeydown: function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fi.click(); } } }, [ficon('plus'), list.length ? 'Agregar más imágenes' : 'Agregar imágenes o arrastrarlas aquí']));
+    tile.appendChild(fi);
+    return tile;
+  }
+  function singleSlot(m, label) {
+    var key = imgKey(m), it = R.imgs[key];
+    var fi = h('input', { type: 'file', accept: 'image/*', hidden: true, onchange: function (e) { var f = Array.prototype.slice.call(e.target.files); e.target.value = ''; addImgs(key, false, f); } });
+    return h('div', { class: 'slot' }, [
+      it ? h('div', { class: 'pv' }, [h('img', { src: it.u, alt: label })]) : h('div', { class: 'pv empty', text: 'Sin imagen' }),
+      h('div', { class: 'sl' }, [
+        h('b', { text: label }),
+        h('div', { class: 'mini' }, [h('button', { class: 'btn ghost sm', type: 'button', onclick: function () { fi.click(); } }, [ficon('plus'), it ? 'Cambiar imagen' : 'Subir imagen']), it ? h('button', { class: 'btn ghost sm', type: 'button', onclick: function () { delete R.imgs[key]; render(); } }, [ficon('x'), 'Quitar']) : null]),
+        fi
+      ])
     ]);
-    if (n) row.appendChild(h('button', { class: 'btn sm danger', type: 'button', onclick: function () { delete R.imgs[key]; render(); } }, ['Quitar todas']));
-    kids.push(row);
-    if (n) kids.push(h('div', { class: 'ilist' }, list.map(function (e, idx) {
-      var ti = h('input', { type: 'text', 'aria-label': 'Título de la imagen ' + (idx + 1), placeholder: 'Título (opcional)' });
-      ti.value = e.t || '';
-      ti.addEventListener('input', function () { e.t = ti.value; });
-      var kidsI = [h('img', { class: 'thumb', src: e.u, alt: 'Imagen ' + (idx + 1) }), ti];
-      if (multi) kidsI.push(h('button', { class: 'mini', type: 'button', 'aria-label': 'Quitar imagen', onclick: function () { R.imgs[key].splice(idx, 1); if (!R.imgs[key].length) delete R.imgs[key]; render(); } }, ['×']));
-      return h('div', { class: 'irow' }, kidsI);
-    })));
   }
-  function stepBody(s) {
-    var kids = [];
-    if (s.kind === 'vars') {
-      kids.push(h('h2', { text: 'Datos del informe' }));
-      kids.push(h('p', { class: 'hint', text: 'Estos valores reemplazan las variables en todos los textos.' }));
-      kids.push(h('div', { class: 'grid2' }, S.vars.map(function (v) {
-        var inp = h('input', { type: 'text', 'aria-label': v.label, placeholder: v.ejemplo || '' });
-        inp.value = R.vals[v.key] || '';
-        inp.addEventListener('input', function () { R.vals[v.key] = inp.value; saveR(); });
-        return h('label', { class: 'f' }, [v.label, inp]);
-      })));
-      return kids;
-    }
-    var m = s.m;
-    kids.push(h('h2', { text: m.titulo || 'Sin título' }));
-    kids.push(h('p', { class: 'hint', text: TYPES[m.tipo].d }));
-    if (m.tipo !== 'galeria' && m.tipo !== 'pegado') {
-      var ta = h('textarea', { class: 'ftext', 'aria-label': 'Texto de ' + m.titulo, placeholder: m.tipo === 'portada' ? 'Línea 1: título. 2: zona. 3: conjunto. Luego Elaborado por, los nombres y la fecha.' : 'Texto de este módulo.' });
-      ta.value = R.texts[m.id] != null ? R.texts[m.id] : (m.text || '');
-      ta.addEventListener('input', function () { R.texts[m.id] = ta.value; });
-      kids.push(ta);
-    }
-    var items = m.items || [];
-    if (isImgT(m.tipo)) {
-      slotRow(kids, m.tipo === 'planos' ? 'Añadir planos' : 'Añadir imágenes', m.id + ':x', true);
-    } else if (m.tipo !== 'galeria' && m.tipo !== 'pegado') {
-      items.forEach(function (b, k) { if (b.t === 'img') slotRow(kids, 'Subir imagen (' + ROLES[b.rol] + ')', m.id + ':' + k, false); });
-    }
-    if (m.tipo === 'galeria') slotRow(kids, 'Subir fotos (una por página)', m.id + ':g', true);
-    if (m.tipo === 'pegado') slotRow(kids, 'Subir imágenes a todo el ancho', m.id + ':p', true);
-    if (m.tipo === 'firmas') slotRow(kids, 'Subir firma', m.id + ':f', false);
-    return kids;
+  function stageHead(steps, idx, sub) {
+    return h('div', { class: 'stage-head' }, [
+      h('p', { class: 'kick', text: 'PASO ' + (idx + 1) + ' DE ' + steps.length + ' · ' + String(S.file || 'FORMATO DE EJEMPLO').toUpperCase() }),
+      h('h2', { text: steps[idx].title }),
+      h('p', { text: sub })
+    ]);
+  }
+  function navFoot(steps, idx, hint) {
+    return h('div', { class: 'foot' }, [
+      h('span', { class: 'hint', text: hint || '' }),
+      idx > 0 ? h('button', { class: 'btn ghost', type: 'button', onclick: function () { FS.step = idx - 1; render(); window.scrollTo(0, 0); } }, [ficon('back'), 'Atrás']) : null,
+      idx < steps.length - 1 ? h('button', { class: 'btn', type: 'button', onclick: function () { FS.step = idx + 1; render(); window.scrollTo(0, 0); } }, ['Siguiente', ficon('next')]) : null
+    ]);
+  }
+  function missingVars() {
+    var used = {};
+    S.mods.forEach(function (m) { String(R.texts[m.id] != null ? R.texts[m.id] : m.text || '').replace(/\{\{([A-Z0-9_]+)\}\}/g, function (a, k) { used[k.toLowerCase()] = true; return a; }); });
+    return S.vars.filter(function (v) { return used[v.key] && !String(R.vals[v.key] || '').trim(); }).map(function (v) { return v.label; });
   }
   async function genReport(styled) {
     R.err = ''; R.msg = ''; R.busy = true; render();
     try {
+      S.mods.forEach(function (m) { if (m.tipo === 'portada' && FS.cover[m.id]) syncCover(m); });
       var blob = await buildDocx(styled, { vals: R.vals, texts: R.texts, imgs: R.imgs });
-      var base = (R.name || (S.file ? S.file + ' (informe)' : 'Informe')).trim() + (styled ? '' : ' sin estilo');
+      var base = (R.name || (S.file ? String(S.file).replace(/\.docx$/i, '') + ' (informe)' : 'Informe')).trim() + (styled ? '' : ' sin estilo');
       await S.dl.save({ filename: base + '.docx', data: blob });
-      R.msg = 'Informe generado: ' + base + '.docx';
-    } catch (e) { R.err = e.message || 'No se pudo generar el informe.'; }
+      R.msg = 'Informe generado: ' + base + '.docx'; R.ok = true;
+    } catch (e) { R.err = e.message || 'No se pudo generar el informe.'; R.ok = false; }
     R.busy = false; render();
+  }
+  function stepContent(steps, idx) {
+    var s = steps[idx], out = [];
+    if (s.kind === 'vars') {
+      out.push(stageHead(steps, idx, 'Estos valores reemplazan las variables en todos los textos del informe.'));
+      out.push(h('div', { class: 'mcard' }, [h('div', { class: 'fields' }, S.vars.map(function (v) { return fld(v.label, function () { return R.vals[v.key]; }, function (x) { R.vals[v.key] = x; saveR(); }, { placeholder: v.ejemplo || '', wide: false }); }))]));
+      out.push(navFoot(steps, idx, missingVars().length ? 'Faltan: ' + missingVars().join(', ') : ''));
+      return out;
+    }
+    if (s.kind === 'gen') {
+      out.push(stageHead(steps, idx, 'Revisa que no falte nada y descarga el Word.'));
+      var nImg = 0, k;
+      for (k in R.imgs) nImg += Array.isArray(R.imgs[k]) ? R.imgs[k].length : 1;
+      var mv = missingVars();
+      var nm = h('input', { type: 'text', 'aria-label': 'Nombre del archivo', placeholder: (S.file ? String(S.file).replace(/\.docx$/i, '') + ' (informe)' : 'Informe') });
+      nm.value = R.name; nm.addEventListener('input', function () { R.name = nm.value; saveR(); });
+      var blanks = S.mods.length - steps.filter(function (x) { return x.kind === 'mod'; }).length;
+      var box = h('div', { class: 'gen' }, [
+        h('dl', null, [
+          h('div', null, [h('dt', { text: 'Formato' }), h('dd', { text: S.file || 'Ejemplo' })]),
+          h('div', null, [h('dt', { text: 'Módulos' }), h('dd', { text: String(S.mods.length) + (blanks ? ' (' + blanks + ' páginas vacías)' : '') })]),
+          h('div', null, [h('dt', { text: 'Imágenes' }), h('dd', { text: String(nImg) })])
+        ]),
+        h('div', { class: 'fields' }, [h('div', { class: 'fld wide' }, [h('label', { text: 'Nombre del archivo' }), nm])]),
+        mv.length ? h('div', { class: 'warns' }, [h('p', { text: 'Revisar: falta ' + mv.join(', ') + '. Puedes generar igual y completarlo después.' })]) : h('div', { class: 'pill ok', text: 'Todo listo' }),
+        h('div', { class: 'foot' }, [
+          h('button', { class: 'btn ghost', type: 'button', onclick: function () { FS.step = idx - 1; render(); } }, [ficon('back'), 'Atrás']),
+          h('button', { class: 'btn ghost', type: 'button', disabled: R.busy ? true : null, onclick: function () { genReport(false); } }, ['Word sin estilo']),
+          h('button', { class: 'btn', type: 'button', disabled: R.busy ? true : null, onclick: function () { genReport(true); } }, [ficon('down'), R.busy ? 'Generando…' : 'Generar y descargar Word'])
+        ])
+      ]);
+      if (R.msg) box.appendChild(h('div', { class: 'msg ok', role: 'status', text: R.msg }));
+      if (R.err) box.appendChild(h('div', { class: 'msg bad', role: 'status', text: R.err }));
+      out.push(box);
+      return out;
+    }
+    var m = s.m;
+    out.push(stageHead(steps, idx, TYPES[m.tipo].d));
+    if (m.tipo === 'portada') {
+      var c = coverOf(m);
+      out.push(h('div', { class: 'mcard' }, [h('div', { class: 'fields' }, [
+        fld('Título de la portada', function () { return c.titulo; }, function (x) { c.titulo = x; syncCover(m); }, { wide: true }),
+        fld('Zona o apartamento', function () { return c.zona; }, function (x) { c.zona = x; syncCover(m); }, { wide: true }),
+        fld('Conjunto residencial', function () { return c.conjunto; }, function (x) { c.conjunto = x; syncCover(m); }, { wide: true }),
+        fld('Fecha', function () { return c.fecha; }, function (x) { c.fecha = x; syncCover(m); }),
+        fld('Elaborado por (uno por línea)', function () { return c.elab; }, function (x) { c.elab = x; syncCover(m); }, { area: true, rows: 3, wide: true })
+      ])]));
+    } else if (isImgT(m.tipo) || m.tipo === 'galeria' || m.tipo === 'pegado') {
+      if (m.text || R.texts[m.id] != null) out.push(h('div', { class: 'mcard', style: 'margin-bottom:14px' }, [h('div', { class: 'fields' }, [fld('Texto de la sección', function () { return R.texts[m.id] != null ? R.texts[m.id] : m.text; }, function (x) { R.texts[m.id] = x; }, { area: true, rows: 5, wide: true })])]));
+      out.push(h('div', { class: 'sgrid', style: 'grid-template-columns:minmax(0,1fr)' }, [photoTile(m, m.titulo || 'Imágenes')]));
+    } else if (m.tipo === 'firmas') {
+      out.push(h('div', { class: 'mcard' }, [singleSlot(m, 'Firma de quien suscribe el informe')]));
+    } else {
+      out.push(h('div', { class: 'mcard' }, [h('div', { class: 'fields' }, [fld('Texto', function () { return R.texts[m.id] != null ? R.texts[m.id] : (m.text || ''); }, function (x) { R.texts[m.id] = x; }, { area: true, rows: 12, wide: true, help: 'Las variables ({{ASEGURADORA}} y similares) se reemplazan al generar.' })])]));
+    }
+    var hint = '';
+    if (imgKey(m)) { var cn = R.imgs[imgKey(m)]; var nn = Array.isArray(cn) ? cn.length : (cn ? 1 : 0); hint = nn ? nn + (nn === 1 ? ' imagen' : ' imágenes') : 'Aún no hay imágenes'; }
+    out.push(navFoot(steps, idx, hint));
+    return out;
   }
   function renderFill() {
     var steps = fillSteps();
-    if (FS.step >= steps.length) FS.step = Math.max(0, steps.length - 1);
-    var s = steps[FS.step];
-    var blanks = S.mods.length - steps.filter(function (x) { return x.kind === 'mod'; }).length;
-    var list = steps.map(function (x, k) {
-      var title = x.kind === 'vars' ? 'Datos del informe' : x.m.titulo;
-      return h('div', { class: 'mod' + (k === FS.step ? ' on' : ''), role: 'button', tabindex: '0', onclick: function () { FS.step = k; render(); }, onkeydown: function (e) { if (e.key === 'Enter') { FS.step = k; render(); } } }, [
-        h('div', { style: 'min-width:0' }, [h('div', { class: 't', text: title }), h('div', { class: 'k', text: (k + 1) + '. ' + (x.kind === 'vars' ? 'Variables' : TYPES[x.m.tipo].n) + (stepDone(x) ? ' · listo' : '') })])
+    if (FS.step >= steps.length) FS.step = steps.length - 1;
+    if (FS.step < 0) FS.step = 0;
+    var idx = FS.step;
+    if (!FS.host || !root.contains(FS.host)) {
+      root.innerHTML = '';
+      FS.host = h('div', { id: 'fillhost' });
+      root.appendChild(FS.host);
+      FS.shadow = FS.host.attachShadow({ mode: 'open' });
+    }
+    var sh = FS.shadow;
+    sh.innerHTML = '';
+    var link = document.createElement('link'); link.rel = 'stylesheet'; link.href = '/app-shadow.css'; sh.appendChild(link);
+    var dots = h('ol', { class: 'dots', 'aria-label': 'Pasos' }, steps.map(function (s, i) {
+      var state = i < idx ? 'done' : i === idx ? 'current' : 'pending';
+      return h('li', null, [
+        h('button', { class: 'dotb', type: 'button', 'data-s': state, title: s.label, 'aria-label': 'Paso ' + (i + 1) + ': ' + s.label, 'aria-current': state === 'current' ? 'step' : null, onclick: function () { FS.step = i; render(); window.scrollTo(0, 0); } }),
+        state === 'current' ? h('span', { class: 'tip', text: Math.round(idx / steps.length * 100) + '%' }) : null
       ]);
-    });
-    var last = FS.step === steps.length - 1;
-    var off = R.busy ? true : null;
-    var nm = h('input', { type: 'text', 'aria-label': 'Nombre del informe', placeholder: 'Nombre del informe' });
-    nm.value = R.name; nm.addEventListener('input', function () { R.name = nm.value; saveR(); });
-    var nav = [
-      h('button', { class: 'btn', type: 'button', disabled: FS.step === 0 ? true : null, onclick: function () { FS.step -= 1; render(); } }, ['Anterior']),
-      h('button', { class: 'btn main', type: 'button', disabled: last ? true : null, onclick: function () { FS.step += 1; render(); } }, ['Siguiente'])
-    ];
-    var fin = h('div', { class: 'fcard' }, [
-      h('div', { class: 'ftitle', text: 'Generar el informe' }),
-      h('p', { class: 'hint', text: 'Se descarga como Word. Las imágenes se toman de lo que subiste aquí, no de Drive.' + (blanks ? ' Además salen ' + blanks + ' páginas vacías de las pestañas sin contenido.' : '') }),
-      nm,
-      h('div', { class: 'drow' }, [
-        h('button', { class: 'btn main', type: 'button', disabled: off, onclick: function () { genReport(true); } }, ['Generar Word con estilo']),
-        h('button', { class: 'btn', type: 'button', disabled: off, onclick: function () { genReport(false); } }, ['Generar Word sin estilo'])
+    }));
+    var back = h('button', { class: 'back', type: 'button', disabled: idx === 0 ? true : null, onclick: function () { FS.step = idx - 1; render(); window.scrollTo(0, 0); } }, [ficon('back'), 'Atrás']);
+    var stage = h('section', { class: 'stage' }, stepContent(steps, idx));
+    var wrap = h('div', { class: 'fb' }, [h('div', { class: 'shell' }, [h('div', { class: 'main' }, [
+      h('header', { class: 'head' }, [
+        h('div', { class: 'bar' }, [back, h('div', { class: 'bar-r' }, [h('button', { class: 'btn ghost sm', type: 'button', onclick: function () { S.view = 'format'; render(); } }, [ficon('grid'), 'Formato'])])]),
+        h('div', { class: 'prog' }, [h('div', { class: 'num', 'aria-hidden': 'true', text: String(idx + 1) }), dots])
       ]),
-      R.err ? h('div', { class: 'note err', text: R.err }) : null,
-      R.msg ? h('div', { class: 'note ok', text: R.msg }) : null
-    ]);
-    root.innerHTML = '';
-    [
-      h('header', { class: 'top' }, [
-        h('div', null, [h('h1', { text: 'Llenar informe' }), h('p', { text: (S.file || 'Formato de ejemplo') + ': un paso por módulo del formato.' })]),
-        h('div', { class: 'tools' }, [h('button', { class: 'btn', type: 'button', onclick: function () { S.view = 'format'; render(); } }, ['Volver al formato'])])
-      ]),
-      h('div', { class: 'cols' }, [
-        h('aside', { class: 'side' }, [h('h2', { text: 'Pasos' }), h('div', { class: 'mods' }, list.concat([h('div', { class: 'mod' + (!s ? ' on' : ''), role: 'button', tabindex: '0', onclick: function () { FS.step = steps.length - 1; render(); } }, [h('div', { class: 't', text: 'Generar' }), h('div', { class: 'k', text: 'Descarga del Word' })])]))]),
-        h('div', { class: 'main' }, [h('div', { class: 'panel' }, (s ? stepBody(s) : []).concat([h('div', { class: 'drow' }, nav)]).concat(last ? [fin] : []))])
-      ])
-    ].forEach(function (n) { if (n) root.appendChild(n); });
+      stage
+    ])])]);
+    sh.appendChild(wrap);
   }
   function useSample() { var d = sampleData(); S.mods = d.mods; S.vars = d.vars; S.imgs = []; S.file = ''; S.sample = true; S.sel = 0; S.tab = 'mod'; S.err = ''; touch(); render(); }
 
