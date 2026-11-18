@@ -7,34 +7,34 @@
 <style>
 /* Layout: lista de modulos a la izquierda, trabajo y vista previa a la derecha, hoja de papel como unidad visual */
 :root {
-  --bg: #f2f4f3; --surface: #ffffff; --surface2: #e8eeec; --ink: #17201f; --muted: #566462; --line: #d1dad7;
-  --accent: #12665e; --accent-ink: #ffffff; --chip: #d6ebe6; --chip-ink: #0b4a43; --warn: #a3480f; --warn-bg: #f8e6d8;
-  --page: #ffffff; --page-ink: #1c2222; --page-line: #cfd6d3;
-  --font-head: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif; --font-body: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --bg: #f6f5f2; --surface: #ffffff; --surface2: #efede7; --ink: #1a1a1a; --muted: #66625a; --line: #e7e4dd;
+  --accent: #fbaa11; --accent-ink: #1a1a1a; --chip: #fff3d6; --chip-ink: #5a3d00; --warn: #a3480f; --warn-bg: #f8e6d8;
+  --page: #ffffff; --page-ink: #1c2222; --page-line: #cfcabd;
+  --font-head: 'Bricolage Grotesque', 'Segoe UI', system-ui, sans-serif; --font-body: 'Source Sans 3', 'Segoe UI', system-ui, sans-serif;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0e1514; --surface: #162120; --surface2: #1e2b2a; --ink: #e4edeb; --muted: #94a6a3; --line: #2b3a38;
-    --accent: #4cc2b5; --accent-ink: #04201d; --chip: #1d3b37; --chip-ink: #a4e6dc; --warn: #f0a06a; --warn-bg: #3a2616;
-    --page: #f7f9f8; --page-ink: #1c2222; --page-line: #3a4a48; color-scheme: dark;
+    --bg: #111111; --surface: #222222; --surface2: #191919; --ink: #f3f1ec; --muted: #a8a398; --line: #2f2f2f;
+    --accent: #fbaa11; --accent-ink: #1a1a1a; --chip: #33290f; --chip-ink: #fbd98a; --warn: #f0a06a; --warn-bg: #3a2616;
+    --page: #f7f6f2; --page-ink: #1c2222; --page-line: #474747; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #0e1514; --surface: #162120; --surface2: #1e2b2a; --ink: #e4edeb; --muted: #94a6a3; --line: #2b3a38;
-  --accent: #4cc2b5; --accent-ink: #04201d; --chip: #1d3b37; --chip-ink: #a4e6dc; --warn: #f0a06a; --warn-bg: #3a2616;
-  --page: #f7f9f8; --page-ink: #1c2222; --page-line: #3a4a48; color-scheme: dark;
+  --bg: #111111; --surface: #222222; --surface2: #191919; --ink: #f3f1ec; --muted: #a8a398; --line: #2f2f2f;
+  --accent: #fbaa11; --accent-ink: #1a1a1a; --chip: #33290f; --chip-ink: #fbd98a; --warn: #f0a06a; --warn-bg: #3a2616;
+  --page: #f7f6f2; --page-ink: #1c2222; --page-line: #474747; color-scheme: dark;
 }
 * { box-sizing: border-box; }
-body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 14px; line-height: 1.5; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 40px; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5; margin: 0; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 40px; }
 h1, h2, h3 { font-family: var(--font-head); text-wrap: balance; margin: 0; }
 button, select, input, textarea { font: inherit; color: inherit; }
 button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .wrap { max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
 .top { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: flex-end; justify-content: space-between; }
-.top h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.01em; }
+.top h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.01em; }
 .top p { margin: 4px 0 0; color: var(--muted); max-width: 62ch; }
 .tools { display: flex; flex-wrap: wrap; gap: 8px; }
-.btn { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; cursor: pointer; font-weight: 500; }
+.btn { background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 8px 16px; cursor: pointer; font-weight: 600; }
 .btn:hover { border-color: var(--accent); }
 .btn.main { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .btn.sm { padding: 3px 8px; font-size: 12px; }
@@ -47,7 +47,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .drop.on { border-color: var(--accent); background: var(--chip); color: var(--chip-ink); }
 .cols { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 16px; align-items: start; }
 @media (max-width: 860px) { .cols { grid-template-columns: minmax(0, 1fr); } }
-.side { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.side { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
 .side h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; padding: 2px 4px; }
 .mods { display: flex; flex-direction: column; gap: 4px; }
 .mod { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px; align-items: center; border: 1px solid transparent; border-radius: 8px; padding: 6px 8px; cursor: pointer; background: transparent; text-align: left; width: 100%; }
@@ -69,7 +69,7 @@ textarea { resize: vertical; min-height: 72px; line-height: 1.45; }
 .tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--line); }
 .tab { background: transparent; border: 0; border-bottom: 2px solid transparent; padding: 8px 12px; cursor: pointer; font-weight: 500; color: var(--muted); }
 .tab.on { color: var(--ink); border-bottom-color: var(--accent); }
-.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .panel h2 { font-size: 18px; }
 .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
 label.f { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 500; }
@@ -132,6 +132,9 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
 .thumbs { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .thumbs .thumb { width: 64px; height: 64px; object-fit: cover; border-radius: 6px; }
 .note.ok { background: var(--chip); color: var(--chip-ink); border-color: var(--accent); }
+body.fillmode { padding: 0; }
+body.fillmode .wrap { max-width: none; gap: 0; }
+#fillhost { position: fixed; inset: 0; overflow: auto; z-index: 5; background: var(--bg); }
 </style>
 </head>
 <body>
@@ -1078,8 +1081,44 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
     return h('section', { class: 'drive' }, kids);
   }
   var R = { vals: {}, texts: {}, imgs: {}, name: '', busy: false, msg: '', err: '' };
+  function fillSig() { return S.mods.map(function (m) { return m.id; }).join('|'); }
+  var IDB = null;
+  function idb(cb) {
+    if (IDB) { cb(IDB); return; }
+    try {
+      var rq = indexedDB.open('hya-generation', 1);
+      rq.onupgradeneeded = function () { rq.result.createObjectStore('kv'); };
+      rq.onsuccess = function () { IDB = rq.result; cb(IDB); };
+      rq.onerror = function () { cb(null); };
+    } catch (e) { cb(null); }
+  }
+  var saveT = null;
+  function saveR() {
+    if (saveT) clearTimeout(saveT);
+    saveT = setTimeout(function () {
+      saveT = null;
+      S.mods.forEach(function (m) { if (m.tipo === 'portada' && FS.cover[m.id]) { try { syncCover(m); } catch (e) {} } });
+      var data = { sig: fillSig(), vals: R.vals, texts: R.texts, imgs: R.imgs, name: R.name, step: FS.step, at: Date.now() };
+      try { localStorage.setItem('hya-generation-fill', JSON.stringify({ vals: R.vals, name: R.name })); } catch (e) {}
+      idb(function (db) { if (!db) return; try { db.transaction('kv', 'readwrite').objectStore('kv').put(data, 'fill'); } catch (e) {} });
+    }, 400);
+  }
+  function restoreR(done) {
+    idb(function (db) {
+      if (!db) { done(); return; }
+      try {
+        var g = db.transaction('kv').objectStore('kv').get('fill');
+        g.onsuccess = function () {
+          var d = g.result;
+          if (d && d.sig === fillSig()) { R.vals = d.vals || {}; R.texts = d.texts || {}; R.imgs = d.imgs || {}; R.name = d.name || ''; FS.step = d.step || 0; FS.cover = {}; }
+          done(d && d.sig === fillSig());
+        };
+        g.onerror = function () { done(); };
+      } catch (e) { done(); }
+    });
+  }
+  function clearR() { R.vals = {}; R.texts = {}; R.imgs = {}; R.name = ''; FS.step = 0; FS.cover = {}; idb(function (db) { if (db) { try { db.transaction('kv', 'readwrite').objectStore('kv').delete('fill'); } catch (e) {} } }); }
   try { var rz = JSON.parse(localStorage.getItem('hya-generation-fill') || 'null'); if (rz) { R.vals = rz.vals || {}; R.name = rz.name || ''; } } catch (e) {}
-  function saveR() { try { localStorage.setItem('hya-generation-fill', JSON.stringify({ vals: R.vals, name: R.name })); } catch (e) {} }
   function pickImages(multi, cb) {
     var f = h('input', { type: 'file', accept: 'image/*', multiple: multi ? true : null, class: 'sr', tabindex: '-1' });
     f.addEventListener('change', function () {
@@ -1279,6 +1318,8 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
     return out;
   }
   function renderFill() {
+    if (R.sig && R.sig !== fillSig()) clearR();
+    R.sig = fillSig();
     var steps = fillSteps();
     if (FS.step >= steps.length) FS.step = steps.length - 1;
     if (FS.step < 0) FS.step = 0;
@@ -1288,6 +1329,7 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
       FS.host = h('div', { id: 'fillhost' });
       root.appendChild(FS.host);
       FS.shadow = FS.host.attachShadow({ mode: 'open' });
+      FS.host.addEventListener('input', saveR); FS.host.addEventListener('change', saveR);
     }
     var sh = FS.shadow;
     sh.innerHTML = '';
@@ -1313,7 +1355,8 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
   function useSample() { var d = sampleData(); S.mods = d.mods; S.vars = d.vars; S.imgs = []; S.file = ''; S.sample = true; S.sel = 0; S.tab = 'mod'; S.err = ''; touch(); render(); }
 
   function render() {
-    if (S.view === 'fill') { renderFill(); return; }
+    document.body.classList.toggle('fillmode', S.view === 'fill');
+    if (S.view === 'fill') { renderFill(); saveR(); return; }
     var fi = h('input', { type: 'file', accept: '.docx', class: 'sr', id: 'docx', tabindex: '-1' });
     fi.addEventListener('change', function () { if (fi.files[0]) loadDocx(fi.files[0]); });
     var tabs = [['mod', 'Módulo'], ['prev', 'Vista previa'], ['vars', 'Variables'], ['steps', 'Pasos del informe'], ['json', 'JSON']];
@@ -1326,7 +1369,7 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
     [
       h('header', { class: 'top' }, [
         h('div', null, [h('h1', { text: 'Generación de formato' }), h('p', { text: 'Lee el formato desde Drive, edítalo por módulos y guarda una copia en Drive.' })]),
-        h('div', { class: 'tools' }, [fi, h('button', { class: 'btn main', type: 'button', disabled: S.busy ? true : null, onclick: function () { fi.click(); } }, ['Subir un Word']), h('button', { class: 'btn', type: 'button', onclick: useSample }, ['Cargar ejemplo']), h('button', { class: 'btn main', type: 'button', disabled: S.busy ? true : null, onclick: function () { S.view = 'fill'; FS.step = 0; R.msg = ''; R.err = ''; render(); } }, ['Llenar']), h('button', { class: 'btn', type: 'button', disabled: S.dl && !S.busy ? null : true, title: S.dl ? 'Exporta el formato como Word con colores, bandas y pie de página de la app' : 'La descarga no está disponible en esta vista', onclick: function () { exportDocx(true); } }, ['Exportar Word con estilo']), h('button', { class: 'btn', type: 'button', disabled: S.dl && !S.busy ? null : true, title: S.dl ? 'Exporta el formato como Word sencillo, sin diseño' : 'La descarga no está disponible en esta vista', onclick: function () { exportDocx(false); } }, ['Exportar Word sin estilo'])])
+        h('div', { class: 'tools' }, [fi, h('button', { class: 'btn main', type: 'button', disabled: S.busy ? true : null, onclick: function () { fi.click(); } }, ['Subir un Word']), h('button', { class: 'btn', type: 'button', onclick: useSample }, ['Cargar ejemplo']), h('button', { class: 'btn main', type: 'button', disabled: S.busy ? true : null, onclick: function () { S.view = 'fill'; R.msg = ''; R.err = ''; render(); } }, ['Llenar']), h('button', { class: 'btn', type: 'button', disabled: S.dl && !S.busy ? null : true, title: S.dl ? 'Exporta el formato como Word con colores, bandas y pie de página de la app' : 'La descarga no está disponible en esta vista', onclick: function () { exportDocx(true); } }, ['Exportar Word con estilo']), h('button', { class: 'btn', type: 'button', disabled: S.dl && !S.busy ? null : true, title: S.dl ? 'Exporta el formato como Word sencillo, sin diseño' : 'La descarga no está disponible en esta vista', onclick: function () { exportDocx(false); } }, ['Exportar Word sin estilo'])])
       ]),
       drivePanel(),
       S.err ? h('div', { class: 'note err', text: S.err }) : null,
@@ -1339,8 +1382,9 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
     ].forEach(function (n) { if (n) root.appendChild(n); });
   }
 
-  if (!load()) { var d = sampleData(); S.mods = d.mods; S.vars = d.vars; }
+  if (!load()) { var d = sampleData(); S.mods = d.mods; S.vars = d.vars; S.sample = true; touch(); }
   render();
+  restoreR(function (ok) { if (ok && S.view === 'fill') render(); });
   S.dl = {
     save: function (o) {
       return new Promise(function (res) {
