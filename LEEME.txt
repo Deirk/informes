@@ -134,3 +134,7 @@ FORMATO POR GRUPO Y EDITOR DE FORMATO
 - El icono de formato de cada grupo reune el Word, el editor de textos y las variables del grupo. Se quito el boton Variables de arriba.
 - Ajustes del proyecto muestra las variables de cada grupo para asignar el valor de las globales.
 - Quitar una variable en el editor la quita solo en ese grupo (su formato, su lista y sus informes).
+- Al exportar a Drive (incluido Enviar y Continuar), si el archivo todavia se llama inf- o inf-.docx se renombra a inf-torre1-apt201 (con la extension que tenia). La torre sale de la ruta de Drive o del nombre del grupo; si no hay torre queda inf-apt201. Si el informe no tiene numero de apartamento, o el archivo ya tiene otro nombre, no se toca.
+- Los grupos nuevos empiezan sin formato y solo con las variables basicas (Aseguradora, Poliza, Siniestro, Valor). Ya no heredan las variables ni el formato de otro grupo.
+- Si el Word del formato no trae partes resaltadas, la app detecta por patron la aseguradora (ante X, Se solicita a X), la poliza, el siniestro y el valor ($...). El corredor no se convierte en variable.
+- Al subir un Word de formato, la casilla "Aplicar este texto tambien a los informes que ya estan en este grupo" viene marcada.

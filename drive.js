@@ -225,6 +225,8 @@ module.exports = function createDrive(cfg, root, deps) {
     if (meta.mimeType !== DOCX && !isGoogle) throw new Error('El archivo original no es un Word ni un Google Docs, no se puede reemplazar.');
     const boundary = 'hya' + Math.random().toString(16).slice(2);
     const md = isGoogle ? { mimeType: meta.mimeType } : {};
+    const nn = typeof o.rename === 'function' ? o.rename(meta.name) : '';
+    if (nn) md.name = nn;
     const head = Buffer.from('--' + boundary + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify(md) + '\r\n--' + boundary + '\r\nContent-Type: ' + DOCX + '\r\n\r\n');
     const tail = Buffer.from('\r\n--' + boundary + '--');
     const url = 'https://www.googleapis.com/upload/drive/v3/files/' + o.fileId + '?uploadType=multipart&supportsAllDrives=true&fields=id,name,modifiedTime';

@@ -95,6 +95,24 @@ function photoPrefix(doc, project) {
   return parts.filter(Boolean).join('_');
 }
 
+function scanName(doc, project) {
+  const segs = String((doc.drive && doc.drive.path) || '').split('/').map((x) => x.trim()).filter(Boolean);
+  const grp = ((project && project.grupos) || []).filter((x) => x.id === doc.grupoId)[0];
+  const tm = segs.map((x) => /torre\s*0*(\d+)/i.exec(x)).filter(Boolean)[0] || /torre\s*0*(\d+)/i.exec((grp && grp.name) || '');
+  const apSrc = String((doc.cover && doc.cover.apartamento) || (doc.drive && doc.drive.name) || '');
+  const am = /(\d{3,4})/.exec(apSrc);
+  if (!am) return '';
+  return 'inf-' + (tm ? 'torre' + tm[1] + '-' : '') + 'apt' + am[1];
+}
+
+function renameFor(doc, project) {
+  const base = scanName(doc, project);
+  return (cur) => {
+    const m = /^inf-?(\.docx)?$/i.exec(String(cur || '').trim());
+    return base && m ? base + (m[1] ? '.docx' : '') : '';
+  };
+}
+
 function stamp(t) {
   const f = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(t));
   const g = (k) => f.filter((x) => x.type === k)[0].value;
@@ -134,7 +152,7 @@ async function sendPhotos(ctx, doc, project) {
 async function sendOne(ctx, project, cfgDoc, r) {
   const store = ctx.store;
   const buf = await buildDocx(store, r.data, project, cfgDoc);
-  const file = await ctx.drive.replace({ fileId: r.data.drive.id, buf: buf });
+  const file = await ctx.drive.replace({ fileId: r.data.drive.id, buf: buf, rename: renameFor(r.data, project) });
   const name = file.name || r.data.drive.name;
   const ph = project && project.fotosADrive === false ? { sent: r.data.fotosDrive || {}, err: '' } : await sendPhotos(ctx, r.data, project);
   await withLock('r:' + r.id, async () => {
@@ -143,6 +161,7 @@ async function sendOne(ctx, project, cfgDoc, r) {
     fresh.exportado = { fileId: file.id, name: name, at: Date.now() };
     fresh.fotosDrive = ph.sent;
     if (file.modifiedTime && fresh.drive) fresh.drive.modified = file.modifiedTime;
+    if (file.name && fresh.drive) fresh.drive.name = file.name;
     await store.putDoc('informes2', r.id, fresh);
   });
   if (ph.err) throw new Error('El Word se envió, pero una foto no se pudo subir: ' + ph.err);
