@@ -12,6 +12,7 @@ function formatoDiffs(d, p) {
   return out;
 }
 
+const vsOf = (p, d) => { const g = ((p && p.grupos) || []).filter((x) => x.id === (d && d.grupoId))[0]; return (g && g.vcfg) || p; };
 function customKeysIn(blocks, project) {
   const out = [];
   const keys = ((project && project.variables) || []).map((v) => v.key);
@@ -26,13 +27,13 @@ function moduleGaps(d, project) {
   const c = d.cover || {};
   const v = d.vars || {};
   if (!has(c.apartamento) || !has(c.conjunto)) g.push('portada');
-  if (!(d.intro || []).length || !has(v.seguro) || !has(v.poliza) || !has(v.siniestro) || customKeysIn(d.intro, project).some((k) => !has(v[k]))) g.push('introducción');
+  if (!(d.intro || []).length || !has(v.seguro) || !has(v.poliza) || !has(v.siniestro) || customKeysIn(d.intro, vsOf(project, d)).some((k) => !has(v[k]))) g.push('introducción');
   else if (formatoDiffs(d, project).indexOf('intro') > -1) g.push('introducción distinta al formato');
   const ind = (d.planos || []).filter((b) => b.t === 'img' && b.role === 'individual')[0];
   if (!planoGrupoOf(project, d) || !(ind && ind.ref)) g.push('planos');
   if (!Object.keys(d.espacios || {}).length) g.push('imágenes');
   if (!(project && project.presupuestoObligatorio === false) && !has(d.presupuesto && d.presupuesto.nota)) g.push('presupuesto');
-  if (!(d.concl || []).length || !has(v.valor) || customKeysIn(d.concl, project).some((k) => !has(v[k]))) g.push('conclusiones');
+  if (!(d.concl || []).length || !has(v.valor) || customKeysIn(d.concl, vsOf(project, d)).some((k) => !has(v[k]))) g.push('conclusiones');
   else if (formatoDiffs(d, project).indexOf('concl') > -1) g.push('conclusiones distintas al formato');
   return g;
 }

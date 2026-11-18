@@ -165,8 +165,9 @@ async function importDocx(store, buf, o) {
 
   const fm = (tg && tg.formato) || p0.formato || null;
   applyFormatoVars(res, fm);
-  ((p0 && p0.globalVars) || []).forEach((k) => {
-    const gv = ['seguro', 'poliza', 'siniestro', 'valor'].indexOf(k) > -1 ? ((p0.defaults || {})[k] || '') : (((p0.variables || []).filter((v) => v.key === k)[0] || {}).def || '');
+  const vsc = (tg && tg.vcfg) || p0;
+  ((vsc && vsc.globalVars) || []).forEach((k) => {
+    const gv = ['seguro', 'poliza', 'siniestro', 'valor'].indexOf(k) > -1 ? ((vsc.defaults || {})[k] || '') : (((vsc.variables || []).filter((v) => v.key === k)[0] || {}).def || '');
     if (has(gv)) { res.vars = res.vars || {}; res.vars[k] = gv; }
   });
   ['intro', 'concl'].forEach((sec) => (res[sec] || []).forEach((b) => { delete b.raw; delete b.hl; }));

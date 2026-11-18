@@ -129,3 +129,8 @@ FORMATO POR GRUPO Y EDITOR DE FORMATO
 - Al guardar: los informes del grupo cuyo texto sigue igual al formato anterior se actualizan completos. Los que tienen cambios propios los conservan: solo se actualizan o se quitan los parrafos que siguen identicos al formato anterior. Los parrafos nuevos solo llegan a los informes sin cambios propios.
 - Al quitar una variable se borra su marca y su valor de todos los informes del proyecto.
 - Se elimino la sugerencia automatica de la variable "Corredor de seguros" al leer un Word.
+- El formato se abre desde cada grupo (icono de documento en la cabecera del grupo). El boton superior ahora se llama Variables y solo maneja nombres y valores de las variables del proyecto.
+- Las variables tambien son por grupo: cada grupo tiene su propia lista (nombres, si es global o unica, valores). Al abrir un proyecto antiguo se copia la lista del proyecto a cada grupo una sola vez.
+- El icono de formato de cada grupo reune el Word, el editor de textos y las variables del grupo. Se quito el boton Variables de arriba.
+- Ajustes del proyecto muestra las variables de cada grupo para asignar el valor de las globales.
+- Quitar una variable en el editor la quita solo en ese grupo (su formato, su lista y sus informes).
