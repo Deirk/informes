@@ -155,3 +155,7 @@ Llenar informe (en /generation)
 /generation: estilo y guardado (actualización)
 - La pantalla del formato y el formulario de llenado usan ahora los colores y fuentes de la app; el llenado ocupa toda la pantalla.
 - Lo que llenas (datos, textos, portada, fotos con sus títulos, paso actual) se guarda solo en este navegador (IndexedDB) y se recupera al volver a abrir /generation y pulsar Llenar. Si cargas otro formato, el llenado anterior se descarta. No se sube a ningún servidor.
+
+Fotos por espacio (/generation)
+- El módulo "Fotos por espacio" trae la lista de espacios vacía. Se añaden uno a uno, se quitan con la x, o se carga la lista de apartamento (pasillo, sala comedor, cocina, hall, alcobas, baños...). La lista se edita en el formato y también en el paso de llenado.
+- En el llenado hay una zona de fotos por cada espacio; en el Word cada foto va en su propia página con el nombre del espacio como título.

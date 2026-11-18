@@ -131,6 +131,12 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
 .irow input[type=text] { min-width: 0; }
 .thumbs { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .thumbs .thumb { width: 64px; height: 64px; object-fit: cover; border-radius: 6px; }
+.spaces { display: flex; flex-direction: column; gap: 8px; }
+.schips { display: flex; flex-wrap: wrap; gap: 6px; }
+.schip { display: inline-flex; align-items: center; gap: 4px; background: var(--chip); color: var(--chip-ink); border-radius: 999px; padding: 2px 4px 2px 10px; font-weight: 600; font-size: 13px; }
+.schipx { border: 0; background: transparent; color: inherit; cursor: pointer; width: 20px; height: 20px; border-radius: 50%; line-height: 1; font-size: 16px; padding: 0; }
+.schipx:hover { background: var(--line); }
+.row2 input[type=text] { flex: 1 1 200px; width: auto; }
 .note.ok { background: var(--chip); color: var(--chip-ink); border-color: var(--accent); }
 body.fillmode { padding: 0; }
 body.fillmode .wrap { max-width: none; gap: 0; }
@@ -153,7 +159,7 @@ body.fillmode .wrap { max-width: none; gap: 0; }
     texto: { n: 'Texto', d: 'Paso con el texto editable. Las variables se llenan en cada informe.' },
     imagenes: { n: 'Imágenes', d: 'Paso donde se añaden las imágenes que hagan falta, cada una con un título opcional.' },
     planos: { n: 'Planos', d: 'Paso donde se añaden los planos, cada uno con un título opcional.' },
-    galeria: { n: 'Fotos por espacio', d: 'Paso donde se suben las fotos de cada espacio, una por página.' },
+    galeria: { n: 'Fotos por espacio', d: 'Paso con una zona de fotos por cada espacio de la lista; cada foto va en su página con el nombre del espacio.' },
     pegado: { n: 'Imágenes pegadas', d: 'Paso donde se pegan imágenes copiadas, por ejemplo desde Excel.' },
     tabla: { n: 'Tabla', d: 'Tabla del formato que se conserva igual en cada informe.' },
     firmas: { n: 'Firmas', d: 'Paso con la firma de quienes suscriben el informe.' }
@@ -592,6 +598,36 @@ body.fillmode .wrap { max-width: none; gap: 0; }
     row.appendChild(h('button', { class: 'btn sm danger', type: 'button', onclick: function () { m.items.splice(i, 1); touch(); render(); } }, ['Quitar']));
     return out;
   }
+  var APT_SPACES = ['PASILLO', 'SALA COMEDOR', 'COCINA', 'HALL', 'ALCOBA SERVICIO', 'ZONA DE OFICIO', 'ESTAR TV', 'BAÑO 1', 'BAÑO 2', 'BAÑO 3', 'ALCOBA 1', 'ALCOBA 2', 'ALCOBA 3'];
+  function spaceKey(m, n) { return m.id + ':e:' + n; }
+  function addSpace(m, name) {
+    name = String(name || '').trim().toUpperCase();
+    if (!name) return false;
+    m.espacios = m.espacios || [];
+    if (m.espacios.indexOf(name) >= 0) return false;
+    m.espacios.push(name); touch(); return true;
+  }
+  function removeSpace(m, name) {
+    m.espacios = (m.espacios || []).filter(function (x) { return x !== name; });
+    if (typeof R !== 'undefined') delete R.imgs[spaceKey(m, name)];
+    touch();
+  }
+  function spacesEditor(m, again) {
+    var list = m.espacios || [];
+    var inp = h('input', { type: 'text', placeholder: 'Nombre del espacio, por ejemplo COCINA', 'aria-label': 'Nuevo espacio' });
+    var add = function () { if (addSpace(m, inp.value)) again(); else inp.focus(); };
+    inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); add(); } });
+    var missing = APT_SPACES.filter(function (x) { return list.indexOf(x) < 0; });
+    return h('div', { class: 'spaces' }, [
+      h('div', { class: 'tag', text: 'Espacios (' + list.length + ')' }),
+      list.length ? h('div', { class: 'schips' }, list.map(function (n) {
+        return h('span', { class: 'schip' }, [n, h('button', { class: 'schipx', type: 'button', 'aria-label': 'Quitar ' + n, onclick: function () { removeSpace(m, n); again(); } }, ['×'])]);
+      })) : h('p', { class: 'hint', text: 'Aún no hay espacios. Añádelos uno a uno o carga la lista de apartamento.' }),
+      h('div', { class: 'row2' }, [inp, h('button', { class: 'btn sm', type: 'button', onclick: add }, ['Añadir espacio']),
+        h('button', { class: 'btn ghost sm', type: 'button', disabled: missing.length ? null : true, onclick: function () { missing.forEach(function (x) { m.espacios = (m.espacios || []).concat([x]); }); touch(); again(); } }, ['Cargar lista de apartamento']),
+        list.length ? h('button', { class: 'btn ghost sm', type: 'button', onclick: function () { list.slice().forEach(function (n) { removeSpace(m, n); }); again(); } }, ['Vaciar lista']) : null])
+    ]);
+  }
   function modulePanel() {
     var m = cur();
     if (!m) return h('div', { class: 'panel' }, [h('p', { class: 'hint', text: 'Elige un módulo de la lista.' })]);
@@ -642,6 +678,7 @@ body.fillmode .wrap { max-width: none; gap: 0; }
       ]),
       h('label', { class: 'chk', for: 'mob' }, [ob, 'Obligatorio: el informe no se marca completo sin este módulo']),
       h('p', { class: 'hint', text: 'Genera en el editor de informes: ' + TYPES[m.tipo].d }),
+      m.tipo === 'galeria' ? spacesEditor(m, render) : null,
       h('div', { class: 'row2' }, [h('label', { class: 'f', for: 'mtext', style: 'flex:1' }, ['Texto del módulo']), ins, split, join]),
       ta,
       h('p', { class: 'hint', text: 'Una línea que empieza con ## es un subtítulo. Las variables se escriben como {{ASEGURADORA}} y se insertan con el selector.' }),
@@ -668,7 +705,7 @@ body.fillmode .wrap { max-width: none; gap: 0; }
       }
     });
     if (m.tipo === 'portada') pg.appendChild(h('div', { class: 'ph', text: 'Portada: conjunto, apartamento, fecha y elaboradores' }));
-    if (m.tipo === 'galeria') pg.appendChild(h('div', { class: 'ph', text: 'Fotos por espacio, una por página' }));
+    if (m.tipo === 'galeria') pg.appendChild(h('div', { class: 'ph', text: (m.espacios || []).length ? 'Fotos por espacio (' + m.espacios.join(', ') + '), una por página' : 'Fotos por espacio, una por página (lista de espacios vacía)' }));
     if (m.tipo === 'pegado') pg.appendChild(h('div', { class: 'ph', text: 'Imágenes pegadas en el informe, a todo el ancho' }));
     if (m.tipo === 'firmas') pg.appendChild(h('div', { class: 'ph', text: 'Firma de quien suscribe' }));
     return h('div', { class: 'pwrap' }, [h('div', { class: 'plabel', text: 'Módulo ' + (i + 1) + (m.nivel ? ' (subpestaña)' : '') + ' · ' + TYPES[m.tipo].n + ' · ' + (m.orient === 'h' ? 'horizontal' : 'vertical') }), pg]);
@@ -905,9 +942,21 @@ body.fillmode .wrap { max-width: none; gap: 0; }
         for (var xi = 0; xi < xtra.length; xi++) (await imgPs(xtra[xi], m.orient === 'h')).forEach(function (x) { ps.push(x); });
         var gal = FILL.imgs[m.id + ':g'] || [], pas = FILL.imgs[m.id + ':p'] || [], sg = FILL.imgs[m.id + ':f'];
         ps = ps.filter(function (x) { return !x.ph; });
+        var gfirst = true;
         for (var gi = 0; gi < gal.length; gi++) {
-          if (gi > 0) ps.push({ runs: ['<w:r><w:br w:type="page"/></w:r>'], o: { after: 0 } });
+          if (!gfirst) ps.push({ runs: ['<w:r><w:br w:type="page"/></w:r>'], o: { after: 0 } });
+          gfirst = false;
           (await imgPs(gal[gi], m.orient === 'h')).forEach(function (x) { ps.push(x); });
+        }
+        var sps = m.tipo === 'galeria' ? (m.espacios || []) : [];
+        for (var si = 0; si < sps.length; si++) {
+          var sl = FILL.imgs[spaceKey(m, sps[si])] || [];
+          for (var sk = 0; sk < sl.length; sk++) {
+            if (!gfirst) ps.push({ runs: ['<w:r><w:br w:type="page"/></w:r>'], o: { after: 0 } });
+            gfirst = false;
+            ps.push({ runs: [run(sps[si] + (sk > 0 ? ' (' + (sk + 1) + ')' : ''), styled ? { b: true, sz: 26, color: NAVY, font: FONT } : { b: true })], o: { style: 'Heading2', keep: true, before: 0, after: 160 } });
+            (await imgPs(sl[sk], m.orient === 'h')).forEach(function (x) { ps.push(x); });
+          }
         }
         for (var pi = 0; pi < pas.length; pi++) (await imgPs(pas[pi], m.orient === 'h')).forEach(function (x) { ps.push(x); });
         if (sg) ps.push({ runs: [await drawing(sg.u, false)], o: { jc: 'center', before: 60, after: 200 } });
@@ -1191,8 +1240,8 @@ body.fillmode .wrap { max-width: none; gap: 0; }
     R.imgs[key] = multi ? (R.imgs[key] || []).concat(add) : add[0];
     render();
   }
-  function photoTile(m, title) {
-    var key = imgKey(m), list = R.imgs[key] || [];
+  function photoTile(m, title, keyOv) {
+    var key = keyOv || imgKey(m), list = R.imgs[key] || [];
     var fi = h('input', { type: 'file', accept: 'image/*', multiple: true, hidden: true, onchange: function (e) { var f = Array.prototype.slice.call(e.target.files); e.target.value = ''; addImgs(key, true, f); } });
     var tile = h('div', { class: 'stile' + (list.length ? ' has' : ''),
       ondragover: function (e) { e.preventDefault(); e.stopPropagation(); tile.classList.add('over'); },
@@ -1306,14 +1355,17 @@ body.fillmode .wrap { max-width: none; gap: 0; }
       ])]));
     } else if (isImgT(m.tipo) || m.tipo === 'galeria' || m.tipo === 'pegado') {
       if (m.text || R.texts[m.id] != null) out.push(h('div', { class: 'mcard', style: 'margin-bottom:14px' }, [h('div', { class: 'fields' }, [fld('Texto de la sección', function () { return R.texts[m.id] != null ? R.texts[m.id] : m.text; }, function (x) { R.texts[m.id] = x; }, { area: true, rows: 5, wide: true })])]));
-      out.push(h('div', { class: 'sgrid', style: 'grid-template-columns:minmax(0,1fr)' }, [photoTile(m, m.titulo || 'Imágenes')]));
+      if (m.tipo === 'galeria') {
+        out.push(h('div', { class: 'mcard', style: 'margin-bottom:14px' }, [spacesEditor(m, render)]));
+        out.push(h('div', { class: 'sgrid' }, (m.espacios || []).map(function (n) { return photoTile(m, n, spaceKey(m, n)); })));
+      } else out.push(h('div', { class: 'sgrid', style: 'grid-template-columns:minmax(0,1fr)' }, [photoTile(m, m.titulo || 'Imágenes')]));
     } else if (m.tipo === 'firmas') {
       out.push(h('div', { class: 'mcard' }, [singleSlot(m, 'Firma de quien suscribe el informe')]));
     } else {
       out.push(h('div', { class: 'mcard' }, [h('div', { class: 'fields' }, [fld('Texto', function () { return R.texts[m.id] != null ? R.texts[m.id] : (m.text || ''); }, function (x) { R.texts[m.id] = x; }, { area: true, rows: 12, wide: true, help: 'Las variables ({{ASEGURADORA}} y similares) se reemplazan al generar.' })])]));
     }
     var hint = '';
-    if (imgKey(m)) { var cn = R.imgs[imgKey(m)]; var nn = Array.isArray(cn) ? cn.length : (cn ? 1 : 0); hint = nn ? nn + (nn === 1 ? ' imagen' : ' imágenes') : 'Aún no hay imágenes'; }
+    if (m.tipo === 'galeria') { var tn = 0; (m.espacios || []).forEach(function (n) { tn += (R.imgs[spaceKey(m, n)] || []).length; }); hint = tn ? tn + (tn === 1 ? ' imagen' : ' imágenes') : 'Aún no hay imágenes'; } else if (imgKey(m)) { var cn = R.imgs[imgKey(m)]; var nn = Array.isArray(cn) ? cn.length : (cn ? 1 : 0); hint = nn ? nn + (nn === 1 ? ' imagen' : ' imágenes') : 'Aún no hay imágenes'; }
     out.push(navFoot(steps, idx, hint));
     return out;
   }

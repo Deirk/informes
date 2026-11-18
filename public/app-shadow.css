@@ -432,3 +432,13 @@ img.zoomable{cursor:zoom-in}
 .fb .shell{max-width:none;margin:0}
 .fb .main{border:0;border-radius:0;min-height:100vh}
 .fb .stage,.fb .bar,.fb .prog{max-width:1000px;margin-inline:auto}
+.spaces{display:flex;flex-direction:column;gap:10px}
+.spaces .tag{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+.spaces .hint{margin:0;color:var(--muted);font-size:13px}
+.schips{display:flex;flex-wrap:wrap;gap:6px}
+.schip{display:inline-flex;align-items:center;gap:4px;background:var(--accent-soft);color:var(--ink);border-radius:999px;padding:3px 4px 3px 12px;font-weight:600;font-size:13px}
+.schipx{border:0;background:transparent;color:inherit;cursor:pointer;width:22px;height:22px;border-radius:50%;line-height:1;font-size:17px;padding:0}
+.schipx:hover{background:var(--line)}
+.spaces .row2{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.spaces .row2 input{flex:1 1 220px;min-width:0;padding:9px 12px;border:1px solid var(--line-2);border-radius:10px;background:var(--paper);color:var(--ink);font:inherit}
+
