@@ -329,6 +329,7 @@ body[data-phase="projects"] .lib,body[data-phase="project"] .lib{display:none}
 .chev .i{width:22px;height:22px;transition:transform .15s}
 .gcard.open .chev .i{transform:rotate(180deg)}
 .gbody{border-top:1px solid var(--line);padding:16px;display:flex;flex-direction:column;gap:16px}
+.subtog{border:0;background:transparent;color:inherit;cursor:pointer;padding:2px;display:inline-grid;place-items:center;border-radius:6px}.subtog:hover{background:var(--line)}.subtog .i{width:16px;height:16px;transition:transform .15s}.subh:not(.collapsed) .subtog .i{transform:rotate(180deg)}.subname{cursor:pointer}.subh.collapsed{margin-bottom:10px}.hya-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1d1d1d;color:#fff;padding:12px 18px;border-radius:12px;font-size:14px;z-index:9999;box-shadow:0 6px 24px rgba(0,0,0,.3);max-width:90vw}
 .subplan{display:inline-flex;align-items:center;gap:8px;margin-left:auto}.sthumb{width:56px;height:40px;object-fit:contain;border:1px solid var(--line);border-radius:8px;background:#fff;display:grid;place-items:center;font-size:10px;color:var(--muted);text-align:center}.sthumb.empty{background:transparent;width:auto;height:auto;border:0;font-size:12px;white-space:nowrap}
 .gplan{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
 .gplan>img,.gplan>.pv{width:170px;height:118px;object-fit:contain;border:1px solid var(--line);border-radius:10px;background:#fff;flex:none}
@@ -1385,6 +1386,24 @@ if (typeof module !== "undefined") module.exports = buildReport2;
   }
   const clone = (o) => { try { return JSON.parse(JSON.stringify(o || {})); } catch (e) { return {}; } };
   const has = (v) => !!String(v == null ? '' : v).trim();
+  let subCollapsed = new Set(); try { subCollapsed = new Set(JSON.parse(load('hya2-subcol') || '[]')); } catch (e) {}
+  const subColKey = (pid, gid, k) => pid + '|' + (gid || '') + '|' + k;
+  function toggleSubCol(key) { if (subCollapsed.has(key)) subCollapsed.delete(key); else subCollapsed.add(key); store('hya2-subcol', JSON.stringify(Array.from(subCollapsed))); renderProject(); }
+  function toast(msg) {
+    const old = document.querySelector('.hya-toast'); if (old) old.remove();
+    const t = document.createElement('div'); t.className = 'hya-toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
+    setTimeout(() => { if (t.parentNode) t.remove(); }, 4500);
+  }
+  function groupQueue(pid, gid) {
+    const p = proj(pid) || { grupos: [] };
+    const g = (p.grupos || []).filter((x) => x.id === gid)[0];
+    const rs = projReports(pid).filter((r) => (r.data.grupoId || '') === (gid || '') || (!g && !(p.grupos || []).some((x) => x.id === r.data.grupoId)))
+      .sort((a, b) => natCmp(a.data.cover && a.data.cover.apartamento, b.data.cover && b.data.cover.apartamento));
+    const sets = {}; const order = [];
+    rs.forEach((r) => { const k = subKeyOf(r.data); if (!sets[k]) { sets[k] = []; order.push(k); } sets[k].push(r); });
+    order.sort((a, b) => (a ? 1 : 0) - (b ? 1 : 0) || natCmp(a, b));
+    return order.reduce((acc, k) => acc.concat(sets[k]), []);
+  }
   const natCmp = (a, b) => String(a).localeCompare(String(b), 'es', { numeric: true, sensitivity: 'base' });
 
   let db = null, assets = null, dbState = 'loading';
@@ -1798,6 +1817,14 @@ if (typeof module !== "undefined") module.exports = buildReport2;
       await flush(st);
       const j = await api('/api/drive/send?id=' + encodeURIComponent(st.id), { method: 'POST' });
       genState = { busy: false, kind: 'ok', msg: (j.updated ? 'Actualizado en Drive: ' : 'Enviado a Drive: ') + j.name };
+      if (R === st) {
+        const q = groupQueue(st.projectId, st.grupoId || '');
+        const at = q.findIndex((x) => x.id === st.id);
+        const nx = at >= 0 ? q[at + 1] : null;
+        if (nx) { openReport(nx.id); toast((j.updated ? 'Actualizado en Drive: ' : 'Enviado a Drive: ') + j.name + '. Continúas con ' + ((nx.data.cover && nx.data.cover.apartamento) || 'el siguiente informe') + '.'); return; }
+        toast((j.updated ? 'Actualizado en Drive: ' : 'Enviado a Drive: ') + j.name + '. Era el último informe del grupo.');
+        showProject(); return;
+      }
     } catch (e) { genState = { busy: false, kind: 'bad', msg: (e && e.message) || 'No se pudo enviar a Drive.' }; }
     if (R === st) renderStage();
   }
@@ -2053,10 +2080,11 @@ if (typeof module !== "undefined") module.exports = buildReport2;
         rs.forEach((r) => { const k = subOf(r); if (!sets[k]) { sets[k] = []; order.push(k); } sets[k].push(r); });
         order.sort((a, b) => (a ? 1 : 0) - (b ? 1 : 0) || a.localeCompare(b, 'es', { numeric: true, sensitivity: 'base' }));
         order.forEach((k) => {
+          const sck = subColKey(p.id, gid, k), collapsed = subCollapsed.has(sck);
           const sp = g && g.subplanos && g.subplanos[k] && g.subplanos[k].aid ? g.subplanos[k] : null;
           const sfi = h('input', { type: 'file', accept: 'image/*', hidden: true, onchange: (e) => { const f = e.target.files[0]; e.target.value = ''; if (f && g) setSubPlano(p, g, k, f); } });
-          area.appendChild(h('div', { class: 'subh' }, [icon('folder'), h('b', { text: k || 'Sin subcarpeta' }), h('span', { text: sets[k].length + (sets[k].length === 1 ? ' informe' : ' informes') }), (() => { const nn = sets[k].filter(autoNeeds); return nn.length ? h('button', { class: 'btn ghost sm', type: 'button', title: 'Rellena las secciones vacías con el formato y los datos del proyecto', onclick: () => autoFormatoRun(nn) }, [icon('wand'), 'Autogenerar formato (' + nn.length + ')']) : null; })(), g ? h('span', { class: 'subplan' }, [sp ? h('img', { class: 'sthumb', src: '/_blob/' + sp.aid, alt: 'Plano de ' + (k || 'sin subcarpeta') }) : h('span', { class: 'sthumb empty', text: 'Sin plano' }), h('button', { class: 'btn ghost sm', type: 'button', onclick: () => sfi.click() }, [icon('img'), sp ? 'Cambiar plano' : 'Subir plano']), sp ? h('button', { class: 'btn ghost sm', type: 'button', onclick: () => setSubPlano(p, g, k, null) }, [icon('trash'), 'Quitar plano']) : null, sfi]) : null]));
-          const grid = h('div', { class: 'rgrid' }); sets[k].forEach((r) => grid.appendChild(reportCard(r, p))); area.appendChild(grid);
+          area.appendChild(h('div', { class: 'subh' + (collapsed ? ' collapsed' : '') }, [h('button', { class: 'subtog', type: 'button', 'aria-expanded': collapsed ? 'false' : 'true', title: collapsed ? 'Expandir subgrupo' : 'Colapsar subgrupo', onclick: () => toggleSubCol(sck) }, [icon('chev')]), icon('folder'), h('b', { class: 'subname', text: k || 'Sin subcarpeta', onclick: () => toggleSubCol(sck) }), h('span', { text: sets[k].length + (sets[k].length === 1 ? ' informe' : ' informes') }), (() => { const nn = sets[k].filter(autoNeeds); return nn.length ? h('button', { class: 'btn ghost sm', type: 'button', title: 'Rellena las secciones vacías con el formato y los datos del proyecto', onclick: () => autoFormatoRun(nn) }, [icon('wand'), 'Autogenerar formato (' + nn.length + ')']) : null; })(), g ? h('span', { class: 'subplan' }, [sp ? h('img', { class: 'sthumb', src: '/_blob/' + sp.aid, alt: 'Plano de ' + (k || 'sin subcarpeta') }) : h('span', { class: 'sthumb empty', text: 'Sin plano' }), h('button', { class: 'btn ghost sm', type: 'button', onclick: () => sfi.click() }, [icon('img'), sp ? 'Cambiar plano' : 'Subir plano']), sp ? h('button', { class: 'btn ghost sm', type: 'button', onclick: () => setSubPlano(p, g, k, null) }, [icon('trash'), 'Quitar plano']) : null, sfi]) : null]));
+          if (!collapsed) { const grid = h('div', { class: 'rgrid' }); sets[k].forEach((r) => grid.appendChild(reportCard(r, p))); area.appendChild(grid); }
         });
       }
       area.appendChild(h('div', { class: 'dropnote', role: 'button', tabindex: '0', onclick: () => { if (!imp.busy) fiw.click(); }, onkeydown: (e) => { if ((e.key === 'Enter' || e.key === ' ') && !imp.busy) { e.preventDefault(); fiw.click(); } } },
@@ -3097,7 +3125,7 @@ if (typeof module !== "undefined") module.exports = buildReport2;
       g.length ? h('div', { class: 'warns' }, [h('p', { text: 'Revisar: ' + g.join(', ') + '. Puedes generar igual y completarlo después.' })]) : h('div', { class: 'pill ok', text: 'Todo listo' }),
       h('div', { class: 'foot' }, [
         h('button', { class: 'btn ghost', type: 'button', onclick: () => goStep('conclusiones') }, [icon('back'), 'Atrás']),
-        R.drive && R.drive.folderId && !R.importError ? h('button', { class: 'btn ghost', type: 'button', disabled: genState.busy ? true : null, onclick: sendEditorToDrive, title: 'Reemplaza el archivo original en Drive con este informe' }, [icon('up'), 'Enviar a Drive']) : null,
+        R.drive && R.drive.folderId && !R.importError ? h('button', { class: 'btn ghost', type: 'button', disabled: genState.busy ? true : null, onclick: sendEditorToDrive, title: 'Reemplaza el archivo original en Drive con este informe y abre el siguiente informe de la lista' }, [icon('up'), 'Enviar y Continuar']) : null,
         h('button', { class: 'btn', type: 'button', disabled: genState.busy ? true : null, onclick: generateEditor }, [icon('down'), genState.busy ? 'Generando…' : 'Generar y descargar Word'])
       ])
     ]);

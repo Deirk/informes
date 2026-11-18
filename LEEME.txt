@@ -115,3 +115,7 @@ IMAGEN FIJA POR GRUPO Y PLANO POR SUBGRUPO
 - En el paso Planos del informe el orden es Imagen fija del informe, Plano y Plano individual marcado. Los dos primeros se muestran solo para consulta; el plano individual marcado se sube en cada informe.
 - Nada se asigna automáticamente: los planos de grupo que ya estaban subidos no se mueven a los subgrupos y hay que subir el plano en cada subgrupo. Un informe sin plano de subgrupo queda con "planos" pendiente.
 - Al importar un Word ya no se crea un grupo ni se toma el plano de grupo del documento.
+
+SUBGRUPOS COLAPSABLES Y ENVIAR Y CONTINUAR
+- Cada subgrupo tiene una flecha (o se hace clic en su nombre) para colapsar o expandir sus informes. El estado se recuerda en el navegador, por proyecto, grupo y subgrupo.
+- En el último paso del informe, el botón "Enviar y Continuar" envía el informe a Drive y abre el siguiente de la lista de su subgrupo (orden por apartamento). Al terminar un subgrupo pasa al siguiente, y tras el último informe del grupo vuelve a la vista del proyecto. Si el envío falla, se queda en el informe con el error.
