@@ -189,7 +189,10 @@ async function handle(req, res) {
       if (parts[2] === 'folders') return send(res, 200, await drive.folders(url.searchParams.get('parent') || 'root'));
       if (parts[2] === 'folder') return send(res, 200, await drive.folder(url.searchParams.get('ref')));
       if (parts[2] === 'find') return send(res, 200, await drive.find(url.searchParams.get('folderId') || '', url.searchParams.get('name') || ''));
-      if (parts[2] === 'tabs') return send(res, 200, await drive.tabs(url.searchParams.get('id') || ''));
+      if (parts[2] === 'tabs') {
+        try { return send(res, 200, await drive.tabs(url.searchParams.get('id') || '')); }
+        catch (e) { console.error('tabs', e && e.stack || e); return send(res, 200, { google: true, tabs: [], error: (e && e.message) || 'Error desconocido al leer las pestañas' }); }
+      }
       if (parts[2] === 'file') return send(res, 200, await drive.doc(url.searchParams.get('id') || ''), 'application/octet-stream');
       if (parts[2] === 'copy' && method === 'POST') {
         const buf = await readBody(req, 128 * 1024 * 1024);

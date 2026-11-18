@@ -184,6 +184,16 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
 
   var TAB_LIST = ['PORTADA', 'INTRODUCCION', 'INFORME', 'FACHADA 1', '  PRINCIPAL-A', '  POSTERIOR-A', '  LATERAL IZQUIERDA-A', '  LATERAL DERECHA-A', 'FACHADA 2', '  PRINCIPAL-B', '  POSTERIOR-B', '  LATERAL IZQUIERDA-B', '  LATERAL DERECHA-B', 'FACHADA 3', '  PRINCIPAL C', '  POSTERIOR C', '  LATERAL IZQ C', '  LATERAL DER C', 'PUNTOS FIJOS 1', '  PFA (1-4)-A', '  PFA (5-8)-A', '  PFA (9-12)-A', 'PUNTOS FIJOS 2', '  PFB (1-4)-B', '  PFB (5-8)-B', '  PFB (9-12)-B', 'PUNTOS FIJOS 3', '  PFC (1-4)-C', '  PFC (5-8)-C', '  PFC (9-12)-C', 'PARQUEADEROS', 'PRESUPUESTO', 'CONCLUSIONES'];
   function nameLines(txt) {
+    var raw = String(txt || '').trim();
+    if (raw.charAt(0) === '[') {
+      try {
+        var arr = JSON.parse(raw);
+        return arr.map(function (x) {
+          if (typeof x === 'string') return { n: x.trim(), nivel: /^\s/.test(x) ? 1 : 0 };
+          return { n: String(x.titulo || x.title || x.n || '').trim(), nivel: x.nivel ? 1 : 0 };
+        }).filter(function (x) { return x.n; });
+      } catch (e) {}
+    }
     return String(txt || '').split(/\r?\n/).map(function (l) {
       var sub = /^(\s{2,}|\t+|[-–·•>]+\s*)/.test(l);
       var n = l.replace(/^[\s\-–·•>]+/, '').trim();
@@ -245,7 +255,7 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
     var imgs = [];
     runs.forEach(function (r) { r.imgs.forEach(function (i) { imgs.push(i); }); });
     var withText = runs.filter(function (r) { return r.t.trim(); });
-    return { k: 'p', style: ppr ? wv(ppr, 'pStyle') : '', runs: runs, text: text, imgs: imgs, bold: withText.length > 0 && withText.every(function (r) { return r.b; }), sect: ppr ? kid(ppr, 'sectPr') : null };
+    return { k: 'p', style: ppr ? wv(ppr, 'pStyle') : '', runs: runs, text: text, imgs: imgs, bold: withText.length > 0 && withText.every(function (r) { return r.b; }), sect: ppr ? kid(ppr, 'sectPr') : null, li: !!(ppr && kid(ppr, 'numPr')) };
   }
   function orientOf(sp) {
     var pg = sp && kid(sp, 'pgSz');
@@ -363,7 +373,7 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
         b.imgs.forEach(function (r) { cur.blocks.push({ t: 'img', idx: idxOf[r] == null ? null : idxOf[r], rol: 'informe' }); });
         return;
       }
-      if (b.text.trim()) cur.blocks.push({ t: 'p', x: b.text, runs: b.runs });
+      if (b.text.trim()) cur.blocks.push({ t: 'p', x: b.text, runs: b.runs, li: !!b.li });
       b.imgs.forEach(function (r) { cur.blocks.push({ t: 'img', idx: idxOf[r] == null ? null : idxOf[r], rol: 'informe' }); });
     });
 
@@ -443,7 +453,15 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
       else if (!nTxt && m.blocks.some(function (b) { return b.t === 'tabla'; })) m.tipo = 'tabla';
       else m.tipo = 'texto';
       delete m.pre; delete m._sec; delete m._named;
-      m.text = m.blocks.filter(function (b) { return b.t === 'p' || b.t === 'h'; }).map(function (b) { return b.t === 'h' ? '## ' + b.x : b.x.replace(/\s+/g, ' ').trim(); }).filter(Boolean).join('\n\n');
+      var parts = [], prevLi = false;
+      m.blocks.forEach(function (b) {
+        if (b.t !== 'p' && b.t !== 'h') return;
+        var s = b.t === 'h' ? '## ' + b.x : b.x.replace(/\s+/g, ' ').trim();
+        if (!s) return;
+        if (b.t === 'p' && b.li) { s = '- ' + s; if (prevLi) parts[parts.length - 1] += '\n' + s; else parts.push(s); prevLi = true; }
+        else { parts.push(s); prevLi = false; }
+      });
+      m.text = parts.join('\n\n');
       m.items = m.blocks.filter(function (b) { return b.t === 'img' || b.t === 'tabla'; });
       delete m.blocks;
     });
@@ -492,7 +510,7 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
       nta.value = S.namesText || '';
       nta.addEventListener('input', function () { S.namesText = nta.value; });
       nb = h('div', { class: 'namesbox' }, [
-        h('p', { class: 'hint', text: 'Una pestaña por línea, en el orden del documento. Las subpestañas llevan sangría (dos espacios o un guion). Se renombran los módulos en orden y, si sobran líneas, se añaden módulos vacíos.' }),
+        h('p', { class: 'hint', text: 'Una pestaña por línea (o un JSON con titulo y nivel), en el orden del documento. Las subpestañas llevan sangría (dos espacios o un guion). Se renombran los módulos en orden y, si sobran líneas, se añaden módulos vacíos.' }),
         nta,
         h('div', { class: 'row2' }, [
           h('button', { class: 'btn sm', type: 'button', onclick: function () {
@@ -739,12 +757,13 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
     var p = '';
     if (o.style) p += '<w:pStyle w:val="' + o.style + '"/>';
     if (o.keep) p += '<w:keepNext/>';
+    if (o.num) p += '<w:numPr><w:ilvl w:val="0"/><w:numId w:val="2"/></w:numPr>';
     var bd = '';
-    if (o.bb) bd += '<w:bottom w:val="single" w:sz="' + o.bb.sz + '" w:space="4" w:color="' + o.bb.c + '"/>';
-    if (o.bl) bd += '<w:left w:val="single" w:sz="' + o.bl.sz + '" w:space="6" w:color="' + o.bl.c + '"/>';
+    if (o.bb) bd += '<w:bottom w:val="single" w:sz="' + o.bb.sz + '" w:space="' + (o.bb.sp || 4) + '" w:color="' + o.bb.c + '"/>';
+    if (o.bl) bd += '<w:left w:val="single" w:sz="' + o.bl.sz + '" w:space="' + (o.bl.sp || 6) + '" w:color="' + o.bl.c + '"/>';
     if (bd) p += '<w:pBdr>' + bd + '</w:pBdr>';
     if (o.fill) p += '<w:shd w:val="clear" w:color="auto" w:fill="' + o.fill + '"/>';
-    p += '<w:spacing w:before="' + (o.before || 0) + '" w:after="' + (o.after == null ? 120 : o.after) + '"/>';
+    p += '<w:spacing w:before="' + (o.before || 0) + '" w:after="' + (o.after == null ? 120 : o.after) + '"' + (o.line ? ' w:line="' + o.line + '" w:lineRule="auto"' : '') + '/>';
     if (o.jc) p += '<w:jc w:val="' + o.jc + '"/>';
     if (o.sect) p += o.sect;
     return '<w:p><w:pPr>' + p + '</w:pPr>' + runs.join('') + '</w:p>';
@@ -761,10 +780,14 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
     });
     return out;
   }
-  function sectXml(m, styled) {
+  function sectXml(m, styled, first) {
     var land = m.orient === 'h';
+    if (styled) {
+      var pgS = land ? '<w:pgSz w:w="15840" w:h="12240" w:orient="landscape"/>' : '<w:pgSz w:w="12240" w:h="15840" w:orient="portrait"/>';
+      return '<w:sectPr><w:footerReference w:type="default" r:id="rIdFoot"/>' + (first ? '<w:footerReference w:type="first" r:id="rIdFootFirst"/>' : '') + '<w:type w:val="nextPage"/>' + pgS + '<w:pgMar w:top="1440" w:right="1440" w:bottom="1300" w:left="1440" w:header="500" w:footer="500" w:gutter="0"/>' + (first ? '<w:titlePg/>' : '') + '</w:sectPr>';
+    }
     var pg = land ? '<w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/>' : '<w:pgSz w:w="11906" w:h="16838"/>';
-    return '<w:sectPr>' + (styled ? '<w:footerReference w:type="default" r:id="rIdFoot"/>' : '') + '<w:type w:val="nextPage"/>' + pg + '<w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="567" w:footer="567" w:gutter="0"/></w:sectPr>';
+    return '<w:sectPr><w:type w:val="nextPage"/>' + pg + '<w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="567" w:footer="567" w:gutter="0"/></w:sectPr>';
   }
   function imgDims(uri) {
     return new Promise(function (res) { var im = new Image(); im.onload = function () { res({ w: im.width, h: im.height }); }; im.onerror = function () { res({ w: 4, h: 3 }); }; im.src = uri; });
@@ -786,23 +809,53 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
         ? { runs: [run(t, { b: true, sz: 24, color: NAVY, font: FONT })], o: { fill: BAND, bl: { c: ACCENT, sz: 36 }, before: 120, after: 160 } }
         : { runs: [run('[' + t + ']', { i: true, color: GRAY })], o: { after: 160 } };
     };
+    var cell = function (txt) {
+      var nb = '<w:val w:val="none"/>';
+      var bd = ['top', 'left', 'bottom', 'right'].map(function (s) { return '<w:' + s + ' w:val="none" w:color="FFFFFF" w:sz="0"/>'; }).join('');
+      var tb = ['top', 'left', 'bottom', 'right', 'insideH', 'insideV'].map(function (s) { return '<w:' + s + ' w:val="none" w:color="FFFFFF" w:sz="0"/>'; }).join('');
+      return '<w:tbl><w:tblPr><w:tblW w:type="dxa" w:w="9360"/><w:tblBorders>' + tb + '</w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="9360"/></w:tblGrid><w:tr><w:tc><w:tcPr><w:tcW w:type="dxa" w:w="9360"/><w:tcBorders>' + bd + '</w:tcBorders><w:shd w:fill="' + ACCENT + '" w:color="auto" w:val="clear"/><w:tcMar><w:top w:type="dxa" w:w="130"/><w:left w:type="dxa" w:w="240"/><w:bottom w:type="dxa" w:w="130"/><w:right w:type="dxa" w:w="240"/></w:tcMar></w:tcPr><w:p>' + textRuns(txt, { b: true, sz: 32, color: NAVY, font: FONT }).join('') + '</w:p></w:tc></w:tr></w:tbl>';
+    };
     var body = '';
     for (var i = 0; i < S.mods.length; i++) {
-      var m = S.mods[i], ps = [];
+      var m = S.mods[i], ps = [], pre = '';
       if (m.tipo === 'portada') {
         if (styled) {
-          ps.push({ runs: [run('INFORME', { b: true, sz: 96, color: NAVY, font: FONT })], o: { bb: { c: ACCENT, sz: 36 }, after: 400 } });
+          var defs = ['TÍTULO DEL INFORME', 'ZONA O APARTAMENTO', 'NOMBRE DEL CONJUNTO', 'FECHA', 'ELABORADOR 1', 'ELABORADOR 2'];
+          var ls = String(m.text || '').split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean);
+          var isDate = function (x) { return (/(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)/i.test(x) && /\d{4}/.test(x) && x.length < 40) || /^\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}$/.test(x) || /^\{\{FECHA/i.test(x); };
+          var dateLine = ls.filter(isDate)[0];
+          var rest = ls.filter(function (x) { return x !== dateLine; });
+          var ei = -1;
+          rest.forEach(function (x, k) { if (ei < 0 && /^elaborad[oa]s?\s+por/i.test(x)) ei = k; });
+          var head = ei >= 0 ? rest.slice(0, ei) : rest.slice(0, 3);
+          var names = ei >= 0 ? rest.slice(ei + 1) : rest.slice(3);
+          var tr = function (txt, o) { return textRuns(txt, o); };
+          ps.push({ runs: [run('INFORME', { b: true, sz: 96, color: NAVY, font: FONT })], o: { bb: { c: ACCENT, sz: 36, sp: 8 }, before: 2400, after: 320 } });
+          ps.push({ raw: cell(head[0] || defs[0]) });
+          ps.push({ runs: tr(head[1] || defs[1], { b: true, sz: 40, color: NAVY, font: FONT }), o: { before: 700, after: 80 } });
+          ps.push({ runs: tr(head[2] || defs[2], { b: true, sz: 28, color: NAVY, font: FONT }), o: { after: 0 } });
+          ps.push({ runs: tr(dateLine || defs[3], { sz: 24, color: GRAY, font: FONT }), o: { before: 400, after: 0 } });
+          ps.push({ runs: [run('Elaborado por:', { b: true, sz: 20, color: NAVY, font: FONT })], o: { bl: { c: ACCENT, sz: 24, sp: 8 }, before: 1000, after: 80 } });
+          (names.length ? names : [defs[4], defs[5]]).forEach(function (x) { ps.push({ runs: tr(x, { sz: 22, color: INK, font: FONT }), o: { bl: { c: ACCENT, sz: 24, sp: 8 }, after: 40 } }); });
+        } else {
+          ps.push(ph('Portada: título, zona, conjunto, fecha y elaboradores'));
         }
-        ps.push(ph('Portada: conjunto, apartamento, fecha y elaboradores'));
       } else {
-        ps.push({ runs: [run(m.titulo, styled ? { b: true, sz: m.nivel ? 26 : 32, color: NAVY, font: FONT } : {})], o: { style: m.nivel ? 'Heading2' : 'Heading1', keep: true, after: 280, bb: styled ? { c: ACCENT, sz: 18 } : null } });
+        ps.push({ runs: [run(m.titulo, styled ? { b: true, sz: m.nivel ? 26 : 32, color: NAVY, font: FONT } : {})], o: { style: m.nivel ? 'Heading2' : 'Heading1', keep: true, before: 0, after: 280, bb: styled ? { c: ACCENT, sz: 18 } : null } });
       }
-      String(m.text || '').split(/\n\s*\n/).forEach(function (c) {
-        c = c.trim();
-        if (!c) return;
-        if (c.indexOf('## ') === 0) ps.push({ runs: textRuns(c.slice(3), styled ? { b: true, sz: 24, color: NAVY, font: FONT } : { b: true }), o: { keep: true, before: 240, after: 120 } });
-        else ps.push({ runs: textRuns(c.replace(/\s*\n\s*/g, ' '), base), o: { jc: styled ? 'both' : null } });
-      });
+      if (m.tipo !== 'portada' || !styled) {
+        String(m.text || '').split(/\n\s*\n/).forEach(function (c) {
+          c = c.trim();
+          if (!c) return;
+          if (c.indexOf('## ') === 0) { ps.push({ runs: textRuns(c.slice(3), styled ? { b: true, sz: 24, color: NAVY, font: FONT } : { b: true }), o: { keep: true, before: 240, after: 120 } }); return; }
+          var cl = c.split(/\n/).map(function (x) { return x.trim(); }).filter(Boolean);
+          if (cl.length && cl.every(function (x) { return /^[-•]\s+/.test(x); })) {
+            cl.forEach(function (x, k) { ps.push({ runs: textRuns(x.replace(/^[-•]\s+/, ''), base), o: { style: 'ListParagraph', num: true, after: 100, line: 276, keep: k < cl.length - 1 } }); });
+            return;
+          }
+          ps.push({ runs: textRuns(c.replace(/\s*\n\s*/g, ' '), base), o: { jc: styled ? 'both' : null, after: styled ? 200 : 120, line: styled ? 276 : 0 } });
+        });
+      }
       var items = m.items || [];
       for (var k = 0; k < items.length; k++) {
         var b = items[k];
@@ -814,25 +867,32 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
       if (m.tipo === 'galeria') ps.push(ph('Fotos por espacio: una por página'));
       if (m.tipo === 'pegado') ps.push(ph('Imágenes pegadas (por ejemplo desde Excel), a todo el ancho'));
       if (m.tipo === 'firmas') ps.push(ph('Firma de quien suscribe el informe'));
-      if (i < S.mods.length - 1) ps[ps.length - 1].o.sect = sectXml(m, styled);
-      ps.forEach(function (x) { body += paraXml(x.runs, x.o); });
+      if (i < S.mods.length - 1) {
+        if (ps[ps.length - 1].raw) ps.push({ runs: [], o: {} });
+        ps[ps.length - 1].o.sect = sectXml(m, styled, i === 0);
+      } else if (ps[ps.length - 1].raw) ps.push({ runs: [], o: {} });
+      ps.forEach(function (x) { body += x.raw ? x.raw : paraXml(x.runs, x.o); });
     }
     var last = S.mods[S.mods.length - 1];
     var NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"';
     var head = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
-    zip.file('[Content_Types].xml', head + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="jpg" ContentType="image/jpeg"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>' + (styled ? '<Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>' : '') + '</Types>');
+    zip.file('[Content_Types].xml', head + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="jpg" ContentType="image/jpeg"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>' + (styled ? '<Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/><Override PartName="/word/footer2.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>' : '') + '<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/></Types>');
     zip.file('_rels/.rels', head + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
     var rels = '<Relationship Id="rIdSty" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>';
-    if (styled) rels += '<Relationship Id="rIdFoot" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>';
+    rels += '<Relationship Id="rIdNum" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>';
+    if (styled) rels += '<Relationship Id="rIdFoot" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/><Relationship Id="rIdFootFirst" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer2.xml"/>';
+    var wns = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"';
+    zip.file('word/numbering.xml', head + '<w:numbering ' + wns + '><w:abstractNum w:abstractNumId="1"><w:multiLevelType w:val="hybridMultilevel"/><w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="●"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr></w:lvl></w:abstractNum><w:num w:numId="2"><w:abstractNumId w:val="1"/></w:num></w:numbering>');
     media.forEach(function (x) { rels += '<Relationship Id="' + x.rid + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/' + x.name + '"/>'; zip.file('word/media/' + x.name, x.data, { base64: true }); });
     zip.file('word/_rels/document.xml.rels', head + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + rels + '</Relationships>');
-    zip.file('word/document.xml', head + '<w:document ' + NS + '><w:body>' + body + sectXml(last, styled) + '</w:body></w:document>');
+    zip.file('word/document.xml', head + '<w:document ' + NS + '><w:body>' + body + sectXml(last, styled, S.mods.length === 1) + '</w:body></w:document>');
     var f = 'Calibri';
-    zip.file('word/styles.xml', head + '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="' + f + '" w:hAnsi="' + f + '" w:cs="' + f + '"/><w:sz w:val="22"/><w:szCs w:val="22"/><w:lang w:val="es-CO"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="120" w:line="276" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style><w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/><w:pPr><w:keepNext/><w:spacing w:before="0" w:after="200"/><w:outlineLvl w:val="0"/></w:pPr><w:rPr><w:b/><w:sz w:val="32"/><w:szCs w:val="32"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/><w:pPr><w:keepNext/><w:spacing w:before="0" w:after="200"/><w:outlineLvl w:val="1"/></w:pPr><w:rPr><w:b/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr></w:style></w:styles>');
+    zip.file('word/styles.xml', head + '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="' + f + '" w:hAnsi="' + f + '" w:cs="' + f + '"/>' + (styled ? '<w:color w:val="1F1F1F"/>' : '') + '<w:sz w:val="22"/><w:szCs w:val="22"/><w:lang w:val="es-CO"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="120" w:line="276" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style><w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/><w:pPr><w:keepNext/><w:spacing w:before="0" w:after="200"/><w:outlineLvl w:val="0"/></w:pPr><w:rPr><w:b/><w:sz w:val="32"/><w:szCs w:val="32"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="ListParagraph"><w:name w:val="List Paragraph"/><w:basedOn w:val="Normal"/><w:qFormat/></w:style><w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/><w:pPr><w:keepNext/><w:spacing w:before="0" w:after="200"/><w:outlineLvl w:val="1"/></w:pPr><w:rPr><w:b/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr></w:style></w:styles>');
     if (styled) {
       var fr = function (t, o) { return run(t, o); };
       var fld = function (code) { return '<w:r><w:rPr><w:color w:val="' + GRAY + '"/><w:sz w:val="18"/></w:rPr><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:rPr><w:color w:val="' + GRAY + '"/><w:sz w:val="18"/></w:rPr><w:instrText xml:space="preserve"> ' + code + ' </w:instrText></w:r><w:r><w:rPr><w:color w:val="' + GRAY + '"/><w:sz w:val="18"/></w:rPr><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:rPr><w:color w:val="' + GRAY + '"/><w:sz w:val="18"/></w:rPr><w:t>1</w:t></w:r><w:r><w:rPr><w:color w:val="' + GRAY + '"/><w:sz w:val="18"/></w:rPr><w:fldChar w:fldCharType="end"/></w:r>'; };
       var ft = '<w:p><w:pPr><w:pBdr><w:top w:val="single" w:sz="12" w:space="6" w:color="' + ACCENT + '"/></w:pBdr><w:jc w:val="right"/></w:pPr>' + fr('Página ', { sz: 18, color: GRAY, font: FONT }) + fld('PAGE') + fr(' de ', { sz: 18, color: GRAY, font: FONT }) + fld('NUMPAGES') + '</w:p>';
+      zip.file('word/footer2.xml', head + '<w:ftr ' + NS + '><w:p><w:r><w:t xml:space="preserve"></w:t></w:r></w:p></w:ftr>');
       zip.file('word/footer1.xml', head + '<w:ftr ' + NS + '>' + ft + '</w:ftr>');
     }
     return zip.generateAsync({ type: 'blob' });
@@ -869,7 +929,7 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
   async function api(path, opt) {
     var r = await fetch(path, opt || {});
     if (r.status === 401) { location.href = '/login'; throw new Error('Sesión no iniciada'); }
-    if (!r.ok) { var m = ''; try { m = (await r.json()).error; } catch (e) {} throw new Error(m || ('Error ' + r.status)); }
+    if (!r.ok) { var m = '', raw = ''; try { raw = await r.text(); m = JSON.parse(raw).error; } catch (e) {} throw new Error(m || ('Error ' + r.status + ' en ' + path.split('?')[0] + (raw ? ': ' + raw.replace(/<[^>]*>/g, ' ').replace(/\\s+/g, ' ').trim().slice(0, 160) : ''))); }
     return r;
   }
   async function browse(parentId) {
@@ -902,6 +962,7 @@ pre.json { margin: 0; background: var(--bg); border: 1px solid var(--line); bord
       if (file.google) {
         try {
           var tj = await (await api('/api/drive/tabs?id=' + encodeURIComponent(file.id))).json();
+          if (tj.error) throw new Error(tj.error);
           var tl = tj.tabs || [];
           if (tl.length === res.mods.length) {
             tl.forEach(function (x, i) { var mm = S.mods[i]; mm.titulo = x.title; mm.nivel = x.nivel; if (!mm.text && !(mm.items || []).length) { mm.tipo = guessTipo(x.title, i); mm.obligatorio = mm.tipo === 'portada' || /introduc|informe|conclusi/.test(norm(x.title)); } });

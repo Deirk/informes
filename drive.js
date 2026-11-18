@@ -268,10 +268,17 @@ module.exports = function createDrive(cfg, root, deps) {
     const meta = await json(API + '/' + id + '?fields=id,name,mimeType&supportsAllDrives=true');
     if (meta.mimeType !== GDOC) return { google: false, tabs: [] };
     const mask = 'tabs(tabProperties(title),childTabs(tabProperties(title),childTabs(tabProperties(title),childTabs(tabProperties(title)))))';
-    const res = await request('https://docs.googleapis.com/v1/documents/' + id + '?includeTabsContent=true&fields=' + encodeURIComponent(mask));
+    let res;
+    try {
+      res = await fetch('https://docs.googleapis.com/v1/documents/' + id + '?includeTabsContent=true&fields=' + encodeURIComponent(mask), { headers: { Authorization: 'Bearer ' + await token() }, signal: AbortSignal.timeout(25000) });
+    } catch (e) {
+      console.error('docs.tabs fallo', e && e.message);
+      throw new Error('No se pudo consultar la API de Google Docs: ' + ((e && e.message) || 'sin respuesta') + '.');
+    }
     if (!res.ok) {
       let m = '';
       try { const j = await res.json(); m = (j.error && j.error.message) || ''; } catch (e) {}
+      console.error('docs.tabs', res.status, m);
       throw new Error(res.status === 403 || res.status === 404
         ? 'La API de Google Docs no está habilitada para esta credencial o no tiene acceso al documento' + (m ? ' (' + m + ')' : '') + '. Habilita "Google Docs API" en el proyecto de Google Cloud.'
         : 'Google Docs respondió ' + res.status + (m ? ': ' + m : ''));
